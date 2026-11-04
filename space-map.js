@@ -2,9 +2,63 @@
   const escape = value => String(value ?? "").replace(/[&<>"']/g,c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const colors = ["#54d7f5","#f5858d","#b997ff","#64dfa1","#ffd275","#f89dd9"];
   const enlarged = new Set();
+  const cameraStorageKey='sa-starmap-cameras-v1',cameraLimit=40,cameras=new WeakMap();
+  let cameraFallback=[];
+  function validCamera(value){
+    const a=typeof value==='string'?value.trim().split(/\s+/).map(Number):[];
+    return a.length===4&&a.every(n=>Number.isFinite(n)&&Math.abs(n)<=1000000)&&a[2]>0&&a[3]>0&&a[2]<=100000&&a[3]<=100000?a.join(' '):null;
+  }
+  function readCameras(){try{const a=JSON.parse(sessionStorage.getItem(cameraStorageKey)||'[]');return Array.isArray(a)?a.filter(x=>Array.isArray(x)&&typeof x[0]==='string'&&x[0].length<1500&&validCamera(x[1])).slice(-cameraLimit):[];}catch{return cameraFallback;}}
+  function saveCamera(svg){
+    const record=cameras.get(svg),value=validCamera(svg?.getAttribute('viewBox'));if(!record||!value||record.saved===value)return;
+    record.saved=value;cameraFallback=[...readCameras().filter(x=>x[0]!==record.key),[record.key,value]].slice(-cameraLimit);
+    try{sessionStorage.setItem(cameraStorageKey,JSON.stringify(cameraFallback));}catch{}
+  }
+  function cameraIdentity(view,unitId='',shipId='',sicId=''){
+    const b=window.SACombatBridge,s=b?.state?.();if(!s?.roomCode||!s.encounterId||s.catalogPreview||s.practice)return null;
+    return JSON.stringify([s.roomCode,s.encounterId,b.mode?.()||'unknown',b.myUnitId?.()||'',view,unitId,shipId,sicId]);
+  }
+  function mountCamera(svg,key){
+    if(!svg||!key)return;
+    const prior=cameras.get(svg);if(prior?.key===key)return;
+    if(prior)saveCamera(svg);prior?.observer.disconnect();
+    delete svg.dataset.userViewBox;delete svg.dataset.manualCamera;
+    const stored=readCameras().find(x=>x[0]===key)?.[1];
+    if(stored){svg.setAttribute('viewBox',stored);svg.dataset.userViewBox=stored;}else fitRendered(svg);
+    const observer=new MutationObserver(()=>saveCamera(svg));
+    const record={key,observer,saved:null};cameras.set(svg,record);observer.observe(svg,{attributes:true,attributeFilter:['viewBox']});saveCamera(svg);coverViewport(svg);
+    svg.closest?.('dialog')?.addEventListener('close',()=>{if(cameras.get(svg)===record)releaseCamera(svg);},{once:true});
+    // Console framing/reparenting finishes after its initial render. Fit once at
+    // that mounted size, without replacing a restored camera or user input.
+    if(!stored&&typeof requestAnimationFrame==='function'){
+      const finish=()=>requestAnimationFrame(()=>{
+        if(svg.isConnected&&cameras.get(svg)===record&&!svg.dataset.userViewBox&&!svg.dataset.manualCamera){fitRendered(svg);saveCamera(svg);}
+      });
+      const assets=[...(svg.closest?.('dialog')?.querySelectorAll('img')||[])].map(img=>img.decode?.());
+      if(svg.ownerDocument?.fonts?.ready)assets.push(svg.ownerDocument.fonts.ready);
+      if(assets.length)Promise.allSettled(assets).then(finish);else finish();
+    }
+  }
+  function releaseCamera(svg){saveCamera(svg);cameras.get(svg)?.observer.disconnect();cameras.delete(svg);}
   const wreckVisible=ship=>Boolean(ship.destroyedAt)&&Date.now()-Date.parse(ship.destroyedAt)>=2400;
   const xy = p => ({x:Math.sqrt(3)*(p.q+p.r/2),y:1.5*p.r});
   const motion=new Map();let motionFrame=0;
+  function floatingHealth(ship,units,observer){
+    if(!ship.isFloatingBody||ship.uncertainty||ship.gmContactMarker||['unknown','last-known'].includes(ship.contactLevel))return null;
+    if(observer&&observer.sensorState?.contacts?.[ship.id]?.level!=='detected')return null;
+    const actor=(units||[]).find(u=>u.vacuum?.id===ship.id);
+    if(!actor||!Number.isFinite(actor.currentHp)||!Number.isFinite(actor.maximumHp))return null;
+    return `${actor.characterName||'Character'} — HP ${actor.currentHp}/${actor.maximumHp}`;
+  }
+  function refreshFloatingHealth(root,ships,observer){
+    const units=window.SACombatBridge?.state?.()?.units||[];
+    for(const ship of ships.filter(s=>s.isFloatingBody))for(const marker of root.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){
+      const value=floatingHealth(ship,units,observer);let group=marker.querySelector('[data-floating-health]');
+      if(!value){group?.remove();const title=marker.querySelector('title');if(title)title.textContent=ship.title||'Unknown Object';continue;}
+      if(!group){group=marker.ownerDocument.createElementNS('http://www.w3.org/2000/svg','text');group.dataset.floatingHealth='';for(const [key,val] of Object.entries({y:'.85','text-anchor':'middle','font-size':'.45',fill:'#e7efef',stroke:'#070e14','stroke-width':'.07','paint-order':'stroke'}))group.setAttribute(key,val);marker.append(group);}
+      group.textContent=value.slice(value.lastIndexOf(' — ')+3);marker.querySelector('title').textContent=value;
+    }
+  }
   function moveMarker(marker,point){
     const x=point.x,y=point.y,old=motion.get(marker);
     if(old&&old.x===x&&old.y===y)return;
@@ -18,7 +72,7 @@
   }
   function animateMarkers(now){
     motionFrame=0;const state=window.SACombatBridge?.state?.(),paused=state&&(!state.running||state.hardPaused||state.rollPaused||state.pausedForTurn||state.holdPaused);
-    for(const [marker,m]of motion){if(!marker.isConnected){motion.delete(marker);continue;}const t=paused||document.hidden?1:Math.min(1,(now-m.start)/m.duration);marker.setAttribute('transform',`translate(${m.fromX+(m.x-m.fromX)*t} ${m.fromY+(m.y-m.fromY)*t})`);if(t===1)motion.delete(marker);}
+    for(const [marker,m]of motion){if(!marker.isConnected){motion.delete(marker);continue;}const t=paused||document.hidden?1:Math.max(0,Math.min(1,(now-m.start)/m.duration));marker.setAttribute('transform',`translate(${m.fromX+(m.x-m.fromX)*t} ${m.fromY+(m.y-m.fromY)*t})`);if(t===1)motion.delete(marker);}
     if(motion.size)motionFrame=requestAnimationFrame(animateMarkers);
   }
   // Geometry and artwork change independently of position. Keep the same SVG and
@@ -38,7 +92,7 @@
     const points=new Map(window.SAShipDistances.positions(ships,positions).map(p=>[p.id,p]));for(const o of objects)points.set(o.id,o);
     for(const marker of svg.querySelectorAll('[data-space-ship],[data-contact-halo]')){const point=points.get(marker.dataset.spaceShip||marker.dataset.contactHalo);if(point)moveMarker(marker,xy(point));}
     const fields=svg.querySelector('[data-map-fields]'),fieldArt=fieldMarkup(ships,positions,.65);if(fields&&fields._markup!==fieldArt){fields.innerHTML=fieldArt;fields._markup=fieldArt;}
-    watchMaps(container);return svg;
+    refreshFloatingHealth(svg,ships,options.observer);watchMaps(container);return svg;
   }
   const shipMarkerRadius = ship => Math.max(.55,[0,.55,1.05,1.6,2.2,3.2][window.SAShipMap.scaleRank(ship)]*.58);
   function blackHoleMarkup(o,c,unseen){
@@ -294,8 +348,8 @@
     controls.innerHTML='<button type="button" data-map-zoom=".7" aria-label="Zoom in enlarged map">+</button><button type="button" data-map-zoom="1.4" aria-label="Zoom out enlarged map">−</button><button type="button" data-map-fit>Fit Contacts</button><button type="button" data-map-close>Close</button>';
     controls.onclick=event=>{const target=event.target.closest('button');if(!target)return;const svg=dialog.querySelector('svg');if(target.hasAttribute('data-map-close'))dialog.close();else if(target.hasAttribute('data-map-fit')){delete dialog.dataset.manualZoom;fitRendered(svg);}else{dialog.dataset.manualZoom='true';zoom(svg,Number(target.dataset.mapZoom));}};
     dialog.append(controls);enlarged.add(dialog);
-    const cleanup=()=>{window.removeEventListener('pagehide',cleanup);enlarged.delete(dialog);dialog.remove();};
-    dialog.addEventListener('close',()=>{cleanup();if(button?.isConnected)button.focus();},{once:true});window.addEventListener('pagehide',cleanup,{once:true});host.body.append(dialog);dialog.showModal();watchMaps(dialog);fitRendered(dialog.querySelector('svg'));
+    const cleanup=()=>{releaseCamera(dialog.querySelector('svg'));window.removeEventListener('pagehide',cleanup);enlarged.delete(dialog);dialog.remove();};
+    dialog.addEventListener('close',()=>{cleanup();if(button?.isConnected)button.focus();},{once:true});window.addEventListener('pagehide',cleanup,{once:true});host.body.append(dialog);dialog.showModal();watchMaps(dialog);const sourceSvg=source.matches?.('[data-space-canvas]')?source:source.querySelector('[data-space-canvas]'),key=cameras.get(sourceSvg)?.key;if(key){mountCamera(dialog.querySelector('svg'),key);dialog.addEventListener('close',()=>{const value=validCamera(dialog.querySelector('svg')?.getAttribute('viewBox'));if(value&&sourceSvg.isConnected){sourceSvg.setAttribute('viewBox',value);sourceSvg.dataset.userViewBox=value;saveCamera(sourceSvg);coverViewport(sourceSvg);}});}else fitRendered(dialog.querySelector('svg'));
   }
   let highlightedObject=null;
   function highlightObjects(root){
@@ -320,8 +374,9 @@
   bindReportHighlight(document);
   try{let root=document;while(root.defaultView.frameElement&&!root.defaultView.frameElement.hasAttribute('data-explore-perspective'))root=root.defaultView.parent.document;if(root!==document)bindReportHighlight(root);}catch{}
   function presentKnowledge(root,ships,observer) {
+      refreshFloatingHealth(root,ships,observer);
     for(const ship of ships){
-      if(ship.isMissile)continue;
+        if(ship.isMissile||ship.isFloatingBody)continue;
       const unknown=Boolean(observer&&ship.id!==observer.id&&observer.sensorState?.contacts?.[ship.id]?.level!=='detected');
       for(const marker of root.querySelectorAll(`[data-space-ship="${CSS.escape(ship.id)}"]`)){
         marker.classList.toggle('gm-unknown-marker',unknown);
@@ -333,6 +388,7 @@
     let root=document;try{while(root.defaultView.frameElement&&!root.defaultView.frameElement.hasAttribute('data-explore-perspective'))root=root.defaultView.parent.document;}catch{}
     for(const doc of new Set([document,root]))for(const svg of doc.querySelectorAll('[data-space-canvas]')){
       if(svg.dataset.spaceEditable==='true')continue;
+        refreshFloatingHealth(svg,ships,observer);
       syncCleanserScars(svg);
       for(const path of svg.querySelectorAll('[data-navigation-route],[data-probe-route]'))path.remove();
       svg.insertAdjacentHTML('beforeend',probeRoutes(ships));
@@ -472,6 +528,6 @@
       watched.set(svg,()=>{resize.disconnect();changes.disconnect();watched.delete(svg);});changes.observe(svg,{attributes:true,attributeFilter:['viewBox']});coverViewport(svg);
     }
   }
-  if(typeof MutationObserver!=='undefined'&&document.documentElement){const mapMounts=new MutationObserver(records=>{for(const record of records){for(const node of record.removedNodes)if(node.nodeType===1&&!node.isConnected){const maps=[...(node.matches?.('[data-space-canvas]')?[node]:[]),...node.querySelectorAll('[data-space-canvas]')];for(const svg of maps)watched.get(svg)?.();}for(const node of record.addedNodes)if(node.nodeType===1)watchMaps(node);}});mapMounts.observe(document.documentElement,{childList:true,subtree:true});watchMaps();}
-  window.SASpaceMap={ensureMapStyles,modeButtons,planetImage,update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
+  if(typeof MutationObserver!=='undefined'&&document.documentElement){const mapMounts=new MutationObserver(records=>{for(const record of records){for(const node of record.removedNodes)if(node.nodeType===1&&!node.isConnected){const maps=[...(node.matches?.('[data-space-canvas]')?[node]:[]),...node.querySelectorAll('[data-space-canvas]')];for(const svg of maps){releaseCamera(svg);watched.get(svg)?.();}}for(const node of record.addedNodes)if(node.nodeType===1)watchMaps(node);}});mapMounts.observe(document.documentElement,{childList:true,subtree:true});watchMaps();}
+  window.SASpaceMap={cameraIdentity,mountCamera,validCamera,ensureMapStyles,modeButtons,planetImage,update,moveMarker,cleanserScarMarkup,focusMap,enlarge,zoom,fitRendered,highlightObject,fitContacts,coverViewport,watchMaps,vesselMarkup,sensorRange,conditionMarkup,markup,bindEditor,beginObjectPlacement,refresh,presentKnowledge};
 }());

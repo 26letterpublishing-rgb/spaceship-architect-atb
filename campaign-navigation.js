@@ -34,6 +34,39 @@ function command(c,b,auth){
   s.navigation={mode:b.mode,mapId:b.mapId||'',starId:b.starId||'',planetId:b.planetId||'',allowed:Object.fromEntries(levels.map(l=>[l,b.allowed?.[l]!==false]))};s.navigation.allowed[b.mode]=true;if(b.mode!=='galaxy'){const {star}=context(c,b);star.hidden=false;const planet=objects(star).find(o=>o.id===b.planetId);if(planet){planet.hidden=false;for(const entry of star.planets||[])if(entry.name===planet.name)entry.hidden=false;}}return true;
  }
  const ship=c.starships.find(x=>x.id===b.shipId);if(!ship)throw Error('Choose a ship.');
+ if(b.kind==='systemPosition'&&b.placementOnly===true){
+  if(!gm)throw Error('Only the GM may place ships.');
+  if(combatActive)throw Error('End the encounter before placing ships.');
+  if(ship.ship.fieldState?.dockedIn)throw Error('Undock this ship before placing it independently.');
+  const map=s.maps.find(m=>m.id===b.mapId);if(!map)throw Error('Choose a sector.');
+  let parent,local;
+  if(b.phase==='galaxy'){parent={mapId:map.id,...coords(b)};}
+  else{
+   const star=map.stars.find(v=>v.id===b.starId);if(!star)throw Error('Choose a star system in this sector.');
+   parent={mapId:map.id,q:star.q,r:star.r};
+   if(b.phase==='system')local={mapId:map.id,starId:star.id,phase:'system',...coords(b)};
+   else{
+    const planet=objects(star).find(v=>v.id===b.planetId&&v.kind==='planet'&&!v.destroyedAt);if(!planet)throw Error('Choose an intact planet in this star system.');
+    if(b.phase!=='surface'&&b.phase!=='orbit')throw Error('Choose a placement zoom level.');
+    local={mapId:map.id,starId:star.id,planetId:planet.id,phase:b.phase,q:planet.q,r:planet.r};
+    if(b.phase==='surface'){
+     const terrain=require('./planet-terrain'),valid=(value,region)=>value!==undefined&&value!==null&&value!==''&&terrain.validHex(value,region,planet.size);
+     if(!valid(b.surfaceHex,false))throw Error('Choose a hex on this planet.');
+     const regionId=b.regionId==null?'':String(b.regionId);
+     if(regionId){
+      if(regionId!==String(Number(b.surfaceHex))||!star.surfaces?.[planet.id]?.regions?.[regionId])throw Error('Choose a Region belonging to this planet hex.');
+      if(!valid(b.regionHex,true))throw Error('Choose a hex inside this Region.');
+     }else if(b.regionHex!==undefined&&b.regionHex!=='')throw Error('Choose a Region before its child hex.');
+     Object.assign(local,{surfaceHex:String(Number(b.surfaceHex)),regionId,regionHex:regionId?String(Number(b.regionHex)):''});
+    }
+   }
+  }
+  // GM acquisition/placement changes the vessel location, not the party or crew.
+  // Validate the complete hierarchy before cancelling any existing movement.
+  cancel(c,ship);s.positions[ship.id]=parent;
+  if(local)s.localPositions[ship.id]=local;else delete s.localPositions[ship.id];
+  follow(c,ship);return true;
+ }
  if(!gm&&(!ship.crewCharacterIds?.includes(characterId)||ship.controlType!=='pc'))throw Error('Choose a ship assigned to your crew.');
  const {map,star}=context(c,b),p=s.localPositions[ship.id];
  if(!gm&&s.party&&['enterSystem','systemMove','orbit','descend','beamDown'].includes(b.kind))throw Error('Leave the planet with the party first.');
@@ -67,6 +100,11 @@ function command(c,b,auth){
   const suitable=ship.ship.sicInventory.some(i=>maps.definition(i.type).landing&&maps.operational(i)&&(maps.definition(i.type).landing==='aerofoil'||!i.impaired)&&(ship.ship.placements||[]).some(p=>p.sicId===i.id));
   if(!landing||!suitable||maps.propulsion(ship).moveSpeed<=0)throw Error('Working descent equipment and thrusters are required.');
   const leave=b.kind==='leavePlanet';if(local.phase!==(leave?'surface':'orbit'))throw Error(leave?'The ship is not on a planet surface.':'Enter orbit first.');if(!gm&&!leave&&!accessible(s,'surface'))throw Error('The GM has not made this view available.');
+  if(maps.requiresLandingStrip(ship)){
+   const planets=require('./campaign-planets'),ctx=planets.context(c,local),world=ctx.star.surfaces?.[ctx.planet.id]||{},hexes=world.hexes||{};
+   if(leave&&!planets.sameLandingSite(planets.landingSite(world,local.surfaceHex),{hex:local.surfaceHex,regionId:local.regionId,regionHex:local.regionHex}))throw Error('This ship requires a Landing Strip at its departure hex. Ask the GM to mark the strip, or restore eligible Hover Generators.');
+   if(!leave&&![...new Set([...Object.keys(hexes),...Object.keys(world.regions||{})])].some(key=>require('./planet-terrain').validHex(key,false,ctx.planet.size)&&planets.landingSite(world,key)))throw Error('This planet has no authored Landing Strip. Ask the GM to mark one before descending, or use eligible Hover Generators.');
+  }
   if(leave&&s.party&&!s.party.transport&&local.surfaceHex!==undefined&&!require('./planet-boarding').atShip(c,ship))throw Error('The party must return to the starship’s surface hex before leaving the atmosphere.');
   if(leave&&s.party?.transport)throw Error('The party is on the surface without this ship. Beam aboard first.');
   if(leave&&s.party&&s.party.planetId!==local.planetId)throw Error('This ship is not at the party’s planet.');

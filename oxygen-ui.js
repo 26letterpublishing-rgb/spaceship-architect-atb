@@ -16,7 +16,7 @@
   new MutationObserver(records=>{if(!environment.ships.length||placementQueued||!records.some(r=>r.target instanceof HTMLDialogElement||[...r.addedNodes,...r.removedNodes].some(n=>n instanceof HTMLDialogElement)))return;placementQueued=true;requestAnimationFrame(()=>{placementQueued=false;placePanel();});}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
   function requestExists(id){return environment.ships.some(s=>s.crew.some(c=>c.request?.id===id));}
   function openRoll(person){
-    if(modal||!person.request||!submit)return;
+    if(modal||!person.request||person.request.automated||!submit)return;
     const request=person.request,view=document.createElement('dialog');modal=view;view.dataset.rollId=request.id;view.className='oxygen-roll';view.setAttribute('aria-label','Oxygen resistance roll');view.setAttribute('data-required-roll','');
     const frame=document.createElement('iframe');frame.title='Health and Endurance';frame.src='character.html?shipRoll=1';
     const status=document.createElement('div');status.className='oxygen-roll-status';status.setAttribute('role','status');
@@ -51,12 +51,12 @@
     }
     panel.hidden=!environment.ships.length;
     const warningKey=environment.ships.flatMap(s=>s.crew.map(c=>c.request?.id||c.id+':'+c.phase)).join('|');if(warningKey!==lastWarningKey){panelDismissed=false;lastWarningKey=warningKey;}
-    panel.innerHTML='<button type="button" class="oxygen-close" data-dismiss-oxygen aria-label="Dismiss oxygen status">×</button>'+environment.ships.map(ship=>`<article><strong>${esc(ship.title)}: Room Oxygen</strong><span class="oxygen-grace">Resistance rolls start at 10%${ship.paused?' / Paused':''}</span>${ship.crew.map(person=>`<div class="oxygen-person"><span>${esc(person.name)}</span><b>${Math.ceil(person.oxygen??0)}% O₂ — ${person.phase==='unconscious'?'Unconscious':person.request?'Resistance roll required':person.phase==='air'?(person.replenishing?'Air replenishing':'Air declining'):person.phase==='suffocating'?'Losing HP until oxygen returns':`Resisting / Difficulty ${person.difficulty}`}</b>${person.request?`<button type="button" data-oxygen-roll="${esc(person.request.id)}">Roll Health + Endurance (${person.request.difficulty})</button>`:''}${person.result?`<small class="${person.result.success?'passed':'failed'}">${esc(person.result.text)}</small>`:''}</div>`).join('')}</article>`).join('');
+    panel.innerHTML='<button type="button" class="oxygen-close" data-dismiss-oxygen aria-label="Dismiss oxygen status">×</button>'+environment.ships.map(ship=>`<article><strong>${esc(ship.title)}: Room Oxygen</strong><span class="oxygen-grace">Resistance rolls start at 10%${ship.paused?' / Paused':''}</span>${ship.crew.map(person=>`<div class="oxygen-person"><span>${esc(person.name)}</span><b>${Math.ceil(person.oxygen??0)}% O₂ — ${person.phase==='unconscious'?'Unconscious':person.request?'Resistance roll required':person.phase==='air'?(person.replenishing?'Air replenishing':'Air declining'):person.phase==='suffocating'?'Losing HP until oxygen returns':`Resisting / Difficulty ${person.difficulty}`}</b>${person.request&&!person.request.automated?`<button type="button" data-oxygen-roll="${esc(person.request.id)}">Roll Health + Endurance (${person.request.difficulty})</button>`:''}${person.result?`<small class="${person.result.success?'passed':'failed'}">${esc(person.result.text)}</small>`:''}</div>`).join('')}</article>`).join('');
     for(const person of environment.ships.flatMap(s=>s.crew))if(person.result&&!reported.has(person.result.id)){
       reported.add(person.result.id);window.SAResultFeedback?.push(person.result.id,'Oxygen Resistance',person.result.text);
     }
-    if(modal&&!requestExists(modal.dataset.rollId))modal.close();
-    const automatic=environment.ships.flatMap(s=>s.crew).find(c=>c.request&&!dismissed.has(c.request.id)&&(!gm||!c.characterId));
+    if(modal&&(!requestExists(modal.dataset.rollId)||environment.ships.some(s=>s.crew.some(c=>c.request?.id===modal.dataset.rollId&&c.request.automated))))modal.close();
+    const automatic=environment.ships.flatMap(s=>s.crew).find(c=>c.request&&!c.request.automated&&!dismissed.has(c.request.id)&&(!gm||!c.characterId));
     if(automatic&&!modal)openRoll(automatic);
     placePanel();
   }

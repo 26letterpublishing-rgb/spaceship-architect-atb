@@ -3,8 +3,12 @@ services:
     name: spaceship-architect-atb-sync
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run release:stage && npm run release:verify-stage
     startCommand: npm start
     envVars:
+      - key: SA_APP_MODE
+        value: release
+      - key: SA_RELEASE_PUBLIC_DIR
+        value: .release-public
       - key: NODE_VERSION
         value: 24

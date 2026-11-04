@@ -4,7 +4,7 @@ function state(ship){return ship.ship.remoteState||={controllers:{},receipts:[]}
 function control(ship,id){return state(ship).controllers[id]||={links:[],selected:{},cooldown:0};}
 function command(room,unit,body,{campaign,outsideCombat=false}={}){
  const access=stations.access(room,unit,body.sicId),physical=stations.physicalStation(room,unit);
- if(!access||(!access.definition.remoteController&&!access.definition.remoteReceiver)||access.offline)return {ok:false,error:'Use an available Remote Controller or Receiver.'};
+ if(!access||(!access.definition.remoteController&&!access.definition.remoteReceiver)||access.offline||access.blocked)return {ok:false,error:'Use an available Remote Controller or Receiver.'};
  const ship=access.ship,receipt=String(body.receipt||'');if(!/^[\w-]{8,120}$/.test(receipt))return {ok:false,error:'Missing command receipt.'};
  if(state(ship).receipts.includes(receipt))return {ok:true,duplicate:true,ship,free:true};
  const remotes=stations.remotes(room,unit),local=physical?.ship.id===ship.id;
@@ -13,9 +13,27 @@ function command(room,unit,body,{campaign,outsideCombat=false}={}){
  if(body.kind==='remote-take'){
   if(!access.definition.remoteController||!local||physical.cell.sicId!==access.id)return {ok:false,error:'Station at the Controller to take its remote.'};
   const data=control(ship,access.id);if(data.holder&&data.holder!==identity(unit))return {ok:false,error:'Another character is carrying this remote.'};
-  data.holder=identity(unit);const record=campaign?.characters?.find(c=>c.id===unit.characterId);
+  const record=campaign?.characters?.find(c=>c.id===unit.characterId);
+  if(unit.characterId&&!record?.character)return {ok:false,error:'Character inventory is unavailable. Remote was not taken.'};
+  if(campaign?.characters?.some(c=>c.id!==unit.characterId&&c.character?.items?.some(i=>i.remoteControllerId===access.id)))return {ok:false,error:'This remote is recorded in another character’s inventory.'};
+  data.holder=identity(unit);
   if(record){record.character.items||=[];if(!record.character.items.some(i=>i.remoteControllerId===access.id))record.character.items.push({id:'remote-'+access.id,remoteControllerId:access.id,catalogId:'personal-remote-controller',name:'Personal Remote Controller',description:'Size C. Linked to '+ship.title+'. Open Console View to operate linked receivers within 10 hexes.',sizeClass:'C',quantity:1,unitCost:0});}text='Remote Controller taken (Size C).';
+ }else if(body.kind==='remote-return'){
+  if(!access.definition.remoteController||!local||physical.cell.sicId!==access.id)return {ok:false,error:'Station at the home Controller to return its remote.'};
+  const data=control(ship,access.id),owner=identity(unit);
+  if(data.holder!==owner)return {ok:false,error:'Only the character carrying this remote may return it.'};
+  const record=campaign?.characters?.find(c=>c.id===unit.characterId);
+  if(unit.characterId&&!record?.character)return {ok:false,error:'Character inventory is unavailable. Remote was not returned.'};
+  // Holder state is authoritative. Remove every matching legacy duplicate, never unrelated items.
+  if(record)record.character.items=(record.character.items||[]).filter(i=>i.remoteControllerId!==access.id);
+  delete data.holder;if(data.selected)delete data.selected[owner];
+  for(const actor of room.units||[])if(identity(actor)===owner){
+   actor.remoteBatch=(actor.remoteBatch||[]).filter(job=>job.homeId!==ship.id||job.controllerId!==access.id);
+   if(actor.remoteReturn?.homeId===ship.id&&actor.remoteReturn.controllerId===access.id)delete actor.remoteReturn;
+  }
+  text='Remote Controller returned to its holder.';
  }else if(body.kind==='remote-link'){
+
   if(!access.definition.remoteReceiver||!local||maps.addonHost(ship,access.item)?.item.id!==physical.cell.sicId)return {ok:false,error:'Station at this Receiver’s Bridge with a carried remote.'};
   const remote=remotes.find(r=>r.carried&&(!body.controllerId||r.item.id===body.controllerId));if(!remote)return {ok:false,error:'Carry a Remote Controller first.'};
   const data=control(remote.home,remote.item.id);data.links=[...new Set([...data.links,ship.id])];text='Receiver linked to '+remote.home.title+'.';

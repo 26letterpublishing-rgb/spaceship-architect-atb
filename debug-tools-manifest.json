@@ -1,0 +1,25 @@
+{
+  "schema": "sa-debug-tools/v1",
+  "runtimeFiles": [
+    "console-viewer.html",
+    "console-viewer.js",
+    "console-layout-editor.html",
+    "console-layout-editor.css",
+    "console-layout-editor.js",
+    "console-layout-snapshots.json",
+    "console-layout-catalog.js",
+    "console-layout-store.js",
+    "console-preview-actions.js"
+  ],
+  "runtimeDirectories": ["alma-snapshots"],
+  "preservedProductionFiles": [
+    "server.js",
+    "public-assets.js",
+    "home-screen.js",
+    "console-common.js",
+    "console-common.css",
+    "transit-console-ui.js",
+    "transit-console.css",
+    "warp-effects.js"
+  ]
+}

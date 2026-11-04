@@ -130,7 +130,8 @@
   tools.append(c.button(orbit?'Orbit':'Star System',()=>{}));decorateNavigation(c,tools,orbit?'orbit':'system');
   const select=document.createElement('select');select.setAttribute('aria-label','Local travel ship');select.innerHTML='<option value="">Choose a ship</option>'+c.ships.map(s=>`<option value="${c.esc(s.id)}" ${s.id===ship?.id?'selected':''}>${c.esc(s.title)}</option>`).join('');select.onchange=()=>set({...view,shipId:select.value},c);if(!view.inspectOnly)tools.append(select);
 
-  const operation=async(kind,extra={})=>{await c.send(kind,{...args,...extra});move=null;c.draw();};
+  const operation=async(kind,extra={})=>{await c.send(kind,{...args,...extra,...(kind==='systemPosition'&&view.placementShipId?{placementOnly:true}:{})});if(kind==='systemPosition')delete view.placementShipId;move=null;c.draw();};
+  if(view.placementShipId)tools.append(c.button('Cancel Ship Placement',()=>{actionModes.delete(modeKey);set({...view,placementShipId:''},c);}));
   if(gm&&orbit&&planet)actions.append(c.button('Edit Planet',()=>window.SAPlanetSurfaces.editPlanet(c,map,star,planet)));
   if(gm&&orbit&&!view.inspectOnly&&ship)actions.append(c.button('Move Ship into Orbit',()=>operation('systemPosition',{phase:'orbit',planetId:planet?.id})));
   if(!orbit){
@@ -193,5 +194,5 @@
   const orbit=c.host.querySelector('[data-orbit-ship]');if(orbit&&!data.localJourneys?.[view.shipId]&&actionModes.get([c.state.code,view.starId,'orbit'].join('/'))!=='ships'){const p=window.SAPlanetMotion.orbit(matchMedia('(prefers-reduced-motion: reduce)').matches?0:Date.now()/1000);orbit.setAttribute('transform',`translate(${p.x} ${p.y}) rotate(${p.heading})`);window.SAPlanetSurfaces.updateHover(orbit,false,0,0);active=true;}
   const label=c.host.querySelector('[data-local-countdown]');if(label){label.hidden=!labels.length;label.textContent=labels.join(' / ');}if(active&&!document.hidden&&c.host.getClientRects().length&&window.SAExploreSession?.active?.()!==false)frame=requestAnimationFrame(refresh);
  }
- window.SACampaignNavigationUI={render,navigationEntries,decorateNavigation,compactLayout,shapeNavigation,showPlayerView(){playerDefaultPending=true;if(context?.state.role==='gm')context.draw();},refresh(packet=false,next){if(next&&context){context.state=next;context.data=next.starmaps;}if(packet)stamp=performance.now();refresh();},open,openPlanet(c,map,star,planet){set({mode:'surface',mapId:map.id,starId:star.id,planetId:planet.id,regionId:''},c);},controls,files,context:()=>context};
+ window.SACampaignNavigationUI={render,navigationEntries,decorateNavigation,compactLayout,shapeNavigation,beginPlacement(shipId){if(context?.state.role!=='gm'||!view||view.mode==='galaxy')return false;if(!context.ships.some(s=>s.id===shipId))return false;actionModes.set([context.state.code,view.starId,['orbit','surface'].includes(view.mode)?'orbit':'system'].join('/'),'ships');set({...view,shipId,inspectOnly:false,placementShipId:shipId});return true;},showPlayerView(){playerDefaultPending=true;if(context?.state.role==='gm')context.draw();},refresh(packet=false,next){if(next&&context){context.state=next;context.data=next.starmaps;}if(packet)stamp=performance.now();refresh();},open,openPlanet(c,map,star,planet){set({mode:'surface',mapId:map.id,starId:star.id,planetId:planet.id,regionId:''},c);},controls,files,context:()=>context};
 })();

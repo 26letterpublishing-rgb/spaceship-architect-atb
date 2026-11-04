@@ -13,7 +13,7 @@
   function refreshConditional(root,contacts){
     const select=root.querySelector('[data-trigger-target]');if(!select)return;
     const options=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
-    if(select.dataset.options!==options){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;select.dataset.options=options;}
+    if(select.dataset.options!==options){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;else if(old)select.value='';select.dataset.options=options;}
   }
   function mount(dialog, unitId) {
     const chart = dialog.querySelector('.pilot-chart');
@@ -24,7 +24,6 @@
     panel.innerHTML=`<div class="command-controls"><label>Detected Ship<select data-command-target></select></label><div class="command-coordinate"><label>Disclosed Q<input type="number" step="1" data-disclosed-q></label><label>Disclosed R<input type="number" step="1" data-disclosed-r></label></div><div class="command-action-row"><button type="button" data-command="hail">Hail Ship</button></div><label>Prepare For<select data-prepared-action>${Object.entries(actions).map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select></label><div class="command-action-row"><button type="button" data-command="team">Team Execution</button></div><div class="command-action-row"><button type="button" data-command="calculation">Preemptive Calculation</button></div></div><div class="command-controls"><h3>Maneuvers</h3><div class="command-action-row"><button type="button" data-command="evade">Evasive Maneuvers</button></div><div class="command-action-row"><button type="button" data-command="ram">Ram</button></div><div class="command-action-row"><button type="button" data-command="skim">Skim</button></div><div data-command-calls></div><p data-command-error role="alert"></p><div data-command-preparations></div></div>`;
     chart.append(panel);
     const lockControls=dialog.ownerDocument.createElement('div');lockControls.innerHTML='<label>Incoming Lock<select data-break-target aria-label="Incoming targeting ship"></select></label><div class="command-action-row"><button type="button" data-command="break">Break Lock-On</button></div>';panel.querySelectorAll('.command-controls')[1].append(lockControls);
-    const descend=dialog.ownerDocument.createElement('button');descend.type='button';descend.hidden=true;descend.onclick=()=>{if(confirm('Descend to this planet? Ship actions will be unavailable for 60 active seconds.'))void send({kind:'descend',targetId:descend.dataset.planet});};panel.querySelectorAll('.command-controls')[1].append(descend);
     const stepButton=dialog.ownerDocument.createElement('button');stepButton.type='button';stepButton.textContent='Evade Step';stepButton.hidden=true;
     panel.querySelectorAll('.command-controls')[1].append(stepButton);
     stepButton.onclick=()=>{
@@ -53,6 +52,9 @@
       picker.append(heading,note,options,cancel);picker.addEventListener('close',()=>picker.remove(),{once:true});dialog.append(picker);picker.showModal();
     };
     const conditional=conditionalControls(dialog.ownerDocument);
+    const conditionalBody=dialog.ownerDocument.createElement('div');conditionalBody.className='pilot-conditional-body';
+    conditionalBody.append(...Array.from(conditional.children).filter(node=>node.tagName!=='SUMMARY'));
+    conditional.append(conditionalBody);
     chart.append(conditional);
     panel.querySelectorAll('[data-command]').forEach(b=>window.SAActionHelp.attach(b,b.dataset.command));
     let busy=false,lastTargets='',lastCalls='';
@@ -82,20 +84,19 @@
       const state=bridge.state(),person=state.units.find(u=>u.id===unitId),ship=window.SAShipNavigation.station(state,person,dialog.dataset.sicId)?.ship;
       if(!ship)return;
       stepButton.hidden=ship.commandSystems?.evadeStep?.unitId!==unitId;stepButton.disabled=busy;
-      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&!c.isMissile);
+      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>{const target=state.starships.find(s=>s.id===c.id);return c.level==='detected'&&!c.isMissile&&!c.destroyedAt&&!target?.destroyedAt&&!(Number.isFinite(target?.currentHullHp)&&target.currentHullHp<=0);});
       refreshConditional(dialog,contacts);
       const options=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
       if(options!==lastTargets){
-        for(const select of panel.querySelectorAll('[data-command-target],[data-trigger-target]')){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;}lastTargets=options;
+        for(const select of panel.querySelectorAll('[data-command-target],[data-trigger-target]')){const old=select.value;select.innerHTML=options;if(contacts.some(c=>c.id===old))select.value=old;else if(old)select.value='';}lastTargets=options;
       }
-      const p=window.SAShipDistances.positions(state.starships,state.shipPositions).find(p=>p.id===ship.id),planet=(state.spaceObjects||[]).find(o=>o.kind==='planet'&&!o.destroyedAt&&p&&window.SAShipDistances.hexDistance(window.SAShipDistances.roundHex(p),window.SAShipDistances.roundHex(o))===0);descend.hidden=!planet||!window.SAShipMap.capabilities(ship).some(c=>['hover','aerofoil'].includes(c.key)&&c.available);descend.dataset.planet=planet?.id||'';descend.textContent=ship.ship.descentState?.phase==='descending'?'Descending: '+Math.ceil(ship.ship.descentState.remaining)+' seconds':'Descend to planet '+(planet?.name||'');descend.disabled=busy||state.activeId!==unitId||ship.ship.descentState?.phase==='descending';
       const ready=state.activeId===unitId&&!person.delayedAction&&!person.timedAction&&!person.delayTimer&&!person.consoleHold&&!person.shieldRestabilizing;
       const propulsion=window.SAShipNavigation.access(state,person,dialog.dataset.sicId);
       const incoming=ship.incomingLocks||[],enemy=panel.querySelector('[data-break-target]'),old=enemy.value,enemyHtml=incoming.map(l=>`<option value="${esc(l.shipId)}">${esc(l.title)}</option>`).join('')||'<option value="">No incoming locks</option>';if(enemy.innerHTML!==enemyHtml){enemy.innerHTML=enemyHtml;if(incoming.some(l=>l.shipId===old))enemy.value=old;}
       const mathematics=person.mathematicsSkill??(person.team==='npc'?person.mentalSkill:0);
       panel.querySelectorAll('[data-command]').forEach(button=>{
         const kind=button.dataset.command;
-        const reason=kind==='hail'&&window.SAShipMap.staticShieldActive(ship)?'Static Shields block audio/video communications while their Shield is active.':busy?'Sending order.':!ready?'Wait for your turn and finish the current action.':['ram','skim','evade'].includes(kind)&&!propulsion?'Operational engines and thrusters required.':['ram','skim','hail'].includes(kind)&&!contacts.length?'No detected ships.':kind==='calculation'&&!(mathematics>=1)?'Requires Mathematics 1 or higher.':'';
+        const reason=kind==='hail'&&window.SAShipMap.staticShieldActive(ship)?'Static Shields block audio/video communications while their Shield is active.':busy?'Sending order.':!ready?"It's not your turn!":['ram','skim','evade'].includes(kind)&&!propulsion?'Operational engines and thrusters required.':['ram','skim','hail'].includes(kind)&&!panel.querySelector('[data-command-target]').value?'Choose a detected ship.':kind==='calculation'&&!(mathematics>=1)?'Requires Mathematics 1 or higher.':'';
         button.disabled=Boolean(reason);button.title=reason||window.SAActionHelp.descriptions[kind]?.[1]||'';
         if(kind==='break'){const why=!incoming.length?'No incoming locks.':!propulsion?'Working thrusters required.':window.SAShipSensors.masking(state,ship)<=0?'Masking is zero or below: escape enemy sensor range instead.':'';button.disabled ||= Boolean(why);if(why)button.title=why;}
       });
@@ -122,9 +123,28 @@
     groups.forEach(group=>group.remove());left[0].classList.add('command-shared-target');panel.append(tabs,left[0],pages,error);
     const doors=dialog.ownerDocument.createElement('button');doors.type='button';doors.textContent='Door Adjustment';doors.dataset.doorAdjustment='';doors.onclick=()=>window.SAVacuumUI.doors(window.SACombatBridge.state().units.find(u=>u.id===unitId));sections[1].append(doors);
     const docking=dialog.ownerDocument.createElement('div');docking.className='airlock-docking-controls';docking.innerHTML='<h3>Airlock Docking</h3><p>Ships must share a hex with both shields off. Docking takes 20 seconds, then Move to the airlock to board.</p><label>Ship<select data-airlock-target></select></label><button type="button" data-airlock-dock>Dock Airlocks</button><output role="status"></output>';sections[1].append(docking);
-    let dockBusy=false,dockInspection=false;
-    async function inspectDocking(){if(dockInspection||!dialog.open)return;dockInspection=true;try{const result=await bridge.fieldUtilityRequest({kind:'airlock-inspect',id:unitId,sicId:dialog.dataset.sicId});const data=result.result||result,select=docking.querySelector('select'),old=select.value;select.innerHTML=(data.targets||[]).map(t=>`<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('');if([...select.options].some(o=>o.value===old))select.value=old;docking.querySelector('button').disabled=dockBusy||!select.value;docking.querySelector('output').textContent=(data.links||[]).map(l=>l.ready?'Airlock connected — Move to the airlock to board.':`Docking: ${Math.ceil(l.remaining)} seconds`).join(' ')||(!select.value?'No eligible ships on this hex.':'');}catch(e){docking.querySelector('output').textContent=e.message;docking.querySelector('button').disabled=true;}finally{dockInspection=false;}}
-    docking.querySelector('button').onclick=async()=>{dockBusy=true;try{await bridge.fieldUtilityRequest({kind:'airlock-dock',id:unitId,sicId:dialog.dataset.sicId,targetId:docking.querySelector('select').value,receipt:crypto.randomUUID()});}catch(e){docking.querySelector('output').textContent=e.message;}finally{dockBusy=false;void inspectDocking();}};
+    let dockBusy=false,dockInspection=false,dockError='',dockStatus='';
+    function renderDockingStatus(){docking.querySelector('output').textContent=[dockError,dockStatus].filter(Boolean).join(' ');}
+    async function inspectDocking(){
+      if(dockInspection||!dialog.open)return;dockInspection=true;
+      try{
+        const result=await bridge.fieldUtilityRequest({kind:'airlock-inspect',id:unitId,sicId:dialog.dataset.sicId});
+        const data=result.result||result,select=docking.querySelector('select'),old=select.value;
+        select.innerHTML=(data.targets||[]).map(t=>`<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('');
+        if([...select.options].some(o=>o.value===old))select.value=old;
+        docking.querySelector('button').disabled=dockBusy||!select.value;
+        dockStatus=(data.links||[]).map(l=>l.ready?'Airlock connected - Move to the airlock to board.':`Docking: ${Math.ceil(l.remaining)} seconds`).join(' ')||(!select.value?'No eligible ships on this hex.':'');
+      }catch(e){dockStatus=e.message;docking.querySelector('button').disabled=true;}
+      finally{dockInspection=false;renderDockingStatus();}
+    }
+    docking.querySelector('select').onchange=()=>{dockError='';renderDockingStatus();void inspectDocking();};
+    docking.querySelector('button').onclick=async()=>{
+      if(dockBusy||!docking.querySelector('select').value)return;
+      dockBusy=true;dockError='';docking.querySelector('button').disabled=true;renderDockingStatus();
+      try{await bridge.fieldUtilityRequest({kind:'airlock-dock',id:unitId,sicId:dialog.dataset.sicId,targetId:docking.querySelector('select').value,receipt:crypto.randomUUID()});}
+      catch(e){dockError=e.message;}
+      finally{dockBusy=false;renderDockingStatus();void inspectDocking();}
+    };
     const dockingTimer=setInterval(()=>{if(!dialog.isConnected){clearInterval(dockingTimer);return;}void inspectDocking();},1000);dialog.addEventListener('close',()=>clearInterval(dockingTimer),{once:true});void inspectDocking();
     redraw();return redraw;
   }

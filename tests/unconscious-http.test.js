@@ -5,12 +5,12 @@ test('sheet HP changes immediately stop unconscious PC turns and movement, and h
   child.stderr.on('data',c=>process.stderr.write(c));t.after(async()=>{if(child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
   const base=await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Startup timed out')),8000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timeout);resolve(u);}});});
   const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
-  const start=await post('campaign/showcase/start',{}),p=start.players.find(p=>p.name==='Nova Vale');
+  const start=await post('campaign/showcase/start',{}),p=start.players[0];
   const act=body=>post('action',{roomCode:start.code,gmToken:start.gmToken,...body}),state=()=>fetch(`${base}/api/state?room=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const campaign=await fetch(`${base}/api/campaign/state?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const character=campaign.characters.find(c=>c.id===p.id).character;
   const hp=value=>post('campaign/character/save',{code:start.code,token:p.token,characterId:p.id,character:{...character,health:{...character.health,current:value}}});
-  let s=await state();const nova=s.units.find(u=>u.characterId===p.id),slug=s.units.find(u=>u.team==='npc');
+  let s=await state();const nova=s.units.find(u=>u.characterId===p.id),slug=s.units.find(u=>u.team==='npc'&&!u.allyNpc);
   await act({action:'setHardPaused',paused:true});await act({action:'nudge',id:nova.id,amount:100});
   await hp(0);s=await state();assert.equal(s.units.find(u=>u.id===nova.id).atb,0);assert.notEqual(s.activeId,nova.id);assert.equal(s.hardPaused,true);
   await post('action',{roomCode:start.code,characterId:p.id,characterToken:p.token,action:'playerCombatAction',id:nova.id,kind:'leaveStation'},409);

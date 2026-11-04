@@ -45,3 +45,28 @@
 .science-confirm{background:#0b2332;color:#eefaff;border:1px solid #55cfee;border-radius:8px;padding:24px;max-width:min(460px,90vw)}.science-confirm p{white-space:pre-line;line-height:1.6}.science-confirm button{background:#13577a;color:white;border:1px solid #8bd7ec;padding:10px 20px;margin:8px}.science-confirm::backdrop{background:#0008}
 
 .crew-room-console .crew-room-scene>img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;min-height:0!important;object-fit:cover!important}.crew-room-scene h3,.crew-room-scene p{position:relative;z-index:2;background:#06151cc9;padding:7px 12px;max-width:90%}.crew-room-scene h3{margin-top:auto}.crew-room-scene p{margin-bottom:14px}.crew-room-console[data-room-type=vr-training-room] .crew-room-animation{position:absolute;inset:0;background:linear-gradient(transparent 45%,#54dfff33 50%,transparent 55%);background-size:100% 180%;animation:medical-scan 5s linear infinite;pointer-events:none}.crew-room-console[data-room-type=medbay] .crew-room-animation{position:absolute;inset:15%;border-top:2px solid #8effd970;animation:medical-scan 4s ease-in-out infinite;pointer-events:none}
+
+/* Bar controls typography: no other room or scene inherits these rules. */
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+.crew-room-console[data-room-type=bar] .crew-room-controls{overflow:auto}
+.crew-room-console[data-room-type=bar] .crew-room-controls :is(h3,label,input,button,p,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.crew-room-console[data-room-type=bar] .crew-room-controls h3{font-size:18px}
+.crew-room-console[data-room-type=bar] .crew-room-controls p{margin-block:8px}
+.crew-room-console[data-room-type=bar] .crew-room-controls button{min-width:0;max-width:100%;white-space:normal}
+.crew-room-console[data-room-type=bar] .crew-room-controls output:empty{min-height:0;margin-block:0}
+
+/* Gym controls only; Orbitron is the existing local Console font above. */
+.crew-room-console[data-room-type=gym] .crew-room-controls{overflow:auto}
+.crew-room-console[data-room-type=gym] .crew-room-controls :is(h3,label,select,button,p,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.crew-room-console[data-room-type=gym] .crew-room-controls h3{font-size:18px}
+.crew-room-console[data-room-type=gym] .crew-room-controls p{margin-block:8px}
+.crew-room-console[data-room-type=gym] .crew-room-controls button{min-width:0;max-width:100%;white-space:normal}
+.crew-room-console[data-room-type=gym] .crew-room-controls output:empty{min-height:0;margin-block:0}
+
+/* Hibernation controls only; retain the existing local Orbitron font and zone. */
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls{overflow:auto}
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls :is(h3,button,p,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls h3{font-size:18px;margin-block:0 8px}
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls p{margin-block:6px}
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls button{min-width:0;max-width:100%;white-space:normal}
+.crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls output:empty{min-height:0;margin-block:0}

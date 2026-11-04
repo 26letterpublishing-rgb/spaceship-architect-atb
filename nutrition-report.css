@@ -1,0 +1,5 @@
+dialog.utility-console .nut-terminal-report{display:flex;flex-direction:column;min-height:0;overflow:hidden!important}
+dialog.utility-console .nut-terminal-report h3{flex:0 0 auto}
+dialog.utility-console .nut-terminal-report [data-report]{flex:1;min-height:0;overflow:auto;scroll-behavior:auto;font:15px/1.5 ui-monospace,Consolas,monospace;color:#b5f1cc;overflow-wrap:anywhere;white-space:pre-wrap}
+dialog.utility-console .nut-terminal-report [data-report]>div{margin:0 0 5px}
+dialog.utility-console .nut-terminal-report [data-report]:focus-visible{outline:2px solid #ffe17e;outline-offset:-2px}

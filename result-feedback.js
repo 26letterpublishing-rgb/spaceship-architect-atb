@@ -40,6 +40,13 @@
     function next(){
       if(win.SAExploreSession?.active?.()===false){critical.active=false;return;}
       const item=queue.shift();if(!item){critical.active=false;return;}critical.active=true;
+      if(item.type==='analysis-complete'){
+        if(!doc.querySelector('link[href*="combat-feedback.css"]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('combat-feedback.css',location.href).href;doc.head.append(link);}
+        const banner=doc.createElement('aside');banner.className='combat-victory-banner combat-analysis-banner';banner.setAttribute('role','status');banner.setAttribute('popover','manual');
+        const title=doc.createElement('strong');title.textContent=item.message;banner.append(title);doc.body.append(banner);banner.showPopover();
+        let closed=false;const close=()=>{if(closed)return;closed=true;clearTimeout(timer);banner.remove();critical.close=null;next();};
+        const timer=setTimeout(close,6000);critical.close=close;return;
+      }
       const banner=doc.createElement('aside');banner.className='critical-flight-banner';banner.dataset.type=item.type;banner.setAttribute('role','alert');banner.setAttribute('popover','manual');
       const track=doc.createElement('div'),text=doc.createElement('span');track.className='critical-flight-track';text.textContent=item.message;track.append(text);
       if(item.type==='combat-start'){
@@ -71,9 +78,10 @@
     const doc=host(),win=doc.defaultView;
     if(win!==window&&win.SAResultFeedback)return win.SAResultFeedback.waiting(message);
     if(!message){waitingNode?.remove();waitingNode=null;win.SAInterfaceNoticeHost?.refresh();return;}
-    if(!waitingNode){waitingNode=doc.createElement('aside');waitingNode.className='interface-notice combat-waiting-notice';waitingNode.setAttribute('role','status');}
+    if(!waitingNode){waitingNode=doc.createElement('aside');waitingNode.className='critical-flight-banner combat-waiting-notice';waitingNode.dataset.type='warning';waitingNode.setAttribute('role','status');waitingNode.setAttribute('popover','manual');doc.body.append(waitingNode);}
     if(waitingNode.textContent!==message)waitingNode.textContent=message;
-    noticeHost().mount(waitingNode,'combat-wait');
+    if(win.SAExploreSession?.active?.()===false){if(waitingNode.matches(':popover-open'))waitingNode.hidePopover();}
+    else if(!waitingNode.matches(':popover-open'))waitingNode.showPopover();
   }
   function stored(key){try{return sessionStorage.getItem(key);}catch{return false;}}
   function push(key,title,message,{topLayer=false,reputation=null,details=null,allowOutsideCombat=false}={}){
@@ -103,7 +111,14 @@
     card.append(ok);tray.append(card);noticeHost().mount(tray,'action-results');noticeHost().schedule();
     timer=setTimeout(()=>{if(closed)return;if(!card.isConnected||doc.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches){close();return;}fade=card.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});fade.finished.then(close).catch(close);},8000);
   }
-  function observe(){const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;for(const unit of state.units||[]){for(const result of unit.actionResults||[]){const owns=bridge.mode()==='gm'?result.controller==='gm'||unit.team==='npc':unit.id===bridge.myUnitId()&&result.controller!=='gm';if(owns&&result.stage!=='input')push(`${state.roomCode}:${unit.id}:${result.id}`,result.label,(Number.isFinite(result.total)?`Roll total ${Number(result.total.toFixed(2))}. `:'')+result.text);}}}
+  function analysisNotice(key,result){
+    if(result.analysisPhase!=='complete'){push(key,result.label,result.text);return;}
+    const storageKey='sa-result:'+key;if(seen.has(key)||stored(storageKey))return;
+    seen.add(key);try{sessionStorage.setItem(storageKey,'1');}catch{}
+    if(!isCombatActive())return;
+    critical(key,'Enemy ship systems analysis is complete','analysis-complete');
+  }
+  function observe(){const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;for(const unit of state.units||[]){for(const result of unit.actionResults||[]){const owns=bridge.mode()==='gm'?result.controller==='gm'||unit.team==='npc':unit.id===bridge.myUnitId()&&result.controller!=='gm';if(owns&&result.stage!=='input'){const key=`${state.roomCode}:${unit.id}:${result.id}`;if(result.analysisPhase)analysisNotice(key,result);else push(key,result.label,(Number.isFinite(result.total)?`Roll total ${Number(result.total.toFixed(2))}. `:'')+result.text);}}}}
   window.addEventListener('sa-combat-state',event=>{const state=event.detail?.state||window.SACombatBridge?.state();setCombatActive(state?.hasEngagedClock&&!state.practice&&!state.catalogPreview&&!state.encounterEndedAt);observe();});
   window.addEventListener('pagehide',()=>{for(const close of [...resultClosers.values()])close();critical.queue?.splice(0);critical.close?.();waiting();if(tray?.ownerDocument===document)tray.remove();noticeNode?.remove();clearTimeout(noticeTimer);try{host().defaultView.SAInterfaceNoticeHost?.refresh();}catch{}});
   window.SAInterfaceNotices={host:noticeHost,closeButton,isCombatActive,setCombatActive};window.SAResultFeedback={push,notice,critical,waiting};

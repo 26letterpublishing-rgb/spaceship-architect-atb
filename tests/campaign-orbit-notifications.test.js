@@ -8,7 +8,7 @@ function arrival(crew){
  const send=(kind,extra={})=>galaxy.command(c,{kind,mapId:map.id,starId:star.id,shipId:ship.id,receipt:randomUUID(),...extra},{gm:true,combatActive:false});
  send('systemPosition',{phase:'surface',planetId:planet.id});send('leavePlanet');navigation.advance(c,20);
  assert.equal(c.starmaps.localPositions.pc.phase,'orbit');
- const notes=c.privateNotes.filter(n=>n.message==='Protos reached orbit.');navigation.advance(c,20);assert.equal(c.privateNotes.filter(n=>n.message==='Protos reached orbit.').length,notes.length);
+ const notes=c.privateNotes.filter(n=>n.message==='Lantern reached orbit.');navigation.advance(c,20);assert.equal(c.privateNotes.filter(n=>n.message==='Lantern reached orbit.').length,notes.length);
  return {c,ship,notes};
 }
 for(const count of [0,1,2])test(`one ascent with ${count} crew has one GM notice and separate PC deliveries`,()=>{
@@ -18,9 +18,9 @@ for(const count of [0,1,2])test(`one ascent with ${count} crew has one GM notice
  assert.equal(inbox(JSON.parse(JSON.stringify(notes))).length,1);assert.equal(inbox(notes)[0].direction,'to-gm');
 });
 test('separate same-text events, unmarked history and actionable messages survive; copies do not consume GM limit',()=>{
- const {c,ship,notes}=arrival(['pc-0','pc-1']);galaxy.note(c,'Protos reached orbit.',ship);
- const all=c.privateNotes.filter(n=>n.message==='Protos reached orbit.');assert.equal(inbox(all).length,2);assert.notEqual(all[0].travelEventId,all[3].travelEventId);
- const special=[{id:'old',kind:'system',direction:'to-character',message:'Protos reached orbit.'},{id:'approval',kind:'rest-request',requestStatus:'pending',travelEventId:notes[0].travelEventId,direction:'to-character'},{id:'sent',kind:'message',direction:'to-character',travelEventId:notes[0].travelEventId}];
+ const {c,ship,notes}=arrival(['pc-0','pc-1']);galaxy.note(c,'Lantern reached orbit.',ship);
+ const all=c.privateNotes.filter(n=>n.message==='Lantern reached orbit.');assert.equal(inbox(all).length,2);assert.notEqual(all[0].travelEventId,all[3].travelEventId);
+ const special=[{id:'old',kind:'system',direction:'to-character',message:'Lantern reached orbit.'},{id:'approval',kind:'rest-request',requestStatus:'pending',travelEventId:notes[0].travelEventId,direction:'to-character'},{id:'sent',kind:'message',direction:'to-character',travelEventId:notes[0].travelEventId}];
  assert.deepEqual(Array.from(inbox([...special,...notes]),n=>n.id),['approval','sent',notes[0].id]);
  assert.equal(inbox([special[0],...notes]).length,2);assert.equal(inbox(notes.slice(1)).length,2,'without canonical GM record do not suppress copies');
  assert.equal(c.privateNotes.length,all.length,'projection must not delete stored recipient copies');

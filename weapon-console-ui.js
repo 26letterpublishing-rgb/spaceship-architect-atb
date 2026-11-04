@@ -1,5 +1,15 @@
 (function() {
   let dialog = null;
+  const previewFits=new WeakSet();
+  function fitWeaponPreview(svg,view,family,phazon,cameraKey){
+    if(cameraKey||!(family==='rapid-laser'||phazon)||previewFits.has(svg))return;
+    previewFits.add(svg);
+    const assets=[...view.querySelectorAll('img')].map(img=>img.decode?.());
+    if(view.ownerDocument.fonts?.ready)assets.push(view.ownerDocument.fonts.ready);
+    Promise.allSettled(assets).then(()=>requestAnimationFrame(()=>{
+      if(view.open&&svg.isConnected&&!svg.dataset.userViewBox&&!svg.dataset.manualCamera)window.SASpaceMap.fitRendered(svg);
+    }));
+  }
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function open(unit,sicId) {
     const bridge=window.SACombatBridge, initial=window.SAStationAccess.access(bridge.state(),unit,sicId);
@@ -29,6 +39,13 @@
     get('[data-target]').setAttribute('aria-label','Weapon target');get('[data-input]').setAttribute('aria-label','Weapon input');
     get('header small').textContent=`${initial.remote?'REMOTE':'LOCAL'} FIRE CONTROL / ${unit.characterName}`;
     get('[data-sacrifice]').closest('label').hidden=family!=='rapid-laser';
+    const sacrifice=get('[data-sacrifice]');
+    if(family==='rapid-laser'){
+      sacrifice.style.display='none';sacrifice.tabIndex=-1;sacrifice.setAttribute('aria-hidden','true');
+      const choices=host.createElement('div');choices.className='weapon-power-choices';choices.setAttribute('role','group');choices.setAttribute('aria-label','Conserve Auxiliary Power');
+      for(const option of sacrifice.options){const button=host.createElement('button');button.type='button';button.dataset.sacrificeChoice=option.value;button.onclick=()=>{if(sacrifice.disabled)return;sacrifice.value=option.value;redraw();};choices.append(button);}
+      sacrifice.closest('label').after(choices);
+    }
     const boostLabel=host.createElement('label');boostLabel.innerHTML=`Extra D${initial.definition.damageDie} dice (${initial.definition.boostAu||0} AU each) <input data-boosts type="number" min="0" max="${100-(initial.definition.damageCount||0)}" step="1" value="0" aria-label="Extra damage dice">`;
     boostLabel.hidden=!initial.definition.boostAu;get('[data-au]').before(boostLabel);
     get('[data-fire]').textContent=family==='rapid-laser'?'Fire Rapid Laser':`Fire ${initial.definition.name}`;
@@ -43,7 +60,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       const now=Math.floor(performance.now()/1000),alerting=ready&&!state.hardPaused&&!state.holdPaused&&!host.hidden;
       view.dataset.flash=String(alerting&&performance.now()%1000<450);if(alerting&&now!==beat){beat=now;bridge.consoleTick();}
       const picture=window.SAShipSensors.view(state,access.ship.id),mapKey=JSON.stringify([picture.starships.map(s=>[s.id,s.title,s.destroyedAt,s.missileHeading,s.missilePhase,s.missileEndedAt]),picture.shipPositions]);
-      if(mapKey!==lastMap){window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});lastMap=mapKey;}
+      if(mapKey!==lastMap){const svg=window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true}),cameraKey=window.SASpaceMap.cameraIdentity('weapon',unit.id,access.ship.id,sicId);window.SASpaceMap.mountCamera(svg,cameraKey);fitWeaponPreview(svg,view,family,initial.definition.phazonTorpedo,cameraKey);lastMap=mapKey;}
       const chart=get('[data-map]'),svg=chart.querySelector('svg'),bounds=svg.viewBox.baseVal;
       const height=bounds.width*chart.clientHeight/Math.max(1,chart.clientWidth),middle=bounds.y+bounds.height/2;
       svg.setAttribute('viewBox',`${bounds.x} ${middle-height/2} ${bounds.width} ${height}`);
@@ -82,6 +99,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       get('[data-input]').value=pending?.weaponOrder&&!pending.awaitingRoll?100-pending.remaining:0;
       get('[data-input-text]').textContent=pending?.awaitingRoll?'Awaiting dice confirmation':pending?.weaponOrder?`Firing in ${(pending.remaining/pending.rate).toFixed(1)} seconds`:'Fire control ready';
       get('[data-fire]').disabled=busy||!ready||!targetId||cost>available||(rail&&!ammo)||!get('[data-boosts]').validity.valid||(access.definition.requiresLock&&!lock)||(!shot.count&&family!=='rapid-laser')||(!shot.boostAllowed&&Number(get('[data-boosts]').value)>0);get('[data-sacrifice]').disabled=busy||Boolean(pending);
+      for(const button of view.querySelectorAll('[data-sacrifice-choice]')){const option=[...sacrifice.options].find(o=>o.value===button.dataset.sacrificeChoice);button.textContent=option.textContent;button.disabled=sacrifice.disabled;button.setAttribute('aria-pressed',String(sacrifice.value===option.value));}
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=busy||(!ready&&!person.consoleHold);if(get('[data-leave]'))get('[data-leave]').disabled=busy||!ready;
       const ionCooldown=access.definition.ionDisruptor?Math.max(0,access.ship.ship.fieldState?.systems?.[sicId]?.cooldown||0):0;if(ionCooldown)get('[data-fire]').disabled=true;
       const fire=get('[data-fire]');let reason=fire.nextElementSibling;

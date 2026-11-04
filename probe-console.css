@@ -33,3 +33,23 @@ body dialog.probe-console .sensor-map-zoom button{white-space:nowrap}
 
 body dialog.probe-console [data-planner]{top:0;bottom:auto;z-index:3}
 body dialog.probe-console.shared-console-layout .sensor-chart [data-map]{min-height:160px}
+
+/* Probe-only presentation: half the former Orders row, reports fill the released space. */
+@media(min-width:901px){
+ body dialog.probe-launcher-console.shared-console-layout:not(.map-focus) .sensor-controls{grid-row:2/4!important;align-self:start;height:calc((100% - 162px)/2)!important}
+ body dialog.probe-launcher-console.shared-console-layout:not(.map-focus) .sensor-reports{grid-row:2/4!important;align-self:end;height:calc((100% + 138px)/2)!important}
+}
+.probe-launcher-console .probe-position-pointer{position:absolute;z-index:3;width:40px;height:32px;clip-path:polygon(0 0,100% 0,50% 100%);background:#62ff85;transform:translate(-50%,-100%);pointer-events:none}
+.probe-launcher-console .probe-position-pointer[hidden]{display:none}
+/* Retain the live tactical SVG and its accessible label, without nested panels. */
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline,
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline .tactical-ring-group,
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline .tactical-ring-view{padding:0!important;border:0;background:transparent;box-shadow:none;overflow:visible!important}
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline{container-type:size}
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline .pilot-rings{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;height:100%!important;overflow:visible;max-height:none}
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline .tactical-ring-group{flex:1;min-width:0;height:100%!important;display:grid;place-items:center}
+body dialog.probe-launcher-console .sensor-timeline .tactical-ring-group>h3{display:none}
+body dialog.probe-launcher-console .sensor-timeline .tactical-ring-view{height:100%;width:100%;container-type:size}
+body dialog.probe-launcher-console.shared-console-layout .sensor-timeline .ring-stage{width:min(100cqw,calc(100cqh * .84102564));height:auto!important;aspect-ratio:328/390;margin:auto}
+body dialog.probe-launcher-console .sensor-timeline .tactical-ring-svg{width:100%!important;height:100%!important;max-width:none}
+body dialog.probe-launcher-console .sensor-timeline .ring-stage::before,body dialog.probe-launcher-console .sensor-timeline .ring-stage::after{display:none}

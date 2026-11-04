@@ -31,3 +31,36 @@ body dialog.surveillance-console.shared-console-layout{grid-template-rows:96px m
 @keyframes camera-pan{from{transform:scale(1.02) translateX(-.5%)}to{transform:scale(1.025) translateX(.5%)}}
 @keyframes security-room-drift{from{transform:scale(1.02) translateX(-.4%)}to{transform:scale(1.03) translateX(.4%)}}
 @media(prefers-reduced-motion:reduce){.surveillance-monitor::after,.surveillance-monitor svg,.security-room-scene img{animation:none}}
+
+/* Surveillance only: retain the original scene as the full viewing surface. */
+@media(min-width:901px){
+ body dialog.surveillance-console.shared-console-layout>.surveillance-coverage{grid-row:2/4!important;position:relative!important;padding:0!important;overflow:hidden}
+ body dialog.surveillance-console.shared-console-layout>.surveillance-desk{grid-row:2/4!important;align-self:end;height:10%!important;min-height:0!important;z-index:2;padding:4px 8px!important;background:#081719ed!important;gap:10px;grid-template-columns:1fr 1fr 1.2fr;font-size:11px;overflow:auto}
+}
+.surveillance-console .security-room-scene{position:absolute;inset:0;margin:0;height:100%;overflow:hidden;container-type:size}
+.surveillance-console .security-scene-art{position:relative;width:max(100cqw,177.638889cqh);height:max(100cqh,56.29398cqw);left:50%;transform:translateX(-50%)}
+.surveillance-console .security-scene-art>img{display:block;width:100%;height:100%;object-fit:fill;animation:none}
+.surveillance-console .security-room-scene .security-screen{overflow:hidden;background-image:url('security-console-scene.webp');opacity:1;animation:surveillance-screen-feed 9s steps(1,end) infinite;transform:none}
+.surveillance-console .security-screen::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 4px,#9bffe51c 4px 5px);animation:surveillance-screen-scan 4s linear infinite;pointer-events:none}
+.surveillance-console .security-screen-1{left:16.42%;top:9.72%;width:21.27%;height:19.58%;background-size:470.15% 510.73%;background-position:20.857% 12.087%}
+.surveillance-console .security-screen-2{left:39.95%;top:10.14%;width:20.64%;height:19.44%;background-size:484.5% 514.4%;background-position:50.34% 12.587%;animation-delay:-3s!important}
+.surveillance-console .security-screen-3{left:63.4%;top:10.42%;width:20.25%;height:19.16%;background-size:493.83% 521.92%;background-position:79.5% 12.89%;animation-delay:-6s!important}
+.surveillance-console .security-screen-4{left:16.5%;top:33.47%;width:21.2%;height:17.92%;background-size:471.7% 558.04%;background-position:20.94% 40.78%;animation-delay:-1s!important}
+.surveillance-console .security-screen-5{left:40.1%;top:33.47%;width:20.5%;height:18.06%;background-size:487.8% 553.71%;background-position:50.44% 40.85%;animation-delay:-4s!important}
+.surveillance-console .security-screen-6{left:63.4%;top:33.33%;width:20.25%;height:18.75%;background-size:493.83% 533.33%;background-position:79.5% 41.02%;animation-delay:-7s!important}
+@keyframes surveillance-screen-feed{0%,78%,84%,100%{filter:brightness(1);transform:translate(0)}79%,82%{filter:brightness(1.12) saturate(.85);transform:translate(.6px,-.4px)}80%{filter:brightness(.92);transform:translate(-.5px,.3px)}}
+@keyframes surveillance-screen-scan{from{background-position:0 0;opacity:.3}to{background-position:0 10px;opacity:.5}}
+.surveillance-console .surveillance-monitors{position:absolute;left:2%;right:2%;bottom:12%;max-height:38%;grid-auto-rows:minmax(110px,1fr);gap:8px;z-index:1}
+.surveillance-console .surveillance-monitor{background:#061612e8;border-width:1px;padding:4px}
+.surveillance-console .surveillance-monitor svg{min-height:45px;background:#102823dc}
+.surveillance-console .surveillance-monitor figcaption{font-size:10px;padding-bottom:2px}
+.surveillance-console .surveillance-monitor small{font-size:10px;margin-top:2px}
+.surveillance-console .surveillance-empty{position:absolute;bottom:0;right:0;margin:0;padding:4px 8px;background:#081719d9;font:11px Arial}
+.surveillance-console .surveillance-desk h3{font-size:11px;margin:0 0 2px}
+.surveillance-console .surveillance-desk p,.surveillance-console .surveillance-desk output,.surveillance-console .surveillance-desk li{font-size:11px;line-height:1.2;margin:0;padding:1px 0}
+.surveillance-console .surveillance-desk ul{max-height:none;overflow:visible}
+.surveillance-console .surveillance-heading{font:10px/1.2 Arial;letter-spacing:0;margin:0;display:block}
+.surveillance-console .surveillance-heading span{display:none}
+.surveillance-console .surveillance-legend{font:10px/1.2 Arial;margin:2px 0 0}
+.surveillance-console[data-feed-available=false] .security-screen,.surveillance-console[data-feed-available=false] .security-screen::after{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.surveillance-console .security-room-scene .security-screen,.surveillance-console .security-screen::after{animation:none!important;transform:none!important;filter:none!important}}

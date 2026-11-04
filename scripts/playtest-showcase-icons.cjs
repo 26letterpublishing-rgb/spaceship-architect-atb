@@ -1,0 +1,39 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),roster={npcs:require('../data/npc-templates.json')};
+const out=path.resolve('../SA-ATB Local Development Files/outputs/npc-catalog-correction-nov03');let h;const evidence={};
+(async()=>{fs.mkdirSync(out,{recursive:true});h=await require('./console-debug.cjs').startHarness({headless:true});const p=h.gm;p.setDefaultTimeout(15000);
+ await p.goto(h.base+'/showcase.html');await p.locator('[data-perspective=gm]').waitFor();await p.frameLocator('iframe[data-explore-perspective=gm]').locator('#gmWorkspace').waitFor({state:'visible'});let gm=p.frames().find(f=>f.url().includes('/gm.html'));await gm.locator('#gmWorkspace').waitFor({state:'visible'});
+ const demo=await p.evaluate(()=>JSON.parse(sessionStorage.getItem('sa-explore-room'))),campaign=()=>fetch(h.base+'/api/campaign/state?code='+demo.code+'&token='+demo.gmToken).then(r=>r.json());let c=await campaign();
+ assert.equal(c.npcRoster.length,8);assert.deepEqual(c.npcTemplates,[]);assert.ok(c.npcRoster.every(n=>n.team==='npc'&&!n.allyNpc));assert.deepEqual(c.characters.map(r=>r.character.identity.characterName),['Mara Venn','Kip Amber']);
+ evidence.roster=c.npcRoster.map(n=>({id:n.id,name:n.characterName,icon:n.iconRace,ally:n.allyNpc,ship:n.location.starshipId}));assert.equal(c.npcRoster.filter(n=>n.location.starshipId).length,1);
+ for(const n of c.npcRoster){const expected=roster.npcs.find(t=>t.id===n.templateId);assert.equal(n.iconRace,expected.iconRace);assert.equal(n.iconVariant,0);assert.equal((await fetch(h.base+'/'+require('../token-art').atlas(n.iconRace))).status,200);}
+ await gm.getByRole('button',{name:'Characters',exact:true}).click();await p.screenshot({path:path.join(out,'eight-npc-roster.png')});for(const n of c.npcRoster){const card=gm.locator('.gm-character-card').filter({has:gm.locator('strong').filter({hasText:new RegExp('^'+n.characterName+'$','i')})}).first();await card.scrollIntoViewIfNeeded();await card.screenshot({path:path.join(out,n.templateId+'-card.png')});}
+ await gm.getByRole('button',{name:'Combat',exact:true}).click();await gm.locator('[data-encounter-mode=starship]').click();for(const id of c.starships.map(s=>s.id))await gm.locator('[data-encounter-starship="'+id+'"]').check();
+ const catalog=await gm.locator('#encounterNpcTemplate optgroup[label="Built-in NPCs"] option').evaluateAll(options=>options.map(o=>({id:o.value,name:o.textContent})));
+ assert.deepEqual(catalog,roster.npcs.map(n=>({id:n.id,name:n.name})));assert.equal(await gm.locator('#encounterNpcTemplate optgroup[label="Campaign NPCs"]').count(),0);evidence.catalog=catalog;
+ for(const n of c.npcRoster){const box=gm.locator('[data-encounter-npc="'+n.id+'"]').first();if(await box.count()){if(!await box.isChecked())await box.check();}else{await gm.locator('#encounterNpcTemplate').selectOption(n.templateId);await gm.locator('#addEncounterNpc').click();}}
+ evidence.staged=await gm.locator('[data-remove-staged-npc]').count();assert.equal(evidence.staged,8);for(const n of roster.npcs)assert.equal(await gm.getByRole('button',{name:'Remove '+n.name,exact:true}).count(),1);await p.screenshot({path:path.join(out,'all-eight-staged.png')});
+ evidence.removed=[];for(let i=8;i>0;i--){await gm.locator('[data-remove-staged-npc]').first().click();await gm.waitForFunction(n=>document.querySelectorAll('[data-remove-staged-npc]').length===n,i-1);evidence.removed.push(i-1);}
+ await p.reload();await p.locator('[data-perspective=gm]').waitFor();await p.frameLocator('iframe[data-explore-perspective=gm]').locator('#gmWorkspace').waitFor({state:'visible'});gm=p.frames().find(f=>f.url().includes('/gm.html'));await gm.locator('#gmWorkspace').waitFor({state:'visible'});await gm.getByRole('button',{name:'Combat',exact:true}).click();assert.equal(await gm.locator('[data-remove-staged-npc]').count(),0);
+ for(const npc of roster.npcs){await gm.locator('#encounterNpcTemplate').selectOption(npc.id);await gm.locator('#addEncounterNpc').click();}assert.equal(await gm.locator('[data-remove-staged-npc]').count(),8);for(const n of roster.npcs)assert.equal(await gm.getByRole('button',{name:'Remove '+n.name,exact:true}).count(),1);evidence.readded=true;
+ for(let i=8;i>0;i--){await gm.locator('[data-remove-staged-npc]').first().click();await gm.waitForFunction(n=>document.querySelectorAll('[data-remove-staged-npc]').length===n,i-1);}
+ await p.locator('#resetShowcase').click();await p.waitForFunction(old=>JSON.parse(sessionStorage.getItem('sa-explore-room')||'{}').code!==old,demo.code);const fresh=await p.evaluate(()=>JSON.parse(sessionStorage.getItem('sa-explore-room')));c=await fetch(h.base+'/api/campaign/state?code='+fresh.code+'&token='+fresh.gmToken).then(r=>r.json());assert.equal(c.npcRoster.length,8);assert.equal(c.npcRoster.filter(n=>n.location.starshipId).length,1);evidence.regenerated=true;
+ for(const player of fresh.players){const page=h.pc;await page.goto(h.base+'/character.html?campaign='+fresh.code+'&character='+player.id+'&showcase=1');await page.evaluate(({fresh,player})=>sessionStorage.setItem('sa-character-token-'+fresh.code+'-'+player.id,player.token),{fresh,player});await page.reload();await page.locator('[data-character-tab=sheet]').click();await page.locator('#characterWorkspace').waitFor({state:'visible'});await page.waitForTimeout(1200);await page.screenshot({path:path.join(out,player.id+'-sheet.png')});}
+ // Exercise the second consumer: actual Combat quick-add uses the same catalog and full statistics.
+ await p.evaluate(fresh=>sessionStorage.setItem('sa-gm-token-'+fresh.code,fresh.gmToken),fresh);
+ await p.goto(h.base+'/index.html?embedded=gm&campaign='+fresh.code);
+ await p.locator('#gmCharacterName').waitFor({state:'attached'});await p.waitForFunction(()=>document.querySelector('#gmCharacterName').value.length>0);
+ await p.locator('#gmCombatShip').selectOption('showcase-npc-ship');
+ evidence.quickAdded=[];
+ for(let i=0;i<8;i++){
+   const name=await p.locator('#gmCharacterName').inputValue(),expected=roster.npcs.find(n=>n.name===name);assert.ok(expected,name);
+   assert.equal(Number(await p.locator('#gmSpeedRating').inputValue()),expected.speed);
+   await p.locator('#gmAddUnit').click();const placement=p.getByRole('dialog',{name:'Starting location',exact:true});await placement.waitFor();await placement.locator('[data-start-square]').nth(i).click();
+   const result=p.waitForResponse(r=>r.url().endsWith('/api/action')&&r.request().postDataJSON()?.action==='addUnit');
+   await placement.locator('[data-start]').click();const response=await result;assert.equal(response.status(),200);const updated=await response.json();
+   const actor=updated.units.filter(u=>u.characterName===name).at(-1);assert.ok(actor);assert.equal(actor.iconRace,expected.iconRace);assert.equal(actor.maximumHp,expected.maximumHp);assert.equal(actor.physicalAttribute,expected.physicalAttribute);assert.equal(actor.mentalAttribute,expected.mentalAttribute);assert.equal(actor.allyNpc,false);
+   evidence.quickAdded.push(name);if(i<7)await p.waitForFunction(name=>document.querySelector('#gmCharacterName').value!==name,name); // A fresh shuffled cycle may legitimately repeat its previous final name.
+ }
+ assert.equal(new Set(evidence.quickAdded).size,8);await p.screenshot({path:path.join(out,'canonical-quick-add.png')});
+ evidence.errors=h.errors;assert.deepEqual(h.errors,[]);
+})().catch(e=>{evidence.error=e.stack;process.exitCode=1;console.error(e)}).finally(async()=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(evidence,null,2));await h?.stop();console.log(out)});

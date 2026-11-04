@@ -144,6 +144,7 @@ const dom = {
   encounterNpcTemplate: $("#encounterNpcTemplate"),
   addEncounterNpc: $("#addEncounterNpc"),
   beginEncounter: $("#beginEncounter"),
+  addEncounterShip: $("#addEncounterShip"),
   resumeEncounter: $("#resumeEncounter"),
   prepareNewEncounter: $("#prepareNewEncounter"),
   returnToEncounterSetup: $("#returnToEncounterSetup"),
@@ -807,13 +808,17 @@ function renderStarships() {
   window.SALiveDOM.render(dom.starshipList, ships.length ? ships.map((record) => {
     const hull = record.hullCount ?? record.ship?.confirmed?.gridCells?.length ?? record.ship?.gridCells?.length ?? 0;
     const ship = record.ship || {};
+    const shields = window.SAShipMap.installedItems(record).reduce((total, item) => {
+      const definition = window.SAShipMap.definition(item.type);
+      return total + (definition.shield ? definition.shieldHp : 0);
+    }, 0);
     const power = record.powerSummary || window.SAShipPower.output(record, window.SAShipPower.campaignUnits(record, campaign.characters));
     const crew = new Set(record.crewCharacterIds || []);
     const npcCrew = new Set(record.crewNpcUnitIds || []);
     const npcUnits = campaignNpcRoster();
     return `<article class="gm-starship-card" data-starship-id="${escapeHtml(record.id)}" style="--ship-choice-color:${window.SAShipMap.shipColor(record)}">
       <header><img class="roster-ship-icon" src="${window.SATokenArt.shipImage(record)}" alt=""/><div><h3>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h3><small>${escapeHtml(record.ship?.class || "Unclassified")} · ${escapeHtml(record.ship?.affiliation || "No Affiliation")}</small></div><strong>${record.controlType === "gm" ? "GM" : "PC"}</strong></header>
-      <div class="gm-starship-summary"><dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
+      <div class="gm-starship-summary"><dl><div><dt>Hull</dt><dd>${hull}</dd></div><div><dt>Shields</dt><dd>${shields}</dd></div><div><dt>EN</dt><dd>${power.en}</dd></div><div><dt>AU</dt><dd>${power.au}</dd></div><div><dt>Crew</dt><dd>${crew.size + npcCrew.size}</dd></div></dl>
       <label>Who Controls This Ship?<select data-starship-control><option value="pc" ${record.controlType === "pc" ? "selected" : ""}>PC Controlled - visible to assigned PCs</option><option value="gm" ${record.controlType === "gm" ? "selected" : ""}>GM Controlled - hidden from players</option></select></label>
       </div><div class="gm-starship-crew-groups">
         <section><h4>Assigned PCs / Crew</h4><div class="gm-starship-crew">${campaign.characters.length ? campaign.characters.map((character) => `<label class="pc-color-box" style="--character-color:${escapeHtml(/^#[0-9a-f]{6}$/i.test(character.character?.presentation?.atbColor||'')?character.character.presentation.atbColor:'#39e58f')}"><input type="checkbox" data-starship-crew="${character.id}" ${crew.has(character.id) ? "checked" : ""}/> <span>${escapeHtml(characterName(character))}</span></label>`).join("") : "<small>No campaign characters available.</small>"}</div></section>
@@ -1265,6 +1270,8 @@ function renderEncounterBuilder() {
     <button type="button" class="npc-icon-button" data-staged-icon="${npc.id}" aria-label="Change icon for ${escapeHtml(npc.name)}">${window.SATokenArt.figure(npc.iconRace||"human",npc.iconVariant)}<span>Icon</span></button>
     <button type="button" class="danger" data-remove-staged-npc="${npc.id}" aria-label="Remove ${escapeHtml(npc.name)}">Remove</button>
   </article>`).join("") : '<p class="empty-npc-stage">No NPCs have been added to this Combat yet.</p>');
+  dom.addEncounterShip.hidden=!(encounterState?.hasEngagedClock&&!encounterState.encounterEndedAt&&encounterMode==='starship');
+  dom.addEncounterShip.disabled=encounterPreparing||(encounterState?.starships?.length||0)>=6||[...selectedEncounterStarships].filter(id=>!encounterState?.starships?.some(s=>s.id===id)).length!==1;
   dom.beginEncounter.disabled = encounterPreparing || (!selectedEncounterCharacters.size && !stagedNpcs.length) || (encounterMode === "starship" && !selectedEncounterStarships.size);
 }
 
@@ -1450,8 +1457,11 @@ async function exitCampaignEncounter() {
   }
 }
 
-async function beginEncounter() {
+async function beginEncounter({addShip=false}={}) {
   if (encounterPreparing) return;
+  const activeShipIds=new Set((encounterState?.starships||[]).map(s=>s.id));
+  const incomingIds=new Set([...selectedEncounterStarships].filter(id=>!activeShipIds.has(id)));
+  if(addShip&&(!encounterState?.hasEngagedClock||encounterState.encounterEndedAt||encounterMode!=='starship'||incomingIds.size!==1)){showMessage(dom.message,'Select exactly one new ship in the starship setup, place its arrival hex, then add it to active combat. Existing ships are unchanged.','error');return;}
   const preparedDistances = structuredClone(encounterDistances);
   const selected = campaign.characters.filter((record) => selectedEncounterCharacters.has(record.id) && record.approved !== false);
   if (!selected.length && !stagedNpcs.length) {
@@ -1462,24 +1472,21 @@ async function beginEncounter() {
     showMessage(dom.message, "Select at least one starship.", "error");
     return;
   }
-  if (encounterMode === "starship") {
-    const missingCharacters = selected.filter((record) => !selectedEncounterStarships.has(encounterLocations.get(record.id) || defaultDeployment(record)));
-    const missingNpcs = stagedNpcs.filter((npc) => !selectedEncounterStarships.has(npc.locationStarshipId));
-    if (missingCharacters.length || missingNpcs.length) {
-      showMessage(dom.message, "Every selected character and NPC must be aboard a selected starship.", "error");
-      return;
-    }
-  }
+  const participatingNpcs=(addShip?stagedNpcs.filter(n=>incomingIds.has(n.locationStarshipId)):stagedNpcs);
+  const filteredParticipatingNpcs=encounterMode==='starship'?participatingNpcs.filter(npc=>selectedEncounterStarships.has(npc.locationStarshipId)):participatingNpcs;
   const noNpcShips=encounterMode!=='starship'||!(campaign.starships||[]).some(s=>selectedEncounterStarships.has(s.id)&&s.controlType==='gm');
-  if(!stagedNpcs.length&&noNpcShips&&!await confirmGm({title:'Begin Exploration?',message:'No NPC starships or NPCs are selected. Begin an exploration encounter? ATBs and ship time will run normally; players can travel, collect minerals and use equipment.',acceptLabel:'Begin Exploration'}))return;
+  if(!addShip&&!filteredParticipatingNpcs.length&&noNpcShips&&!await confirmGm({title:'Begin Exploration?',message:'No NPC starships or NPCs are selected. Begin an exploration encounter? ATBs and ship time will run normally; players can travel, collect minerals and use equipment.',acceptLabel:'Begin Exploration'}))return;
   encounterPreparing = true;
   dom.beginEncounter.disabled = true;
   dom.beginEncounter.textContent = "Preparing Combat...";
+  dom.addEncounterShip.disabled=true;
   try {
-    let combatStarships = encounterMode === "starship" ? (campaign.starships || []).filter((ship) => selectedEncounterStarships.has(ship.id)) : [];
+    let combatStarships = encounterMode === "starship" ? (campaign.starships || []).filter((ship) => selectedEncounterStarships.has(ship.id)&&(!addShip||incomingIds.has(ship.id))) : [];
     const units = [];
     if(combatStarships.some(s=>s.lazyLayout)){dom.beginEncounter.textContent='Loading selected ship layouts...';const detail=await api('/api/campaign/starship/details',{code,token,ids:combatStarships.map(s=>s.id)});combatStarships=detail.starships;for(const full of combatStarships){const index=campaign.starships.findIndex(s=>s.id===full.id);campaign.starships[index]=full;}}
     for (const record of selected) {
+      if(addShip&&!incomingIds.has(encounterLocations.get(record.id)||defaultDeployment(record)))continue;
+      if(encounterMode==='starship'&&!selectedEncounterStarships.has(encounterLocations.get(record.id)||defaultDeployment(record)))continue;
       units.push({
         playerName: playerName(record),
         characterName: characterName(record),
@@ -1494,7 +1501,7 @@ async function beginEncounter() {
         ...encounterRuleFields(record),
       });
     }
-    for (const npc of stagedNpcs) {
+    for (const npc of filteredParticipatingNpcs) {
       const weapon = weaponById(npc.heldWeaponId) || weaponById("unarmed");
       units.push({
         preparationUnitId: npc.id,
@@ -1523,18 +1530,23 @@ async function beginEncounter() {
       });
     }
     for(const unit of units){const saved=arenaStartingLocations.get(unit.characterId||unit.preparationUnitId);if(saved&&encounterMode==='starship'&&combatStarships.some(s=>s.id===saved.starshipId))unit.location=structuredClone(saved);}
+    if(!units.length)throw new Error('Assign at least one combatant to a selected starship. Unassigned characters remain in preparation.');
     if(encounterMode==='surface')window.SACombatArena.deploy(encounterArena,units);
-    if(encounterMode==='starship'&&!await window.SACrewDeployment.open(combatStarships,units,encounterState?.units||[],campaign.npcRoster||[]))return;
-    const setup = { arena:encounterMode==='surface'?structuredClone(encounterArena):null,fog:structuredClone(encounterFog),spaceObjects:encounterMode==='starship'?structuredClone(encounterObjects):[],mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
-    const storageKey = `sa-encounter-preparation-${code}`;
+    if(encounterMode==='starship'){
+      const deployment=window.SACrewDeployment.open(combatStarships,units,encounterState?.units||[],campaign.npcRoster||[]);
+      if(addShip)document.querySelector('.crew-deployment [data-continue]').textContent='Confirm Positions / Add Ship';
+      if(!await deployment)return;
+    }
+    const setup = { arena:encounterMode==='surface'?structuredClone(encounterArena):null,fog:structuredClone(encounterFog),spaceObjects:encounterMode==='starship'?structuredClone(encounterObjects):[],mode: encounterMode, starships: combatStarships, units, shipPositions: combatStarships.length ? structuredClone(encounterPositions.filter(p=>combatStarships.some(s=>s.id===p.id))) : [], shipDistances: combatStarships.length ? preparedDistances : [] };
+    const storageKey = `sa-encounter-${addShip?"reinforcement":"preparation"}-${code}`;
     const fingerprint = JSON.stringify(setup);
     let pending;
     try { pending = JSON.parse(sessionStorage.getItem(storageKey) || "null"); } catch { /* Start a new request if old browser data is invalid. */ }
     if (pending?.fingerprint !== fingerprint) pending = { preparationId: crypto.randomUUID(), fingerprint };
     sessionStorage.setItem(storageKey, JSON.stringify(pending));
     let confirmCampaignName;
-    if(encounterState?.hasEngagedClock&&!encounterState.encounterEndedAt){confirmCampaignName=await promptGm({title:'Replace Active Encounter?',message:`A recovery checkpoint will be saved. Type ${campaign.name} to replace the current encounter.`,inputLabel:'Campaign name',requiredValue:campaign.name,acceptLabel:'Replace Encounter',danger:true});if(confirmCampaignName!==campaign.name)return;}
-    encounterState = await encounterAction("prepareEncounter", { ...setup, preparationId: pending.preparationId,expectedEncounterId:encounterState?.encounterId,confirmCampaignName });
+    if(!addShip&&encounterState?.hasEngagedClock&&!encounterState.encounterEndedAt){confirmCampaignName=await promptGm({title:'Replace Active Encounter?',message:`A recovery checkpoint will be saved. Type ${campaign.name} to replace the current encounter.`,inputLabel:'Campaign name',requiredValue:campaign.name,acceptLabel:'Replace Encounter',danger:true});if(confirmCampaignName!==campaign.name)return;}
+    encounterState = await encounterAction(addShip?"addEncounterShip":"prepareEncounter", { ...setup, preparationId: pending.preparationId,expectedEncounterId:encounterState?.encounterId,confirmCampaignName });
     sessionStorage.removeItem(storageKey);
     sessionStorage.removeItem(`sa-encounter-map-draft-${code}`);
     encounterMapDraftSaved = false;
@@ -1542,17 +1554,18 @@ async function beginEncounter() {
     encounterPositions = structuredClone(encounterState.shipPositions || []);
     encounterObjects = structuredClone(encounterState.spaceObjects || []);
     encounterObjectBaseline = structuredClone(encounterObjects);
-    dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}&encounter=${Date.now()}`;
+    if(!addShip||!dom.atbFrame.getAttribute("src"))dom.atbFrame.src = `index.html?embedded=gm&campaign=${encodeURIComponent(code)}&encounter=${Date.now()}`;
     showEncounterLive();
     dom.atbFrame.scrollIntoView({ block: "start", behavior: "instant" });
     void refreshCombatSaveStatus();
-    showMessage(dom.message, "Encounter prepared and paused. Engage the clock when the table is ready.", "success");
+    showMessage(dom.message, addShip?"Ship and deployed crew added. The existing encounter continues unchanged.":"Encounter prepared and paused. Engage the clock when the table is ready.", "success");
   } catch (error) {
     showMessage(dom.message, error.message, "error");
   } finally {
     encounterPreparing = false;
     dom.beginEncounter.disabled = false;
     dom.beginEncounter.textContent = "Begin Combat";
+    dom.addEncounterShip.disabled=(encounterState?.starships?.length||0)>=6||[...selectedEncounterStarships].filter(id=>!encounterState?.starships?.some(s=>s.id===id)).length!==1;
   }
 }
 
@@ -2765,6 +2778,8 @@ dom.savePremadeNpc.addEventListener("click", async () => {
 });
 dom.deletePremadeNpc.addEventListener("click", () => deleteNpcTemplate(premadeNpcDraft?.templateId).catch((error) => showMessage(dom.message, error.message, "error")));
 dom.beginEncounter.addEventListener("click", beginEncounter);
+dom.addEncounterShip.addEventListener("click",()=>beginEncounter({addShip:true}));
+document.querySelector('#prepareReinforcement').addEventListener('click',()=>{encounterMode='starship';showEncounterSetup({forceBuilder:true});showMessage(dom.message,'Select one new ship, set its arrival hex on the map, and use Add Ship to Active Combat. Existing ships and crew will not be replaced.','success');});
 dom.resumeEncounter.addEventListener("click", resumeEncounterWithFreshCharacters);
 dom.exitEncounter.addEventListener("click", exitCampaignEncounter);
 dom.prepareNewEncounter.addEventListener("click", async () => {

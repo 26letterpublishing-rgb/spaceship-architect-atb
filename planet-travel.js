@@ -8,7 +8,7 @@ function notify(c,message,characterId,kind='system'){
 }
 function begin(c,next,{kind='walk',ownerId='',duration}={}){
  const s=c.starmaps;if(s.partyJourney)throw Error('Wait for the party’s current journey to finish.');
- const {planet}=require('./campaign-planets').context(c,next),p=s.party,regional=!!next.regionId,r=route(regional?p.regionHex:p.hex,regional?next.regionHex:next.hex,regional,planet.size),total=duration??Math.max(1.5,Math.min(120,r.distance*(regional?2:4)));
+ const {planet}=require('./campaign-planets').context(c,next),p=s.party,regional=!!next.regionId,r=route(kind==='landing'&&regional&&(p.regionId||'')!==next.regionId?next.regionHex:regional?p.regionHex:p.hex,regional?next.regionHex:next.hex,regional,planet.size),total=duration??Math.max(1.5,Math.min(120,r.distance*(regional?2:4)));
  s.partyJourney={id:randomUUID(),kind,from:structuredClone(p),to:structuredClone(next),route:r,total,remaining:total,clockAt:Date.now(),ownerId};
  s.viewEvent={id:s.partyJourney.id,kind};return s.partyJourney;
 }
@@ -42,7 +42,16 @@ function tick(c,now,paused){
  if(j.remaining===0){
   // Cancel safely if a GM relocation replaced the starting location during travel.
   if(locationKey(s.party)===locationKey(j.from)){
-   if(j.kind==='landing'){const p=s.localPositions[j.to.shipId];if(p)Object.assign(p,{surfaceHex:j.to.hex,regionId:'',regionHex:''});}
+   if(j.kind==='landing'){
+    let error;try{error=require('./campaign-planets').landingError(c,j.to);}catch(e){error=e.message;}
+    if(error){
+     // The ship has not landed: retain the original selection/initiator and explain recovery.
+     s.party={...s.party,awaitingLanding:true,landingOwnerId:j.ownerId||j.from.landingOwnerId||''};
+     notify(c,'Landing could not complete: '+error,j.ownerId||null);if(j.ownerId)notify(c,'Landing could not complete: '+error,null);
+     delete s.partyJourney;return {changed:true,finished:true};
+    }
+   }
+   if(j.kind==='landing'){const p=s.localPositions[j.to.shipId];if(p)Object.assign(p,{surfaceHex:j.to.hex,regionId:j.to.regionId||'',regionHex:j.to.regionHex||''});}
    try{require('./campaign-planets').place(c,j.to);}catch(error){notify(c,'Surface travel could not complete: '+error.message);}
   }
   delete s.partyJourney;return {changed:true,finished:true};

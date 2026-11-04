@@ -13,6 +13,20 @@
   const copy = value => JSON.parse(JSON.stringify(value));
   // Match passive contacts: departure removes eligibility, not historical intel or wrecks.
   const departed = ship => Boolean(ship?.escapedAt || ship?.ship?.warpState?.phase === 'traveling');
+  // Deployed repair/Vulture drones follow current launching-ship visibility, not their own Masking.
+  const parentDrone = target => Boolean(target?.isDrone && !target.isFloatingBody);
+  function droneVisible(room,observer,target) {
+    const owner=room.starships.find(s=>s.id===target.droneOwnerId);
+    return Boolean(owner && !departed(observer) && !departed(owner) &&
+      (owner.id===observer.id || knowledge(observer).contacts[owner.id]?.level==='detected'));
+  }
+  function syncDroneContacts(room,observer) {
+    const contacts=knowledge(observer).contacts;
+    for(const target of targets.all(room).filter(parentDrone)) {
+      if(droneVisible(room,observer,target))detect(room,observer,target);
+      else delete contacts[target.id];
+    }
+  }
   function installed(ship) {
     const data = ship.ship || ship, ids = new Set((data.placements || []).map(p => p.sicId));
     const item = (data.sicInventory || []).find(i => ids.has(i.id) && stations.online(i) && maps.definition(i.type).sensor);
@@ -50,10 +64,10 @@
   function pulseScan(room,observer){
     const pulse=observer.sensorState?.pulse;if(!(pulse?.remaining>0)||!installed(observer))return 0;let found=0;
     for(const target of targets.all(room)){
-      if(target.id===observer.id||target.escapedAt||target.ship.warpState?.phase==='traveling')continue;
+      if(parentDrone(target)||target.id===observer.id||target.escapedAt||target.ship.warpState?.phase==='traveling')continue;
       const distance=distances.hexDistance(point(room,observer.id),point(room,target.id)),range=scanRangeAgainst(room,observer,target);
       if(distance<=range&&pulse.total+Math.floor(range-distance+1e-8)>=masking(room,target,observer)){detect(room,observer,target).masking=masking(room,target,observer);found++;}
-    }return found;
+    }syncDroneContacts(room,observer);return found;
   }
   function defense(room,ship) {
     return Math.max(masking(room,ship),...(ship.commandSystems?.evasions||[]).filter(e=>e.remaining==null||e.remaining>0).map(e=>e.defense));
@@ -98,6 +112,7 @@
       while (sweep.elapsed >= 12-1e-8) {
         sweep.elapsed = Math.max(0,sweep.elapsed-12);
         for (const target of targets.all(room)) {
+          if(parentDrone(target))continue;
           const state=knowledge(observer), contact=state.contacts[target.id];
           if (target.id===observer.id || target.destroyedAt || target.escapedAt || target.ship.warpState?.phase==='traveling' || contact?.level==='detected' || contact?.level==='last-known' ||
               distances.hexDistance(point(room,observer.id),point(room,target.id))>sensor.range*2) continue;
@@ -122,6 +137,7 @@
     return health.shieldLayers({...target,ship:{...layout,sicInventory}}).map(layer=>condition(layer.current,layer.maximum));
   }
   function detect(room, observer, target) {
+    if(parentDrone(target)&&!droneVisible(room,observer,target))return {};
     const state = knowledge(observer);
     const newlyDetected=state.contacts[target.id]?.level!=='detected';
     if(newlyDetected&&!target.isMissile&&!target.isMine&&!target.isDrone&&!target.isProbe&&!target.isFloatingBody&&observer.controlType&&target.controlType&&observer.controlType!==target.controlType&&knowledge(target).contacts[observer.id]?.level==='detected')report(target,{enemyDetection:true,targetId:observer.id,text:`${observer.title}: enemy ship has detected your position.`});
@@ -138,6 +154,7 @@
       sweepState(room,observer);
       for (const id of Object.keys(state.contacts)) if (!targets.find(room,id)) delete state.contacts[id];
       for (const target of targets.all(room)) {
+        if(parentDrone(target))continue;
         if((target.isProbe&&target.probeOwnerId===observer.id)||(target.isDrone&&target.droneOwnerId===observer.id)||(target.isMissile&&target.projectile?.sourceId===observer.id)){detect(room,observer,target);continue;}
         if (target.id === observer.id) continue;
         if(observer.escapedAt||target.escapedAt||observer.ship.warpState?.phase==='traveling'||target.ship.warpState?.phase==='traveling'){delete state.contacts[target.id];continue;}
@@ -161,6 +178,7 @@
         if (mask <= 10) detect(room,observer,target);
         else if (mask <= 30) {state.contacts[target.id] = { id:target.id,level:'unknown',title:'Unknown Object',position:approximate(point(room,target.id)),uncertainty:5 };if(!contact)report(observer,{unknownDetected:true,targetId:target.id,text:'Unknown Object Detected!!'});}
       }
+      syncDroneContacts(room,observer);
     }
   }
   function fusedTotal(values) {
@@ -200,7 +218,7 @@
     }
     const detected=[];
     for (const target of targets.all(room)) {
-      if(target.id===ship.id||departed(target))continue;
+      if(parentDrone(target)||target.id===ship.id||departed(target))continue;
       const distance=distances.hexDistance(point(room,ship.id),point(room,target.id)),range=order.kind==='area'?scanRangeAgainst(room,ship,target):rangeAgainst(room,ship,target);
       if(order.hex?distances.hexDistance(order.hex,point(room,target.id))>1:distance>range)continue;
       const difficulty=masking(room,target,ship)+(order.hex?-10+Math.ceil(distances.hexDistance(order.hex,point(room,target.id)))*2+(outsideHex(room,order)?5:0):-Math.floor(range-distance+1e-8));
@@ -215,7 +233,7 @@
     const ship=room.starships.find(s=>s.id===order?.shipId);if(!ship||departed(ship))return [];
     if(['life','lifeArea'].includes(order.kind))return outsideHex(room,order)?[{difficulty:15}]:[];
     if(order.kind==='analysis'){const target=targets.find(room,order.targetId);return target&&!departed(target)?[{targetId:target.id,difficulty:defense(room,target)}]:[];}
-    return targets.all(room).filter(t=>t.id!==ship.id&&!departed(t)).flatMap(t=>{
+    return targets.all(room).filter(t=>!parentDrone(t)&&t.id!==ship.id&&!departed(t)).flatMap(t=>{
       const distance=distances.hexDistance(point(room,ship.id),point(room,t.id)),range=scanRangeAgainst(room,ship,t),offset=order.hex?distances.hexDistance(order.hex,point(room,t.id)):0;
       if(order.hex?offset>1:distance>range)return [];
       return [{targetId:t.id,difficulty:masking(room,t)+(order.hex?-10+Math.ceil(offset)*2+(outsideHex(room,order)?5:0):-Math.floor(range-distance+1e-8))}];
@@ -288,7 +306,8 @@
       }
       Object.assign(other.contacts,copy(state.contacts)); delete other.contacts[recipient.id];
       detect(room,recipient,observer);
-      other.reports = [...state.reports.map(r => ({...copy(r),sharedBy:observer.title})),...other.reports].slice(0,30);
+      syncDroneContacts(room,recipient);
+      other.reports = [...state.reports.filter(r=>{const t=targets.find(room,r.targetId);return !parentDrone(t)||droneVisible(room,recipient,t);}).map(r => ({...copy(r),sharedBy:observer.title})),...other.reports].slice(0,30);
       delivered++;
       }
       report(observer,{text:`Sensor data transmitted to ${delivered} ship${delivered === 1 ? '' : 's'}.`}); return;
@@ -331,7 +350,7 @@
       state.pulse={remaining:2,total:automatic===null?total:guaranteedMinimum};
     }
     for (const other of targets.all(room)) {
-      if (other.id === observer.id || departed(other)) continue;
+      if (parentDrone(other) || other.id === observer.id || departed(other)) continue;
       const distance = distances.hexDistance(point(room,observer.id),point(room,other.id)), range = order.kind==='area'?scanRangeAgainst(room,observer,other):rangeAgainst(room,observer,other);
       if (!order.hex && distance > range) continue;
       const offset = order.hex ? distances.hexDistance(order.hex,point(room,other.id)) : 0;
@@ -341,8 +360,10 @@
       if (automatic===null ? total+proximity >= difficulty : automatic.some(s=>s.id===other.id)) { detect(room,observer,other).masking=masking(room,other,observer); found++; }
       else if(state.contacts[other.id]){state.contacts[other.id].scanLowerBound=Math.max(state.contacts[other.id].scanLowerBound||0,total);}
     }
+    syncDroneContacts(room,observer);
     if(typeof window==='undefined')require('./ship-illusions').resolveScan(room,observer,order);
     const objectRefs=order.kind==='area'?(room.spaceObjects||[]).filter(o=>!o.collectedBy&&distances.hexDistance(point(room,observer.id),o)<=pulseRange(observer)+1e-8).map(o=>({id:o.id,label:o.name+(o.destroyedAt?' / Destroyed':'')})):[];
+    state.lastScan={encounterId:room.encounterId,kind:order.kind,origin:copy(point(room,observer.id)),hex:order.hex?copy(order.hex):null,found,range:installed(observer)?.range||0,serial:(state.lastScan?.serial||0)+1};
     const summary=found?`${order.kind === 'hex' ? 'Hex' : 'Area'} scan complete: ${found} contact${found===1?'':'s'} detected.`:'No contacts resolved in the scanned area. Unknown markers indicate approximate locations.';
     const scenery=order.kind==='area'?(objectRefs.length?' Objects within sensor range: '+objectRefs.map(o=>o.label).join(', ')+'.':' No map objects within sensor range.'):'';
     report(observer,{text:summary+scenery,objectRefs,...(automatic===null?{values,total}:{automatic:true})});
@@ -380,13 +401,14 @@
   function view(state, observerId) {
     if(observerId&&state.sensorObserverId===observerId)return state;
     const observer = state.starships.find(s => s.id === observerId), data = observer ? knowledge(observer) : null;
-    const contacts = data?.contacts || {}, own = observer ? [copy(observer)] : [];
+    const contacts = Object.fromEntries(Object.entries(data?.contacts||{}).filter(([id,c])=>{if(!c.isDrone||c.isFloatingBody)return true;const target=targets.find(state,id);return target&&droneVisible(state,observer,target);})), own = observer ? [copy(observer)] : [];
     const publicContact = contact => { const result=copy(contact);if(contact.level!=='detected'||!data?.analyses?.[contact.id]?.layout)delete result.shieldConditions;return result; };
     const positions = (state.shipPositions || []).filter(p => p.id === observerId);
     for (const contact of Object.values(contacts)) {
       // Contacts contain intelligence only, never enemy inventories, layout, movement orders or crew.
       const analysis=contact.level==='detected' && data.analyses[contact.id]?.layout ? data.analyses[contact.id] : null;
-      own.push({id:contact.id,title:contact.title,size:contact.size,mapColor:contact.mapColor,mapIcon:contact.mapIcon,mapHeading:contact.mapHeading,mapPowered:contact.mapPowered,isProbe:contact.isProbe,probeTier:contact.probeTier,probeInhibitor:contact.probeInhibitor,probeOwnerId:contact.probeOwnerId,probePosition:contact.isProbe?contact.position:undefined,isFloatingBody:contact.isFloatingBody,isSalvageDrone:contact.isSalvageDrone,isDrone:contact.isDrone,droneTier:contact.droneTier,droneSprite:contact.droneSprite,droneOwnerId:contact.droneOwnerId,dronePosition:contact.isDrone?contact.position:undefined,isMine:contact.isMine,mineThreshold:contact.mineThreshold,mineArt:contact.mineArt,isMissile:contact.isMissile,uninterceptable:contact.uninterceptable,isTorpedo:contact.isTorpedo,missilePosition:contact.isMissile?contact.position:undefined,missileHeading:contact.missileHeading,missileSlot:contact.missileSlot,missileSalvoSize:contact.missileSalvoSize,missilePhase:contact.missilePhase,missileSpeed:contact.missileSpeed,missileEndedAt:contact.missileEndedAt,destroyedAt:contact.destroyedAt,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:contact.hullCondition,maximumHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold||14):contact.isMissile?1:6,currentShieldHp:contact.shieldCondition,maximumShieldHp:6,contactLevel:contact.level,uncertainty:contact.uncertainty,
+      own.push({id:contact.id,title:contact.title,size:contact.size,mapColor:contact.mapColor,mapIcon:contact.mapIcon,mapHeading:contact.mapHeading,mapPowered:contact.mapPowered,isProbe:contact.isProbe,probeTier:contact.probeTier,probeInhibitor:contact.probeInhibitor,probeOwnerId:contact.probeOwnerId,probePosition:contact.isProbe?contact.position:undefined,isFloatingBody:contact.isFloatingBody,isSalvageDrone:contact.isSalvageDrone,isDrone:contact.isDrone,droneTier:contact.droneTier,droneSprite:contact.droneSprite,droneOwnerId:contact.droneOwnerId,dronePosition:contact.isDrone?contact.position:undefined,isMine:contact.isMine,mineThreshold:contact.mineThreshold,mineArt:contact.mineArt,isMissile:contact.isMissile,uninterceptable:contact.uninterceptable,isTorpedo:contact.isTorpedo,missilePosition:contact.isMissile?contact.position:undefined,missileHeading:contact.missileHeading,missileSlot:contact.missileSlot,missileSalvoSize:contact.missileSalvoSize,missilePhase:contact.missilePhase,missileSpeed:contact.missileSpeed,missileEndedAt:contact.missileEndedAt,destroyedAt:contact.destroyedAt,defenseScore:contact.defenseScore,evasionRemaining:contact.evasionRemaining,contactOnly:!analysis,analyzedContact:Boolean(analysis),currentHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold??(contact.isFloatingBody?1:contact.isSalvageDrone?25:9)):contact.isMissile?1:contact.hullCondition,maximumHullHp:contact.isProbe?contact.probeThreshold:contact.isDrone?(contact.droneThreshold??(contact.isFloatingBody?1:contact.isSalvageDrone?25:9)):contact.isMissile?1:6,currentShieldHp:contact.shieldCondition,maximumShieldHp:6,contactLevel:contact.level,uncertainty:contact.uncertainty,
+        ...(analysis&&state.starships.some(s=>s.id===contact.id)?{controlType:state.starships.find(s=>s.id===contact.id).controlType==='gm'?'gm':'pc'}:{}),
         isCloaked:contact.level==='detected'&&Boolean(contact.cloaked),
         analysisHealth:analysis?{hull:analysis.hull?copy(analysis.hull):undefined,shield:analysis.shield?copy(analysis.shield):undefined,at:analysis.at}:undefined,
         shieldConditions:analysis?copy(contact.shieldConditions||analysis.shield?.layers?.map(layer=>condition(layer.current,layer.maximum))||[]):undefined,

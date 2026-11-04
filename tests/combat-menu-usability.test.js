@@ -9,6 +9,16 @@ const end = source.indexOf('  // Hold keeps', start);
 const context = {window:{SACombatPanel:require('../combat-panel-ui')}};
 vm.runInNewContext(source.slice(start, end), context);
 const entries = labels => labels.map(label => [label, '[data-action]', '', 'station']);
+test('turn-blocked actions use the requested short tooltip while non-turn reasons remain distinct',()=>{
+ const reason=context.actionUnavailableReason;
+ assert.match(reason({consoleHold:true},{},false,false,false),/^It's not your turn!$/);
+ assert.match(reason({}, {},false,false,false),/^It's not your turn!$/);
+ assert.match(reason({}, {hiddenActiveTurn:true,units:[{characterName:'Secret NPC'}]},false,false,false),/^It's not your turn!$/);
+ assert.match(reason({}, {},true,true,false),/^It's not your turn!$/);
+ assert.match(reason({delayedAction:{}},{},true,false,false),/^It's not your turn!$/);
+ assert.match(reason({shieldRestabilizing:{}},{},true,false,false),/shield restabilization/);
+ assert.equal(reason({}, {},true,false,false),'');
+});
 
 test('an unstationed character has no empty ship action categories', () => {
   assert.equal(context.stationMenuCategories([]).length, 0);

@@ -6,7 +6,7 @@
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   function visible(){return host?.isConnected&&host.closest('dialog')?.open&&!document.hidden&&window.SAExploreSession?.active?.()!==false&&host.getClientRects().length>0;}
   function sound(){
-    let muted=true;try{muted=localStorage.getItem('sa-atb-alerts')==='off'||localStorage.getItem('sa-atb-gm-muted')==='on';}catch{}
+    let muted=true;try{const storage=window.SABrowserStorage?.local||localStorage;muted=storage.getItem('sa-atb-alerts')==='off'||storage.getItem('sa-atb-gm-muted')==='on';}catch{}
     const mapVisible=[...mapScenes].some(n=>n.isConnected&&n.getClientRects().length&&!document.hidden&&window.SAExploreSession?.active?.()!==false);
     const enabled=(!!ship&&visible()||mapVisible)&&unlocked&&!muted;
     if(enabled&&!audio){try{audio=new AudioContext();gain=audio.createGain();gain.gain.value=0;gain.connect(window.SAAudioMix.destination(audio,'ambient'));const noise=audio.createBuffer(1,audio.sampleRate*3,audio.sampleRate),data=noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*.35;const source=audio.createBufferSource(),filter=audio.createBiquadFilter();source.buffer=noise;source.loop=true;filter.type='lowpass';filter.frequency.value=260;source.connect(filter);filter.connect(gain);source.start();[43,65,130].forEach((hz,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=hz;g.gain.value=i===2?.12:.35;o.connect(g);g.connect(gain);o.start();});const pulse=audio.createOscillator(),pg=audio.createGain();pulse.frequency.value=.38;pulseGain=pg;pg.gain.value=0;pulse.connect(pg);pg.connect(gain.gain);pulse.start();}catch{}}

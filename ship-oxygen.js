@@ -29,7 +29,7 @@ function people(campaign,room=null){
     if(unit.location?.environment==='boarding'||unit.location?.arenaId||unit.location?.environment==='surface'||unit.vacuum||unit.location?.escapePodId)continue;
     const shipId=unit.location?.starshipId||(campaign.starships||[]).find(s=>s.crewNpcUnitIds?.includes(unit.id))?.id;
     if(!shipId)continue;
-    result.push({id:unit.id,unitId:unit.id,characterId:null,shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:require('./breathing').independent(unit),
+    result.push({id:unit.id,unitId:unit.id,characterId:null,automated:unit.team==='npc'&&require('./ship-automation').active(unit),shipId,location:unit.location,movement:unit.timedAction,name:unit.characterName||'NPC',dice:npcAttributeDice(unit.physicalAttribute),skill:Math.max(0,Number(unit.physicalSkill)||0),immune:require('./breathing').independent(unit),
       get hp(){return Number(unit.currentHp??unit.maximumHp??0);},set hp(value){unit.currentHp=value;}});
   }
   return result;
@@ -58,6 +58,7 @@ function sync(ships,actors){
     const aboard=actors.filter(p=>p.shipId===ship.id&&!p.immune),ids=new Set(aboard.map(p=>p.id));
     for(const id of Object.keys(data.crew))if(!ids.has(id))delete data.crew[id];
     for(const person of aboard){
+      if(data.crew[person.id]?.request)data.crew[person.id].request.automated=Boolean(person.automated);
       const oxygen=air.at(ship,person.location),replenishing=Number.isInteger(person.location?.square)?recovering.has(person.location.square):Object.keys(ship.ship.atmosphereState.cells).every(k=>recovering.has(Number(k)));
       if(oxygen>10+1e-7){delete data.crew[person.id];if(oxygen>=100-1e-7&&replenishing)continue;data.crew[person.id]={id:person.id,characterId:person.characterId,name:person.name,oxygen,remaining:0,difficulty:6,phase:'air',replenishing,request:null};continue;}
       const crew=data.crew[person.id]||={id:person.id,characterId:person.characterId,name:person.name,remaining:0,difficulty:6,phase:'breath',request:null};
@@ -92,7 +93,7 @@ function advance(ships,actors,seconds){
         if(before.has(crew.id))crew.remaining=Math.max(0,crew.remaining-step);
         if(crew.remaining>1e-7)continue;
         if(crew.phase==='suffocating'){damage(ship,crew,person,events);continue;}
-        crew.request={id:randomUUID(),dice:[...person.dice],skill:person.skill,difficulty:crew.difficulty};
+        crew.request={id:randomUUID(),automated:Boolean(person.automated),dice:[...person.dice],skill:person.skill,difficulty:crew.difficulty};
       }
     }
     left-=step;

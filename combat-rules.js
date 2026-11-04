@@ -87,6 +87,17 @@
     if(weapon.id==='murasama-blade'&&options.unsheathe){weapon.damage+=' + 1D10';weapon.chargeBonus+=', +1D10 Damage';}
     return weapon;
   }
+  // On the integer square combat grid, distance 1 is a cardinal neighbor.
+  // Preserve explicit printed reach, including the Whip's existing two-unit geometry.
+  function meleeReachAllowed(weapon, distance) {
+    const reach = Math.max(1, parseFloat(weapon?.range) || 1);
+    return Number.isFinite(distance) && distance > 0 && distance <= reach;
+  }
+  function meleeTargetAllowed(state, attacker, defender, weapon) {
+    const a=attacker?.location,b=defender?.location;
+    if (!a || !b || ((a.starshipId || b.starshipId) && a.starshipId !== b.starshipId) || ((a.arenaId || b.arenaId) && a.arenaId !== b.arenaId)) return false;
+    return meleeReachAllowed(weapon, mappedDistance(state,attacker,defender) ?? 1);
+  }
   function attackPlan(weapon, { distance = 0, charges = 0, aimDie = 0, aimDice = [], attackType = "ranged", strengthDice = [], situationalAttackModifier = 0, options = {} } = {}) {
     weapon=configureWeapon(weapon,options,charges);
     const rangeText = String(weapon?.range || "");
@@ -103,7 +114,7 @@
     let manualRange = false;
 
     if (attackType === "melee") {
-      allowed = units <= Math.max(1.5, effectiveRange || 1);
+      allowed = meleeReachAllowed({range:effectiveRange}, units);
       rangeExplanation = allowed ? "Nearby melee target; no Range modifiers." : "Target is not within melee reach.";
     } else if (weapon?.id === "ionic-shotgun") {
       const bands = Math.floor(units / 2);
@@ -230,5 +241,5 @@
     const x=p=>p.square%columns*3+p.mesh%3,y=p=>Math.floor(p.square/columns)*3+Math.floor(p.mesh/3);
     return Math.hypot(x(a)-x(b),y(a)-y(b));
   }
-  return { heldWeapon, configureWeapon, mappedDistance, attackPlan, resolveAttack, damagePlan, correctedDamage, resolveDamage, parseDiceFormula, formatDiceFormula };
+  return { heldWeapon, configureWeapon, meleeReachAllowed, meleeTargetAllowed, mappedDistance, attackPlan, resolveAttack, damagePlan, correctedDamage, resolveDamage, parseDiceFormula, formatDiceFormula };
 });

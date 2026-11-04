@@ -789,8 +789,8 @@ function renderMobilePlacement() {
 const inventoryHeadings = {
   pending: ["Pending Purchases", "New SICs awaiting confirmation."],
   queue: ["Installation Queue", "Select a SIC, then choose its hull square."],
-  installed: ["Installed", "Operational SICs currently inside the ship."],
-  storage: ["Storage", "Owned SICs currently kept off the ship."],
+  installed: ["Installed", "SICs fitted to this ship. Remove sends them to Storage."],
+  storage: ["Storage", "Owned SICs off the ship. Install prepares a SIC for placement."],
 };
 
 function inventoryGroup(kind) {
@@ -827,10 +827,10 @@ function locateInstalledSic(item) {
 function renderInventoryList(container, kind, onlyId=null) {
   container.replaceChildren();
   const [title, description] = inventoryHeadings[kind];
+  const items = inventoryGroup(kind).filter(i=>!onlyId||i.id===onlyId);
   const header = document.createElement("header");
-  header.innerHTML = `<strong>${title}</strong><small>${description}</small>`; container.append(header);
-  const recent=new Set(draft.sicInventory.slice(-3).map(i=>i.id));
-  const items = inventoryGroup(kind).filter(i=>onlyId?i.id===onlyId:recent.has(i.id));
+  const count = ["installed","storage"].includes(kind) ? ` <span class="inventory-state-count">(${items.length})</span>` : "";
+  header.innerHTML = `<strong>${title}${count}</strong><small>${description}</small>`; container.append(header);
   if (!items.length) {
     const empty = document.createElement("span"); empty.className = "empty-inventory"; empty.textContent = "None"; container.append(empty); return;
   }
@@ -844,7 +844,7 @@ function renderInventoryList(container, kind, onlyId=null) {
     const detail = item.pendingDisposition === "sell" ? `Sale pending · +${formatCredits(saleValue)} cr`
       : item.pendingDisposition === "destroy" ? "Destruction pending"
         : item.type==='blueprint'?'Shared by all ship printers':definition.hullUpgrade?'Attached to the whole Hull':definition.addon?(item.attachTo?'Attached to '+escapeHtml(sicDefinition(draft.sicInventory.find(i=>i.id===item.attachTo)||'').name):'Choose a host when installing'):definition.bridgeAddon?'Bridge add-on':definition.hullSystem?'Hull wings':definition.multiMount?`${placement?'4 mounts installed':'4 exterior mounts'} / ${formatCredits(definition.price)} cr`:placement ? `Grid ${Math.floor(placement.cell / GRID_SIZE) + 1}, ${placement.cell % GRID_SIZE + 1}` : `${definition.width}×${definition.height} · ${formatCredits(definition.price)} cr`;
-    name.innerHTML = `<strong>${escapeHtml(definition.name)}</strong><small>${detail}</small>`;
+    name.innerHTML = `<strong>${escapeHtml(definition.name)}</strong>${["installed","storage"].includes(kind)?`<span class="inventory-state-label">${kind==="installed"?"Installed":"Stored"}</span>`:""}<small>${detail}</small>`;
     const actions = document.createElement("div"); actions.className = "inventory-sic-actions";
     if(definition.hullUpgrade&&!item.pendingDisposition){
       actions.append(inventoryButton('Locate Hull','locate-sic',()=>locateInstalledSic(item)));
@@ -1863,16 +1863,16 @@ function drawDetailsCrew(){
   for(const grid of shipGrids)for(const door of grid.querySelectorAll('[data-door-key]')){door.disabled=!!away;door.setAttribute('aria-disabled',String(!!away));}
   const walkingDoors=new Set([...Object.values(record?.characterWalks||{}).flatMap(job=>window.SAShipWalking.sample(job,Date.now()+(record.walkClockOffset||0)).openDoorKeys||[]),...Object.values(record?.motion||{}).flatMap(point=>point.openDoorKeys||[])]);
   for(const grid of shipGrids){for(const door of grid.querySelectorAll('[data-walk-door]'))if(!walkingDoors.has(door.dataset.doorKey)){door.classList.toggle('is-open',record?.ship?.doorStates?.[door.dataset.doorKey]==='open');delete door.dataset.walkDoor;}for(const key of walkingDoors)for(const door of grid.querySelectorAll(`[data-door-key="${CSS.escape(key)}"]`)){door.dataset.walkDoor='';door.classList.add('is-open');}}
-  document.querySelectorAll('.ship-detail-crew[data-crew-id]').forEach(e=>{if(!record?.characterLocations?.[e.dataset.crewId])e.remove();});
+  for(const grid of shipGrids)grid.querySelectorAll('.ship-detail-crew[data-crew-id]').forEach(e=>{if(!record?.characterLocations?.[e.dataset.crewId])e.remove();});
   const aiStations=record?.aiStations||Object.values(record?.ship?.crewRoomState?.rooms||{}).filter(d=>d.enabled!==false&&d.automationMode&&d.automationMode!=='off'&&d.automationSeat).map(d=>({id:'ship-ai-'+record.id,name:d.name||'Ship AI',location:d.automationSeat}));
-  document.querySelectorAll('.ship-detail-ai').forEach(e=>{if(!aiStations.some(a=>a.id===e.dataset.aiUnitId))e.remove();});
+  for(const grid of shipGrids)grid.querySelectorAll('.ship-detail-ai').forEach(e=>{if(!aiStations.some(a=>a.id===e.dataset.aiUnitId))e.remove();});
   for(const ai of aiStations)for(const grid of shipGrids){const cell=grid.querySelector(`[data-grid-index="${ai.location.square}"]`);if(!cell)continue;const marker=grid.querySelector(`[data-ai-unit-id="${CSS.escape(ai.id)}"]`)||document.createElement('i');marker.className='ship-detail-crew ship-detail-ai';marker.dataset.aiUnitId=ai.id;marker.dataset.shipAi='true';marker.title=ai.name+' (bridge station)';marker.style.left=`${(ai.location.mesh%3+.5)/3*100}%`;marker.style.top=`${(Math.floor(ai.location.mesh/3)+.5)/3*100}%`;if(marker.parentElement!==cell)cell.append(marker);}
   for(const [id,loc] of Object.entries(record?.characterLocations||{}))for(const grid of shipGrids){
     const cell=grid.querySelector(`[data-grid-index="${loc.square}"]`);if(!cell)continue;
-    const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.characterWalks?.[id]?window.SAShipWalking.sample(record.characterWalks[id],Date.now()+(record.walkClockOffset||0)):record.motion?.[id];
-    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;const tokenInfo=window.SATokenArt.character(occupant||person||{});marker.dataset.tokenRace=tokenInfo.race;marker.dataset.tokenVariant=String(tokenInfo.variant);marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
-    if(!marker.querySelector('.crew-figure'))marker.textContent=(person?.character.identity?.characterName||'?').slice(0,1);
-    marker.title=(occupant?.name||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
+    const person=linkedCampaignState.characters.find(c=>c.id===id),occupant=record.interiorOccupants?.find(u=>u.id===id)||linkedCampaignState.npcRoster?.find(u=>u.id===id),marker=grid.querySelector(`[data-crew-id="${CSS.escape(id)}"]`)||document.createElement('i'),mesh=Number(loc.mesh??4),motion=record.characterWalks?.[id]?window.SAShipWalking.sample(record.characterWalks[id],Date.now()+(record.walkClockOffset||0)):record.motion?.[id];
+    marker.className='ship-detail-crew crew-token'+(motion?' player-ship-moving-token':loc.stationed?' stationed':'');marker.dataset.crewId=id;const tokenInfo=window.SATokenArt.character(occupant?{...occupant,team:'npc'}:person||{});marker.dataset.tokenRace=tokenInfo.race;marker.dataset.tokenVariant=String(tokenInfo.variant);marker.dataset.fallen=String(Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)>-1&&Number(record.crewHealth?.[id]??occupant?.currentHp??person?.character?.health?.current)<=0);marker.style.setProperty('--token-color',record.crewColors?.[id]||occupant?.color||person?.character?.presentation?.atbColor||'#39e58f');
+    if(!marker.querySelector('.crew-figure'))marker.textContent='';
+    marker.title=(occupant?.name||occupant?.characterName||person?.character.identity?.characterName||'Crew')+(loc.stationed?' (stationed)':'');
     marker.dataset.walking=String(Boolean(motion?.walking));
     if(!motion&&Number.isFinite(loc.heading))marker.style.setProperty('--crew-heading',loc.heading+'deg');
     if(motion){marker.style.left=`${motion.x/GRID_SIZE*100}%`;marker.style.top=`${motion.y/(draft.zoneRows||20)*100}%`;marker.style.setProperty('--crew-heading',`${motion.heading}deg`);if(marker.parentElement!==grid)grid.append(marker);}
@@ -2087,7 +2087,7 @@ async function enlargeShipInterior(viewport,source){
   shell.style.cssText='position:fixed;inset:8px;width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:none;max-height:none;margin:auto;padding:0;border:1px solid #70cce0;background:#06151e;color:#eefaff;overflow:hidden';
   host.style.cssText='width:100%;height:calc(100% - 38px)';const closeButton=doc.createElement('button');closeButton.type='button';closeButton.textContent='Back';closeButton.onclick=closeEnlargedShipInterior;shell.append(host,closeButton);
   const shadow=host.attachShadow({mode:'open'});
-  const links=[...document.querySelectorAll('link[rel="stylesheet"]')].filter(link=>/starship\.css|ship-pass2\.css|ship-map-presentation\.css|crew-tokens\.css/.test(link.href));
+  const links=[...document.querySelectorAll('link[rel="stylesheet"]')].filter(link=>/starship\.css|ship-pass2\.css|ship-map-presentation\.css|crew-tokens\.css|token-art\.css/.test(link.href));
   const loading=links.map(link=>new Promise(resolve=>{const copy=doc.createElement('link');copy.rel='stylesheet';copy.href=link.href;copy.onload=resolve;copy.onerror=resolve;shadow.append(copy);}));
   const style=doc.createElement('style');style.textContent=`
     :host{display:block;height:100%;font:14px Arial;color:#eefaff}.enlarged-body{margin:0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#06151e;color:#eefaff}

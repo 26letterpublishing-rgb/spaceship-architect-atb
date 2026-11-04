@@ -1,8 +1,18 @@
-const {randomUUID}=require('node:crypto');
+const {randomUUID,randomInt}=require('node:crypto');
 const maps=require('./ship-map-core'),stations=require('./station-access'),power=require('./ship-power');
 const skillCatalog=require('./skill-catalog'),vrSimulations=require('./vr-simulations');
 const TREATMENT_SECONDS=60, RECOVERY_SECONDS=300;
 const VR_D4_LIMIT_TENTHS=40, VR_MAX_TENTHS=60;
+const GYM_NARRATIONS=Object.freeze([
+  '{character} finished the workout and went looking for a drink.',
+  'Is it leg day? {character} is still checking the schedule.',
+  '{character} completed the circuit. The equipment requested a break.',
+  '{character} challenged gravity to a rematch. Gravity declined to comment.',
+  '{character} counted every repetition, including the dramatic pause.',
+  '{character} stretched. The ship did not become any roomier.',
+  '{character} earned a respectful beep from the exercise console.',
+  '{character} declared the cooldown the best part of the workout.'
+]);
 const activePhases=new Set(['preparing','recovering']);
 const state=ship=>ship.ship.crewRoomState ||= {rooms:{},receipts:[],down:{}};
 function roomData(ship,id){const s=state(ship);s.rooms||={};s.receipts||=[];s.down||={};return s.rooms[id] ||= {notes:[],jobs:[],supplies:0};}
@@ -149,7 +159,8 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
     if(impaired)throw Error('Repair the Gym before using its equipment.');
     if(body.kind!=='exercise')throw Error('Choose an exercise.');
     const activity=['Strength circuit','Endurance workout','Stretching'].includes(body.text)?body.text:'Stretching';
-    details.report={text:(unit.characterName||'Crew')+' completed '+activity.toLowerCase()+'. No automatic skill or attribute award.',at:Date.now()};result.text=details.report.text;
+    const name=unit.characterName||'Crew',narration=GYM_NARRATIONS[randomInt(GYM_NARRATIONS.length)].replaceAll('{character}',()=>name);
+    details.report={text:name+' completed '+activity.toLowerCase()+'. '+narration+' No automatic skill or attribute award.',narration,at:Date.now()};result.text=details.report.text;
   }else if(type==='library'||type==='meeting-room'||type==='science-lab'){
     if(impaired)throw Error(type==='library'?'The Library database is inaccessible while impaired.':'Repair the '+access.definition.name+' before using its shared console.');
     if(body.kind==='note'){
@@ -284,4 +295,4 @@ function inspect(room,campaign,unit,sicId,gm){
     skills:record?vrSimulations.skills(record.character).filter(s=>s.value*10<VR_MAX_TENTHS).map(s=>({...s,trainingGain:s.value*10>VR_D4_LIMIT_TENTHS?1:null})):[],
     trained:record?.character.vrTrainingDay===Math.floor(Number(campaign?.elapsedMinutes||0)/1440),umbrexium:Number(access.ship.ship.minerals?.Umbrexium||0),aiAlert:state(access.ship).aiAlert||null};
 }
-module.exports={restingInMedbay,TREATMENT_SECONDS,RECOVERY_SECONDS,state,roomData,jobs,pending,inTreatment,hibernating,actors,command,advance,nextEvent,reconcile,resolve,rolls,announce,inspect,libraryTargets,deliverLibrary};
+module.exports={GYM_NARRATIONS,restingInMedbay,TREATMENT_SECONDS,RECOVERY_SECONDS,state,roomData,jobs,pending,inTreatment,hibernating,actors,command,advance,nextEvent,reconcile,resolve,rolls,announce,inspect,libraryTargets,deliverLibrary};

@@ -18,24 +18,28 @@ test('GM takeover retains follow-up roll ownership without taking over a differe
     const response = await fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json(); assert.equal(response.status, status, JSON.stringify(result)); return result;
   };
-  const room = await post('/api/campaign/showcase/start', {}), player = room.players.find(p => p.name === 'Nova Vale');
+  const room = await post('/api/campaign/showcase/start', {}), player = room.players[0];
   const gm = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const pc = (body, status) => post('/api/action', { roomCode: room.code, characterId: player.id, characterToken: player.token, ...body }, status);
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());
   const initial = await gm({ action: 'setHardPaused', paused: true });
   const saved = await fetch(`${base}/api/campaign/backup?code=${room.code}&token=${room.gmToken}`).then(r => r.json());
-  const nova = initial.units.find(u => u.characterId === player.id), slug = initial.units.find(u => u.team === 'npc');
+  const nova = initial.units.find(u => u.characterId === player.id), slug = initial.units.find(u => u.team === 'npc' && !u.allyNpc);
   async function restore(configure) {
     const encounter = structuredClone(initial);
     Object.assign(encounter, { activeId: null, activeAction: null, pausedForTurn: false, commandRemaining: null,
       commandDeadline: null, commandTotal: 0, holdPaused: false, resumeAfterTurn: true });
     for (const unit of encounter.units) Object.assign(unit, { atb: 0, speed: 1 });
+    // Ownership tests use a legal cardinal melee pair on the same square arena.
+    encounter.arena=require('../combat-arena').normalize({width:7,height:7,floors:Array.from({length:49},(_,i)=>i)});
+    encounter.units.find(u=>u.id===nova.id).location={arenaId:'surface',square:24,mesh:4};
+    encounter.units.find(u=>u.id===slug.id).location={arenaId:'surface',square:25,mesh:4};
     configure(encounter);
     await post('/api/campaign/restore', { code: room.code, token: room.gmToken, backup: { ...saved, campaign: { ...saved.campaign, encounter } } });
   }
   const attack = () => ({ id: 'takeover-attack', phase: 'checks', attackerId: nova.id, defenderId: slug.id,
     attackerName: nova.characterName, defenderName: slug.characterName, attackType: 'melee', weaponId: 'unarmed', weaponName: 'Unarmed',
-    source: 'clock', distance: 0, plan: { allowed: true, attackModifier: 0, defenseRangeModifier: 0,
+    source: 'clock', distance: 1, plan: { allowed: true, attackModifier: 0, defenseRangeModifier: 0,
       damageFormula: '1D4', damageFormulaSupported: true, rangeExplanation: 'Melee' } });
 
   await t.test('taking over First Aid skill check retains the healing roll', async () => {

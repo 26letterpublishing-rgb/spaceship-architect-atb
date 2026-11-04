@@ -1,0 +1,28 @@
+/* Destination controls only; keep the chamber, passengers and Hold artwork intact. */
+dialog.transporter-console .transport-destination>h3{font-family:Orbitron,Arial,sans-serif;font-size:20px;line-height:1.2}
+dialog.transporter-console .transport-destination label,
+dialog.transporter-console .transport-destination select,
+dialog.transporter-console .transport-destination summary,
+dialog.transporter-console .transport-destination p,
+dialog.transporter-console .transport-destination output,
+dialog.transporter-console .transport-destination [data-map-focus],
+dialog.transporter-console .transport-destination [data-send]{font-family:Orbitron,Arial,sans-serif;font-size:16px;line-height:1.2;overflow-wrap:anywhere}
+/* Transporter-only desktop proportions; retain the existing narrow-screen flow. */
+@media(min-width:901px){
+ dialog.transporter-console{display:flex;flex-direction:column;overflow:hidden!important}
+ dialog.transporter-console>header{flex:none}
+ dialog.transporter-console .transport-panels{grid-template-columns:minmax(0,3.4fr) minmax(150px,1fr);flex:1;min-height:0}
+ dialog.transporter-console .transport-chamber,dialog.transporter-console .transport-destination{height:100%;min-height:0;overflow:auto;box-sizing:border-box}
+ dialog.transporter-console .transport-chamber{display:flex;flex-direction:column;padding-bottom:60px}
+ dialog.transporter-console .transport-chamber>*{flex-shrink:0}
+ dialog.transporter-console .transport-chamber .transport-scene{flex:1 1 auto;height:0;min-height:220px;max-height:none}
+ dialog.transporter-console .transport-chamber fieldset{min-width:0}
+ dialog.transporter-console .transport-destination{display:flex;flex-direction:column}
+ dialog.transporter-console .transport-destination>*{flex-shrink:0}
+ dialog.transporter-console .transport-destination>h3{margin-top:0}
+ dialog.transporter-console .transport-destination>p{margin-block:6px}
+ dialog.transporter-console .transport-destination [data-status]:empty{display:none!important}
+ dialog.transporter-console .transport-destination details{margin-block:6px}
+ dialog.transporter-console .transport-seat{margin-top:auto;padding-top:16px;justify-content:center}
+ dialog.transporter-console .transport-destination button,dialog.transporter-console .transport-destination output{white-space:normal;overflow-wrap:anywhere}
+}

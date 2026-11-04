@@ -25,6 +25,34 @@
     const value = `${Number(Math.max(0, Number(current) || 0).toFixed(1))}/${Number(Math.max(0, Number(maximum) || 0).toFixed(1))}`;
     return `<span class="sa-health-track" title="${label}${exact ? ` ${value}` : ""}" aria-label="${label}${exact ? ` ${value}` : " condition"}">${segments(current, maximum).map(fill => `<i class="sa-health-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}${exact ? `<small>${value}</small>` : ""}</span>`;
   }
+  function crewHealth(units,shipId,campaign){
+    const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // Both sources must already be viewer-filtered. A live record anywhere wins
+    // over its saved location/health, including a live departure from this ship.
+    const people=[...(units||[])],liveIds=new Set(people.flatMap(u=>[u.id,u.characterId].filter(Boolean)));
+    const ship=campaign?.starships?.find(s=>s.id===shipId);
+    const aboard=loc=>loc&&Number.isInteger(loc.square)&&!['surface','exterior','boarding','escape-pod'].includes(loc.environment)&&!loc.escapePodId;
+    for(const id of ship?.crewCharacterIds||[]){
+      if(liveIds.has(id))continue;
+      const loc=ship.characterLocations?.[id],record=campaign.characters?.find(c=>c.id===id);
+      if(!record||!aboard(loc)||(loc.starshipId&&loc.starshipId!==shipId))continue;
+      people.push({id,characterName:record.character?.identity?.characterName,currentHp:record.character?.health?.current,maximumHp:record.character?.computed?.maximumHp,location:{...loc,starshipId:shipId}});liveIds.add(id);
+    }
+    for(const u of campaign?.npcRoster||[]){
+      if(liveIds.has(u.id)||!ship?.crewNpcUnitIds?.includes(u.id))continue;
+      people.push(u);liveIds.add(u.id);
+    }
+    for(const u of ship?.interiorOccupants||[]){
+      if(liveIds.has(u.id))continue;
+      people.push({...u,characterName:u.characterName||u.name});liveIds.add(u.id);
+    }
+    return people.filter(u=>u.location?.starshipId===shipId&&aboard(u.location)&&!u.shipAi&&!u.securityDroid).map(u=>{
+      const known=Number.isFinite(u.currentHp)&&Number.isFinite(u.maximumHp)&&u.maximumHp>0;
+      const filled=known?Math.min(6,Math.ceil(Math.max(0,u.currentHp)/u.maximumHp*6)):0;
+      const hearts=known?'<span class="npc-health" aria-label="Crew health: '+filled+' of 6 heart segments">'+[0,1,2].map(i=>'<span class="npc-heart '+(filled>=i*2+2?'full':filled===i*2+1?'half':'empty')+'" aria-hidden="true">&#9829;</span>').join('')+'</span>':'<span>Health unknown</span>';
+      return '<p data-crew-health="'+escape(u.id)+'"><strong>'+escape(u.characterName)+'</strong>'+hearts+'</p>';
+    }).join('')||'<p>No visible crew aboard.</p>';
+  }
   function protectionItem(unit){
     const allowed=i=>i.quantity>0&&['space-suit','kevlar-vest'].includes(i.catalogId)&&!(unit.raceId==='yuhorn-symitron'&&['ice','lava','rock','wood'].includes(unit.raceType)&&i.catalogId==='space-suit');
     const items=(unit.items||[]).filter(allowed);if(unit.statuses?.armorItemId==='none')return null;
@@ -67,5 +95,5 @@
     if(!refs.length||!text.endsWith(suffix))return escape(text);
     return escape(text.slice(0,-suffix.length))+' Objects within sensor range: '+refs.map(o=>`<span tabindex="0" data-log-space-object="${escape(o.id)}" title="Highlight on starmap" style="color:#ffe28c;text-decoration:underline dotted;cursor:crosshair">${escape(o.label)}</span>`).join(', ')+'.';
   }
-  return Object.freeze({ protectionItem, personalProtection, presentation, hull, segments, track, shieldLayers, shieldTracks, shields, logText, logMarkup });
+  return Object.freeze({ crewHealth, protectionItem, personalProtection, presentation, hull, segments, track, shieldLayers, shieldTracks, shields, logText, logMarkup });
 }));

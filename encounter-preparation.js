@@ -53,7 +53,7 @@ function validatePreparation(body, campaign, normalizeShips) {
   for(const ship of normalized)require('./ship-state').apply(ship,campaign.starships.find(s=>s.id===ship.id));
   for(const ship of normalized)if(ship.ship.missileState)ship.ship.missileState.flights=[];
   if (normalized.length !== starships.length) throw new Error("Invalid starship selection.");
-  const seen = new Set();
+  const seen = new Set(), participants=[];
   for (const unit of units) {
     if (!unit || !["pc", "npc"].includes(unit.team)) throw new Error("Invalid combatant type.");
     if (unit.team === "pc" && !campaign.characters.some(record => record.id === unit.characterId && record.approved !== false)) throw new Error("Every PC must be approved in this campaign.");
@@ -63,14 +63,18 @@ function validatePreparation(body, campaign, normalizeShips) {
     if (!identity || seen.has(identity)) throw new Error("Choose each combatant only once.");
     seen.add(identity);
     if (mode === "starship") {
+      const assigned=unit.location?.starshipId;
+      if(!assigned||(!normalized.some(s=>s.id===assigned)&&campaign.starships.some(s=>s.id===assigned)))continue;
       const ship = normalized.find(record => record.id === unit.location?.starshipId);
       if (!ship?.ship.gridCells.includes(unit.location?.square) || !Number.isInteger(unit.location?.mesh) || unit.location.mesh < 0 || unit.location.mesh > 8) throw new Error("Every combatant must begin on a valid square aboard a selected ship.");
     } else if (unit.location?.starshipId || unit.location?.stationed) throw new Error("Surface combatants cannot begin aboard a starship.");
+    participants.push(unit);
   }
+  if(!participants.length)throw new Error('Assign at least one combatant to a selected starship. Unassigned characters remain in preparation.');
   const shipPositions = body.shipPositions ? distances.validatePositions(normalized,body.shipPositions) : distances.positions(normalized);
   const pairs = body.shipPositions ? distances.fromPositions(normalized,shipPositions) : distances.update(normalized, [], shipDistances);
   if (!body.shipPositions && shipDistances.length !== pairs.length) throw new Error("Set a distance for every pair of ships.");
-  return { spaceObjects:require('./space-objects').normalize(body.spaceObjects||[]),starships: normalized, shipPositions, shipDistances: pairs, arena:mode==='surface'?require('./combat-arena').normalize(body.arena):null,fog:{enabled:!!body.fog?.enabled,explored:{},forced:body.fog?.forced||{},memory:{}},units:mode==='surface'?require('./combat-arena').deploy(require('./combat-arena').normalize(body.arena),structuredClone(units)):deployUnits(units, normalized),
+  return { spaceObjects:require('./space-objects').normalize(body.spaceObjects||[]),starships: normalized, shipPositions, shipDistances: pairs, arena:mode==='surface'?require('./combat-arena').normalize(body.arena):null,fog:{enabled:!!body.fog?.enabled,explored:{},forced:body.fog?.forced||{},memory:{}},units:mode==='surface'?require('./combat-arena').deploy(require('./combat-arena').normalize(body.arena),structuredClone(participants)):deployUnits(participants, normalized),
     fingerprint: preparationFingerprint(body) };
 }
 

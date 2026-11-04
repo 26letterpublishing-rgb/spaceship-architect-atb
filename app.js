@@ -20,7 +20,8 @@ let alertsEnabled = localStorage.getItem("sa-atb-alerts") !== "off";
 let gmSoundsMuted = localStorage.getItem("sa-atb-gm-muted") === "on";
 let playerActionLogEnabled = localStorage.getItem("sa-atb-action-log-enabled") !== "off";
 let visualMode = "bars";
-let surfaceVisualMode = "bars";
+let surfaceVisualMode = localStorage.getItem('sa-atb-surface-visual') === 'ring' ? 'ring' : 'bars';
+let shipVisualMode = localStorage.getItem('sa-atb-ship-visual') === 'bars' ? 'bars' : 'ring';
 let lastStarshipEncounterKey = "";
 let selectedCharacterIcon = "";
 let actionLogTimeout = null;
@@ -104,18 +105,22 @@ const delayBaseOptions = [
 ];
 const c4Factors = ["Situation", "Execution", "Quality", "Performance", "Efficiency", "Ingenuity"];
 const c4GreenFactors = new Set(["Situation", "Execution"]);
-const npcDefaults = [
-  { characterName: "Security Guard", speed: 5, color: "#39e58f", hp: 36 },
-  { characterName: "Space Slug", speed: 3, color: "#7ad66d", hp: 24 },
-  { characterName: "Civilian", speed: 4, color: "#f2d16b", hp: 20 },
-  { characterName: "Chief Security Guard", speed: 7, color: "#35b7ff", hp: 45 },
-  { characterName: "Thug", speed: 6, color: "#f07a4a", hp: 30 },
-  { characterName: "Purple Alien", speed: 8, color: "#a65cff", hp: 40 },
-  { characterName: "Mini Boss", speed: 9, color: "#ff5fa2", hp: 60 },
-  { characterName: "Robot Sentry", speed: 10, color: "#8bd7ff", hp: 54 },
-  { characterName: "Cyber Ninja", speed: 11, color: "#20f5d0", hp: 48 },
-  { characterName: "Final Boss", speed: 12, color: "#ff3d55", hp: 80 },
-];
+let npcDefaults = [];
+let npcDefaultsRequest = null;
+function loadNpcDefaults() {
+  if(npcDefaults.length)return Promise.resolve(npcDefaults);
+  if(npcDefaultsRequest)return npcDefaultsRequest;
+  npcDefaultsRequest=fetch('data/npc-templates.json').then(response=>{
+    if(!response.ok)throw Error('NPC samples could not be loaded. Try again.');
+    return response.json();
+  }).then(rows=>{
+    if(!Array.isArray(rows)||!rows.length||rows.some(n=>!n.id||!n.name||!Number.isFinite(n.speed)))throw Error('NPC samples are unavailable. Try again.');
+    npcDefaults=rows.map(n=>({...n,characterName:n.name}));npcDefaultBag=[];
+    applyNpcDefaultPreview();return npcDefaults;
+  }).finally(()=>{npcDefaultsRequest=null;});
+  return npcDefaultsRequest;
+}
+
 
 function safeLocalStorageSet(key, value) {
   const target = embeddedCombat && COMBAT_SESSION_KEYS.has(key) ? combatSessionStore : window.SABrowserStorage.local;
@@ -1259,9 +1264,11 @@ function previewNpcDefault() {
 function applyNpcDefaultPreview({ force = false } = {}) {
   if (!gmTeam || gmTeam.value !== "npc") return;
   const next = previewNpcDefault();
-  if (force || !gmCharacterName.value.trim()) gmCharacterName.value = next.characterName;
-  if (force || !gmSpeedRating.value) gmSpeedRating.value = String(next.speed);
-  if (force || !gmColor.value) gmColor.value = next.color;
+  if(!next)return;
+  const blank=!gmCharacterName.value.trim();
+  if (force || blank) gmCharacterName.value = next.characterName;
+  if (force || blank || !gmSpeedRating.value) gmSpeedRating.value = String(next.speed);
+  if (force || blank || !gmColor.value) gmColor.value = next.color;
 }
 
 function polarPoint(...args){return window.SATacticalRingRenderer.geometry(escapeHtml).polarPoint(...args);}
@@ -1339,10 +1346,8 @@ function restoreCombatControls() {
   document.querySelector('.paired-combat-utilities')?.remove();
 }
 window.addEventListener('pagehide',()=>{try{window.parent.SACombatRecoveryLayout?.restore(document);}catch{}});
-function mountPairedCombatControls() {
-  const columns = unitList.querySelector('.ship-combat-columns');
-  if (!columns) return;
-  const clock = columns.querySelector('.paired-combat-clock');
+function mountCombatClock(clock) {
+  if (!clock) return;
   moveCombatControl(activePanel, clock);
   moveCombatControl(readyCount, activePanel);
   const actions = clock.querySelector('.paired-clock-actions');
@@ -1352,6 +1357,11 @@ function mountPairedCombatControls() {
     else if (pairedControlOrigins.has(node)) pairedControlOrigins.get(node).after(node);
   }
   if (mode === 'gm') moveCombatControl(gmPanicPause, clock);
+}
+function mountPairedCombatControls() {
+  const columns = unitList.querySelector('.ship-combat-columns');
+  if (!columns) return;
+  mountCombatClock(columns.querySelector('.paired-combat-clock'));
   if(mode==='gm'){
     let utility=document.querySelector('.paired-combat-utilities');
     if(!utility){utility=document.createElement('section');utility.className='paired-combat-utilities';utility.innerHTML='<div class="paired-combat-utility-left"><div class="paired-combat-recovery"></div></div>';document.getElementById('initiativePanel').after(utility);}
@@ -1364,9 +1374,11 @@ function mountPairedCombatControls() {
 
 function shipCombatColumnsMarkup(units, includeMap=true) {
   const ships = (state?.starships || []).filter(s=>!s.escapedAt&&s.ship?.warpState?.phase!=='traveling').sort((a,b)=>Number(a.controlType==='gm')-Number(b.controlType==='gm'));
+  // Wrecks remain on the space map, but are no longer active interiors.
+  const interiors = ships.filter(s=>!s.contactOnly&&!s.destroyedAt);
   const sideRows={left:0,right:0};
-  const emptyActivity=ships.filter(s=>!s.contactOnly).length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode==='gm')}</p>`).join('')}</article>`:'';
-  return `<div class="ship-combat-columns" data-single-pc="${mode==='player'&&ships.filter(s=>!s.contactOnly).length===1}" data-ship-count="${ships.filter(s=>!s.contactOnly).length}"><div class="shared-interior-controls" aria-label="Shared interior display"></div><div class="paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="combat-space-map">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${ships.filter(s=>!s.contactOnly).map((ship,index) => {
+  const emptyActivity=interiors.length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode==='gm')}</p>`).join('')}</article>`:'';
+  return `<div class="ship-combat-columns" data-single-pc="${mode==='player'&&interiors.length===1}" data-ship-count="${interiors.length}"><div class="shared-interior-controls" aria-label="Shared interior display"></div><div class="paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="combat-space-map">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${interiors.map((ship,index) => {
     const side=ship.controlType==='gm'?'right':'left';
     const row=sideRows[side]++;
     const shipUnits = units.filter((unit) => unit.location?.starshipId === ship.id);
@@ -1377,7 +1389,7 @@ function shipCombatColumnsMarkup(units, includeMap=true) {
       : `<div class="ship-lane-bars">${shipUnits.length ? shipUnits.map((unit) => unitCard(unit, { gm: mode === "gm", player: mode === "player" })).join("") : '<p class="empty-location-group">No combatants aboard.</p>'}</div>`;
     return `<article class="ship-combat-lane" data-ship-combat-lane="${escapeHtml(ship.id)}" data-ship-side="${side}" data-ship-row="${row}" style="--pair-row:${row*4+2};--map-row:${row*4+4};--log-row:${row*4+5}"><div class="paired-ship-summary">
       <header class="ship-combat-title"><h2>${escapeHtml(title)}</h2><div data-ship-vitals="${escapeHtml(ship.id)}"></div><div data-ship-distances="${escapeHtml(ship.id)}"></div>${mode==='gm'?`<button type="button" data-damage-ship="${escapeHtml(ship.id)}" title="Apply one incoming hit, including shield reduction">Apply Damage</button><button type="button" class="mini danger" data-remove-combat-ship="${escapeHtml(ship.id)}">Remove from Combat</button>`:''}</header>
-      <div class="ship-summary-stats combat-map-stats"></div><div class="ship-crew-status" role="region" tabindex="0" aria-label="Character combat status aboard ${escapeHtml(title)}">${mode==='gm'&&visualMode==='ring'?shipUnits.filter(u=>u.team==='npc').map(u=>`<div class="crew-automation-controls"><strong>${escapeHtml(u.characterName)}</strong> ${automationControlsMarkup(u,true)}</div>`).join(''):''}</div><section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section></div>
+      <div class="ship-summary-stats combat-map-stats"></div><div class="ship-crew-status" role="region" tabindex="0" aria-label="Character combat status aboard ${escapeHtml(title)}">${mode==='gm'&&visualMode==='ring'?shipUnits.filter(u=>u.team==='npc').map(u=>`<div class="crew-automation-controls"><strong>${escapeHtml(u.characterName)}</strong> ${npcExertionMarkup(u)} ${automationControlsMarkup(u,true)}</div>`).join(''):''}</div><section class="ship-au-panel" aria-label="Auxiliary power"><div><strong>AU <span data-au-count></span></strong><small data-au-rate></small>${mode === "gm" ? `<button type="button" data-spend-au="${escapeHtml(ship.id)}" title="Spend one AU to resolve a ship action">Spend 1 AU</button>` : ""}</div><progress data-au-meter max="100" value="0" aria-label="Recharge toward one AU"></progress></section></div>
       <div class="ship-lane-atb"><div class="ship-ring-holds">${shipUnits.filter(u=>u.consoleHold).map(u=>`<div class="ship-hold-control">${escapeHtml(u.characterName)}: HOLDING 99% ${mode==='gm'||u.id===myUnitId?`<button type="button" data-resume-console="${escapeHtml(u.id)}">Resume</button>`:''}</div>`).join('')}</div>${atb}</div>
       <section class="ship-lane-log"><header><span>LOG</span><strong>Combat Activity</strong></header><div>${mode==='gm'?(ship.sensorState?.reports||[]).filter(r=>r.pending&&r.lifeScan).map(r=>`<p>${escapeHtml(r.text)} <button type="button" data-sensor-reading="${escapeHtml(r.at)}" data-sensor-ship="${escapeHtml(ship.id)}">Enter Biological Reading</button></p>`).join(''):''}${logs.length ? logs.map((entry) => `<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode === "gm")}</p>`).join("") : "<p>No activity aboard this ship yet.</p>"}</div></section>
       <section class="ship-lane-map" data-inline-ship-map="${escapeHtml(ship.id)}"></section>
@@ -1413,17 +1425,21 @@ function renderShipCombatColumns() {
         const target = lane.querySelector(selector);
         const source = replacement.querySelector(selector);
         if (target.innerHTML !== source.innerHTML) {
-          const scroller = selector === ".ship-crew-status" ? target : target.querySelector(":scope > div");
+          const scroller = selector === ".ship-crew-status" ? target : target.querySelector('.ship-lane-bars') || target.querySelector(":scope > div");
           const scrollTop = scroller?.scrollTop || 0;
           window.SALiveDOM.render(target, source.innerHTML);
-          const updatedScroller = selector === ".ship-crew-status" ? target : target.querySelector(":scope > div");
+          const updatedScroller = selector === ".ship-crew-status" ? target : target.querySelector('.ship-lane-bars') || target.querySelector(":scope > div");
           if (updatedScroller) updatedScroller.scrollTop = scrollTop;
         }
       }
     });
   }
   mountPairedCombatControls();
-  window.SASpaceMap.update(unitList.querySelector(".combat-space-map"),state.starships,state.shipPositions);
+  const columns=unitList.querySelector('.ship-combat-columns'),clock=columns?.querySelector('.paired-combat-clock');
+  if(clock){columns.style.removeProperty('--clock-content-height');const lane=columns.querySelector('.ship-lane-atb'),style=lane&&getComputedStyle(lane);const padding=style?parseFloat(style.paddingTop)+parseFloat(style.paddingBottom):0;columns.style.setProperty('--clock-content-height',Math.max(0,clock.offsetHeight-padding)+'px');}
+  const combatSpaceMap=unitList.querySelector('.combat-space-map');
+  const combatSpaceSvg=window.SASpaceMap.update(combatSpaceMap,state.starships,state.shipPositions);
+  window.SASpaceMap.mountCamera(combatSpaceSvg,window.SASpaceMap.cameraIdentity('combat'));
   const spaceHeader = unitList.querySelector('.combat-space-map .space-map>header');
   if (spaceHeader && !spaceHeader.querySelector('.combat-inline-space-controls')) {
     const controls = document.createElement('span');
@@ -1471,8 +1487,10 @@ function updateShipHeaders() {
   window.SASpaceMap.presentKnowledge?.(unitList,ships,observer);
   const mapHeader=unitList.querySelector('.combat-space-map');
   if(mode==='gm'&&mapHeader){
-    let label=mapHeader.querySelector('[data-knowledge-picker]');
-    if(!label){label=document.createElement('label');label.dataset.knowledgePicker='';label.textContent='NPC knowledge: ';const select=document.createElement('select');select.setAttribute('aria-label','NPC knowledge observer');label.append(select);mapHeader.prepend(label);select.onchange=()=>{gmKnowledgeObserverId=select.value;updateShipHeaders();};}
+    const knowledgeHost=document.querySelector('.paired-combat-recovery')||mapHeader;
+    let label=document.querySelector('[data-knowledge-picker]');
+    if(!label){label=document.createElement('label');label.dataset.knowledgePicker='';label.textContent='NPC knowledge: ';const select=document.createElement('select');select.setAttribute('aria-label','NPC knowledge observer');label.append(select);select.onchange=()=>{gmKnowledgeObserverId=select.value;updateShipHeaders();};}
+    if(label.parentElement!==knowledgeHost)knowledgeHost.append(label);
     const select=label.querySelector('select'),choices='<option value="">Active NPC ship (automatic)</option>'+ships.filter(s=>s.controlType==='gm'||state.units.some(u=>u.team==='npc'&&u.location?.starshipId===s.id)).map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)}</option>`).join('');
     if(select.innerHTML!==choices)select.innerHTML=choices;select.value=gmKnowledgeObserverId;
   }
@@ -1712,6 +1730,8 @@ async function action(payload, soundName = "tap", {throwOnError=false} = {}) {
 }
 
 window.SACombatBridge = {
+  campaignMapContext:()=>campaignState,
+  mountCombatClock,
   // The dashboard receives only this viewer's already-filtered combat record.
   shipDashboardData: id => {
     const record=state?.starships?.find(s=>s.id===id&&!s.contactOnly&&!s.escapedAt);
@@ -1786,8 +1806,10 @@ function setMode(next) {
 }
 
 function setVisualMode(next) {
-  surfaceVisualMode = next === "ring" ? "ring" : "bars";
-  visualMode = state?.starships?.length ? "ring" : surfaceVisualMode;
+  visualMode = next === "ring" ? "ring" : "bars";
+  if (state?.starships?.length) shipVisualMode = visualMode;
+  else surfaceVisualMode = visualMode;
+  safeLocalStorageSet(state?.starships?.length ? 'sa-atb-ship-visual' : 'sa-atb-surface-visual', visualMode);
   render();
 }
 
@@ -1882,8 +1904,9 @@ function openGmNpcAttackDialog() {
   });
   if (!targets.length) { alert("Add a target to the encounter first."); return; }
   gmNpcAttackActor.textContent = attacker.characterName;
-  const visibleTargets=targets.filter(t=>window.SACombatArena?.canTarget(state,attacker,t)!==false);
-  if(!visibleTargets.length){alert('No targets are in line of sight. Move past the wall or open the door first.');return;}
+  const meleeWeapon=window.SACombatRules?.heldWeapon(attacker);
+  const visibleTargets=targets.filter(t=>window.SACombatArena?.canTarget(state,attacker,t)!==false&&(meleeWeapon?.category!=='melee'||window.SACombatRules.meleeTargetAllowed(state,attacker,t,meleeWeapon)));
+  if(!visibleTargets.length){alert('No eligible targets are in reach and line of sight. Move closer or open the door first.');return;}
   gmNpcAttackTarget.innerHTML = visibleTargets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`).join("");
   gmNpcAttackName.value = "NPC attack";
   const updateDistance=()=>{const defender=state.units.find(u=>u.id===gmNpcAttackTarget.value),distance=window.SACombatRules?.mappedDistance(state,attacker,defender);gmNpcAttackDistance.readOnly=distance!==null&&distance!==undefined;gmNpcAttackDistance.value=distance==null?'1':String(Math.round(distance*100)/100);};
@@ -1979,6 +2002,10 @@ function npcHealthMarkup(unit, { gm = false } = {}) {
   return '<span class="npc-health" aria-label="Combatant health">' + hearts + exact + window.SAHealthDisplay.personalProtection(unit,gm||unit.id===myUnitId) + '</span>';
 }
 
+function npcExertionMarkup(unit){
+  if(unit?.team!=='npc'||unit.shipAi)return '';
+  return `<button type="button" class="npc-combat-stat" data-action="npcStat" data-id="${escapeHtml(unit.id)}" data-field="exertionCurrent" data-range="0,${unit.exertionMax??0}" title="Edit Current Exertion">Exertion=${unit.exertionCurrent??0}/${unit.exertionMax??0}</button>${unit.frozenSeconds>0&&Number(unit.exertionCurrent)>0&&(!unit.automationMode||unit.automationMode==='off')?`<button type="button" data-action="npcRecovery" data-id="${escapeHtml(unit.id)}">Spend 1 Exertion: cancel a recovery cycle</button>`:''}`;
+}
 function npcCombatStatsMarkup(unit, { gm = false } = {}) {
   if(unit?.shipAi)return '<div class="npc-combat-stats">All attributes 2D6 / all skills 1.0</div>';
   if (!gm || unit?.team !== "npc") return "";
@@ -1992,6 +2019,7 @@ function npcCombatStatsMarkup(unit, { gm = false } = {}) {
     <span>Phys=</span>${statButton("physicalAttribute", "", unit.physicalAttribute, "a", "2,20", "Physical Attribute")}<span>/</span>${statButton("physicalSkill", "+", unit.physicalSkill, "", "0,4", "Physical Skill")}
     <span>Men=</span>${statButton("mentalAttribute", "", unit.mentalAttribute, "a", "2,20", "Mental Attribute")}<span>/</span>${statButton("mentalSkill", "+", unit.mentalSkill, "", "0,4", "Mental Skill")}
     ${statButton("moveSpeed", "Move=", unit.moveSpeed, "", "1,30", "Move Speed")}
+    ${npcExertionMarkup(unit)}
     <label class="npc-held-weapon"><span>Held=</span><select data-action="npcWeapon" data-id="${escapeHtml(unit.id)}">${weaponOptions}</select></label>
   </div>`;
 }
@@ -2023,6 +2051,7 @@ function unitCard(unit, { gm = false, player = false } = {}) {
         <div>
           <div class="unit-name-line"><button type="button" class="unit-name ${gm ? "editable" : ""}" ${gm&&!unit.shipAi ? `data-action="rename" data-id="${escapeHtml(unit.id)}" title="Rename ${escapeHtml(unit.characterName)}"` : "disabled"}>${escapeHtml(unit.characterName)}</button>${unit.team === "pc" ? '<small class="unit-pc-role">(PC)</small>' : ""}${unit.allyNpc ? '<img class="ally-npc-marker" src="SMILE.png?v=20260817" title="Ally NPC" alt="Ally NPC" />' : ""}${npcHealthMarkup(unit, { gm })}</div>
           <div class="unit-owner">${escapeHtml(unit.playerName)} - ${side} ${type}${player ? "" : ` - Speed ${speed}${unit.speed ? "%/sec" : ""} - ${escapeHtml(commandLabel)}`}</div>
+          ${state.starships?.length && unit.consoleHold ? `<div class="ship-hold-control">HOLDING 99% ${gm||own?`<button type="button" data-resume-console="${escapeHtml(unit.id)}">Resume</button>`:''}</div>` : ''}
           ${npcCombatStatsMarkup(unit, { gm })}${automationControlsMarkup(unit,gm)}
         </div>
         ${gm ? `<label class="speed-edit compact-speed"><span>Speed</span><input data-action="speed" data-id="${unit.id}" ${unit.shipAi?'disabled title="AI attribute and skill derived speed"':''} type="number" min="1" max="100" step="0.1" value="${speedInputValue}" /></label>` : ""}
@@ -2946,7 +2975,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
   if (attack.phase === "damage" && !attack.damageRoll && (attacker?.team === "npc" || attack.rollController === "gm" || gmForcedAttackEntry === attack.id)) prompts.push({ role: "damage", unit: attacker });
   const automatic=prompts.find(p=>p.unit.automationMode==='npc'&&!p.unit.automationSuspended);
   if(automatic&&!state.showcase&&!npcAutoRollBusy&&!state.hardPaused&&window.SANpcDice)setTimeout(()=>{if(!npcAutoRollBusy&&!state.hardPaused)gmNpcRollPrompts.querySelector(`[data-roll-role="${automatic.role}"][data-unit-id="${CSS.escape(automatic.unit.id)}"] [data-gm-auto-roll]`)?.click();},0);
-  const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
+  const signature = `${attack.id}|${attack.phase}|${prompts.map(({ role, unit }) => `${role}:${unit.id}:${unit.exertionCurrent}:${unit.automationMode}`).join("|")}|${Boolean(window.SANpcDice)}|${npcAutoRollBusy}`;
   if (signature === gmNpcPromptSignature) return;
   gmNpcPromptSignature = signature;
   gmNpcRollPrompts.innerHTML = prompts.map(({ role, unit }) => {
@@ -2954,6 +2983,7 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
     return `<form class="combat-action-form gm-npc-roll-prompt" data-gm-roll-form data-roll-role="${role}" data-unit-id="${escapeHtml(unit.id)}">
       <p class="gm-npc-roll-pool">${escapeHtml(definition.pool)}</p>
       <label>${escapeHtml(definition.label)}<input data-gm-roll-score type="number" step="0.1" inputmode="decimal" required ${npcAutoRollBusy ? "disabled" : ""} /></label>
+      ${role!=='damage'&&unit.team==='npc'&&!unit.shipAi&&(!unit.automationMode||unit.automationMode==='off')?`<label>Exertion (+1D12 and +1 each)<input data-gm-roll-exertion type="number" value="0" min="0" max="${Number(unit.exertionCurrent)||0}" step="1" ${npcAutoRollBusy?'disabled':''}></label>`:''}
       <div class="gm-npc-roll-actions"><button type="submit" class="complete" ${npcAutoRollBusy ? "disabled" : ""}>Submit Manual Score</button><button data-gm-auto-roll type="button" ${definition.dice.length && window.SANpcDice && !npcAutoRollBusy ? "" : "disabled"}>${npcAutoRollBusy ? "Roll In Progress..." : window.SANpcDice ? (unit.team === "pc" ? "Roll for Player" : "Roll for NPC") : "Dice Loading..."}</button></div>
     </form>`;
   }).join("");
@@ -2978,12 +3008,22 @@ function renderAttackResolution(mine) {
     if(!own)wait=`Waiting for ${gmOwns?'GM':unit?.characterName||'player'} to ${action}…`;
   }
   if(!attack&&!state?.itemResolution){
-    const unit=state?.units.find(u=>!u.delayedAction?.automated&&(u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length));
-    const roll=unit?.delayedAction?.awaitingRoll?unit.delayedAction:unit?.pendingShipRolls?.[0];
+    const unit=state?.units.find(u=>!u.delayedAction?.automated&&(u.delayedAction?.awaitingRoll||u.pendingShipRolls?.some(r=>!(r.breachCheck&&u.team==='npc'&&u.automationMode&&u.automationMode!=='off'&&!u.automationSuspended))));
+    const roll=unit?.delayedAction?.awaitingRoll?unit.delayedAction:unit?.pendingShipRolls?.find(r=>!(r.breachCheck&&unit.team==='npc'&&unit.automationMode&&unit.automationMode!=='off'&&!unit.automationSuspended));
     if(roll){
       const gmOwns=unit.team==='npc'||roll.rollController==='gm',own=mode==='gm'?gmOwns:!gmOwns&&unit.id===mine?.id;
       if(!own)wait=`Waiting for ${gmOwns?'GM':unit.characterName||'player'} to roll ${roll.label||'their ship action'}…`;
     }
+  }
+  // A paused manual NPC turn or queued resolution needs a GM decision, not a roll.
+  // Keep the existing ship-roll notice for the player's own resolution/Delay.
+  if(!wait&&!attack&&!state?.itemResolution&&mode==='player'&&mine&&state.hasEngagedClock&&!state.encounterEndedAt&&state.pausedForTurn&&!state.delayRequest){
+    const pendingRoll=state.units.some(u=>!u.delayedAction?.automated&&(u.delayedAction?.awaitingRoll||u.pendingShipRolls?.some(r=>!(r.breachCheck&&u.team==='npc'&&u.automationMode&&u.automationMode!=='off'&&!u.automationSuspended))));
+    const active=state.units.find(u=>u.id===state.activeId);
+    const automated=active?.automationMode&&active.automationMode!=='off'&&!active.automationSuspended;
+    const legacyWait=state.activeAction?state.activeAction.unitId!==mine.id:active?.team==='npc'&&!automated&&!active.consoleHold;
+    const gmWait=typeof state.waitingForGm==='boolean'?state.waitingForGm:legacyWait;
+    if(!pendingRoll&&gmWait&&state.activeAction?.unitId!==mine.id)wait='Waiting for GM.';
   }
   window.SAResultFeedback?.waiting(wait);
   if (!attack) {
@@ -3163,6 +3203,12 @@ function renderItemResolution(mine) {
   firstAidResolutionMeta.textContent = resolution.useKit ? "First Aid Kit committed" : "No First Aid Kit used";
   firstAidResolutionSummary.innerHTML = `<div><span>Treatment Speed</span><strong>${Number(resolution.treatmentRating).toFixed(1)}</strong></div><div><span>Base Difficulty</span><strong>${resolution.baseDifficulty}</strong></div><div><span>Status</span><strong>${resolution.phase === "gmDifficulty" ? "GM SETS DIFFICULTY" : resolution.phase === "roll" ? "WAITING FOR SKILL CHECK" : "WAITING FOR HEALING ROLL"}</strong></div>`;
   firstAidResolutionForm.hidden = false;
+  let exertionLabel=firstAidResolutionForm.querySelector('[data-npc-aid-exertion]');
+  if(!exertionLabel){exertionLabel=document.createElement('label');exertionLabel.dataset.npcAidExertion='';exertionLabel.innerHTML='Exertion used in final score (+1D12 and +1 each)<input type="number" min="0" step="1" value="0">';firstAidResolutionForm.append(exertionLabel);}
+  const healer=state.units.find(u=>u.id===resolution.healerId),spendInput=exertionLabel.querySelector('input');
+  exertionLabel.hidden=resolution.phase!=='roll'||healer?.team!=='npc'||healer.shipAi||Boolean(healer.automationMode&&healer.automationMode!=='off');
+  if(exertionLabel.dataset.receipt!==resolution.id||exertionLabel.hidden)spendInput.value='0';
+  exertionLabel.dataset.receipt=resolution.id;spendInput.max=String(healer?.exertionCurrent||0);spendInput.disabled=exertionLabel.hidden;
   if (resolution.phase === "gmDifficulty") {
     firstAidResolutionLabel.textContent = "Final Difficulty";
     if (document.activeElement !== firstAidResolutionValue) firstAidResolutionValue.value = String(resolution.difficulty);
@@ -3247,13 +3293,14 @@ function render() {
   }
 
   const starshipCombat = Boolean(state.starships?.length);
+  const wasStarshipLayout = document.body.classList.contains('paired-combat-layout');
   const starshipEncounterKey = starshipCombat ? state.starships.filter(ship=>!ship.isMissile).map((ship) => ship.id).join("|") : "";
-  visualMode = starshipCombat ? "ring" : surfaceVisualMode;
+  visualMode = starshipCombat ? shipVisualMode : surfaceVisualMode;
   document.body.classList.toggle("ring-view-mode", visualMode === "ring");
   lastStarshipEncounterKey = starshipEncounterKey;
   document.body.classList.toggle("starship-combat-mode", starshipCombat);
   document.body.classList.toggle('paired-combat-layout', starshipCombat);
-  if (!starshipCombat) restoreCombatControls();
+  if (!starshipCombat && (wasStarshipLayout || !state.arena)) restoreCombatControls();
   logPanel.classList.toggle("hidden", mode === "welcome" || mode === "roomJoin" || mode === "join" || starshipCombat);
 
   roomCode.textContent = state.roomCode;
@@ -3271,7 +3318,7 @@ function render() {
   gmMuteSound.classList.toggle("muted", soundsMuted);
   gmMuteSound.title = soundsMuted ? "Unmute sounds" : "Mute sounds";
   gmMuteSound.setAttribute("aria-label", gmMuteSound.title);
-  visualModeToggle.classList.toggle("hidden", starshipCombat || (mode !== "gm" && mode !== "player"));
+  visualModeToggle.classList.toggle("hidden", mode !== "gm" && mode !== "player");
   visualModeToggle.textContent = visualMode === "ring" ? "ATB Bars" : "Tactical Ring";
   visualModeToggle.classList.toggle("ring-active", visualMode === "ring");
   undoLastTiming.disabled = !state.undoAvailable;
@@ -3379,6 +3426,7 @@ function render() {
   queueGmDelayRequestPrompt();
   syncEmbeddedModalViewport();
   positionTurnControls();
+  if (!starshipCombat) mountCombatClock(document.querySelector('.surface-combat-clock'));
   if(!embeddedViewInitializing)window.SAViewReady?.();
 }
 
@@ -3967,6 +4015,7 @@ gmNpcRollPrompts?.addEventListener("submit", async (event) => {
   if (npcAutoRollBusy) return;
   const attack = state?.attackResolution;
   const score = Number(form.querySelector("[data-gm-roll-score]")?.value);
+  const exertion=Number(form.querySelector("[data-gm-roll-exertion]")?.value||0);
   const rollRole = form.dataset.rollRole;
   const id = form.dataset.unitId;
   if (!attack || !id || !["attacker", "defender", "damage"].includes(rollRole) || !Number.isFinite(score)) return;
@@ -3977,7 +4026,7 @@ gmNpcRollPrompts?.addEventListener("submit", async (event) => {
   if (rollRole === "damage") {
     await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: score, mode: "gm-manual" }, "resolve");
   } else {
-    await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score, mode: "gm-manual" }, "resolve");
+    await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score, exertion, mode: "gm-manual" }, "resolve");
   }
   if (rollRole === "defender") gmForcedDefenseEntry = false;
   } finally {
@@ -3997,7 +4046,9 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
   const rollRole = form?.dataset.rollRole;
   const id = form?.dataset.unitId;
   const rollingUnit = state?.units?.find((entry) => entry.id === id);
+  const exertion=Number(form?.querySelector("[data-gm-roll-exertion]")?.value||0);
   if (!attack || !id || !rollingUnit || !window.SANpcDice || !["attacker", "defender", "damage"].includes(rollRole)) return;
+  if(!Number.isInteger(exertion)||exertion<0||exertion>Number(rollingUnit.exertionCurrent||0))return;
   npcAutoRollBusy = true;
   gmNpcPromptSignature = "";
   setNpcRollControlsDisabled(true);
@@ -4010,8 +4061,8 @@ gmNpcRollPrompts?.addEventListener("click", async (event) => {
       const result = await window.SANpcDice.rollDamage({ sides: definition.dice, flat: definition.flat, title: definition.title });
       await action({ action: "submitAttackDamage", id, attackId: attack.id, rolledDamage: result.score, mode: "gm-automatic", diceResults: result.results, fusions: result.fusions || 0 }, "resolve");
     } else {
-      const result = await window.SANpcDice.rollCheck({ sides: definition.dice, skill: definition.skill, title: definition.title });
-      await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score: result.score, mode: "gm-automatic", diceResults: result.results, fusions: result.fusions || 0 }, "resolve");
+      const result = await window.SANpcDice.rollCheck({ sides: definition.dice, skill: definition.skill, title: definition.title, exertion });
+      await action({ action: "submitAttackRoll", id, attackId: attack.id, rollRole, score: result.score, exertion, mode: "gm-automatic", diceResults: result.results, fusions: result.fusions || 0 }, "resolve");
       if (rollRole === "defender") gmForcedDefenseEntry = false;
     }
   } finally {
@@ -4047,7 +4098,7 @@ firstAidResolutionForm?.addEventListener("submit", async (event) => {
   const value = Number(firstAidResolutionValue.value);
   if (!resolution || !Number.isFinite(value) || value < Number(firstAidResolutionValue.min || 0)) return;
   if (resolution.phase === "gmDifficulty") await action({ action: "setFirstAidDifficulty", resolutionId: resolution.id, difficulty: value }, "resolve");
-  else if (resolution.phase === "roll") await action({ action: "submitFirstAidRoll", id: resolution.healerId, resolutionId: resolution.id, score: value, mode: "gm-manual" }, "resolve");
+  else if (resolution.phase === "roll") await action({ action: "submitFirstAidRoll", id: resolution.healerId, resolutionId: resolution.id, score: value, exertion:Number(firstAidResolutionForm.querySelector('[data-npc-aid-exertion] input')?.value||0), mode: "gm-manual" }, "resolve");
   else await action({ action: "submitFirstAidHealing", id: resolution.healerId, resolutionId: resolution.id, rolledHealing: value, mode: "gm-manual" }, "resolve");
 });
 
@@ -4191,7 +4242,12 @@ document.querySelector('#gmNpcTemplate')?.addEventListener('change',event=>{
 gmAddUnit.addEventListener("click", async () => {
   const savedNpc=campaignState?.npcTemplates?.find(n=>n.id===document.querySelector('#gmNpcTemplate')?.value);
   const usingNpcDefault = gmTeam.value === "npc";
-  if (usingNpcDefault&&!savedNpc) applyNpcDefaultPreview();
+  if (usingNpcDefault&&!savedNpc) {
+    gmAddUnit.disabled=true;
+    try{await loadNpcDefaults();}catch(error){window.SACombatFeedback?.popup('Could not load NPC samples',error.message);return;}
+    finally{gmAddUnit.disabled=false;}
+    applyNpcDefaultPreview();
+  }
   const npcTemplate = savedNpc || (usingNpcDefault
     ? npcDefaults.find((entry) => entry.characterName === gmCharacterName.value && Number(entry.speed) === Number(gmSpeedRating.value))
     : null);
@@ -4211,8 +4267,11 @@ gmAddUnit.addEventListener("click", async () => {
     actorType: "character",
     maximumHp: npcTemplate?.maximumHp??npcTemplate?.hp,
     currentHp: npcTemplate?.maximumHp??npcTemplate?.hp,
-    moveSpeed:savedNpc?.moveSpeed,physicalAttribute:savedNpc?.physicalAttribute,physicalSkill:savedNpc?.physicalSkill,
-    mentalAttribute:savedNpc?.mentalAttribute,mentalSkill:savedNpc?.mentalSkill,weapons:savedNpc?[{inventoryId:'saved-npc-weapon',weaponId:savedNpc.heldWeaponId}]:undefined,heldWeaponId:savedNpc?'saved-npc-weapon':undefined,allyNpc:savedNpc?.allyNpc,
+    iconRace: usingNpcDefault ? npcTemplate?.iconRace : undefined,
+    iconVariant: usingNpcDefault ? npcTemplate?.iconVariant : undefined,
+    moveSpeed:npcTemplate?.moveSpeed,physicalAttribute:npcTemplate?.physicalAttribute,physicalSkill:npcTemplate?.physicalSkill,
+    exertionCurrent:npcTemplate?.exertionCurrent,exertionMax:npcTemplate?.exertionMax,exertionDerivedMax:npcTemplate?.exertionDerivedMax,
+    mentalAttribute:npcTemplate?.mentalAttribute,mentalSkill:npcTemplate?.mentalSkill,weapons:npcTemplate?[{inventoryId:'saved-npc-weapon',weaponId:npcTemplate.heldWeaponId}]:undefined,heldWeaponId:npcTemplate?'saved-npc-weapon':undefined,allyNpc:npcTemplate?.allyNpc,
     location: combatShip ? { environment: "starship", starshipId: combatShip.id, square: firstSquare, mesh: 4, sicId: "", stationed: false } : { environment: "exterior", starshipId: "", square: null, mesh: 4, sicId: "", stationed: false },
   },'tap',{throwOnError:true});
   if(!result?.units?.some(u=>!previousIds.has(u.id)))return;
@@ -4291,7 +4350,7 @@ async function editNpcCombatStat(button) {
 function handleUnitActionButton(button, event = null) {
   if (!button || mode !== "gm") return;
   if(['automation','aiAutomatic','aiDefense','aiOffense'].includes(button.dataset.action)){const unit=state.units.find(u=>u.id===button.dataset.id);void action({action:'setAutomation',id:unit.id,mode:button.dataset.action==='aiAutomatic'?'automatic':button.dataset.action==='aiDefense'?'defense':button.dataset.action==='aiOffense'?'offense':unit.shipAi?'off':unit.automationSuspended?'npc':unit.automationMode&&unit.automationMode!=='off'?'off':'npc'},'tap');return;}
-  if (!["remove", "nudge", "delay", "damage", "npcHp", "npcStat", "impairQueuedEffect", "removeQueuedEffect"].includes(button.dataset.action)) return;
+  if (!["remove", "nudge", "delay", "damage", "npcHp", "npcStat", "npcRecovery", "impairQueuedEffect", "removeQueuedEffect"].includes(button.dataset.action)) return;
   if (button.disabled) return;
   event?.preventDefault();
   event?.stopPropagation();
@@ -4302,6 +4361,7 @@ function handleUnitActionButton(button, event = null) {
   if (button.dataset.action === "damage") openGmDamageDialog(id);
   if (button.dataset.action === "npcHp") editNpcHp(id);
   if (button.dataset.action === "npcStat") editNpcCombatStat(button);
+  if (button.dataset.action === "npcRecovery") action({action:"cancelPersonalRecovery",id},"resolve");
   if (button.dataset.action === "impairQueuedEffect") action({ action: "impairQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
   if (button.dataset.action === "removeQueuedEffect") action({ action: "removeQueuedEffect", id, effectId: button.dataset.effectId }, "danger");
 }
@@ -4444,6 +4504,8 @@ fetch("data/weapons.json").then((response) => response.json()).then((catalog) =>
   npcWeaponCatalog = Array.isArray(catalog) ? catalog : [];
   if (state) render();
 }).catch(() => {});
+gmCharacterName.placeholder='NPC name';
+void loadNpcDefaults().catch(()=>{}); // Click-to-add reports failure and allows retry.
 applyNpcDefaultPreview({ force: true });
 renderActionChoices();
 setActionLogEnabled(playerActionLogEnabled);

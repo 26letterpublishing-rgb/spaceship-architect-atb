@@ -122,6 +122,9 @@
 .shield-console-dialog::backdrop{background:#000c}
 .shield-console-dialog>header{height:9%;box-sizing:border-box;padding:8px 3%;display:flex;align-items:center;gap:20px;background:#081611b8;min-height:60px}
 .shield-console-dialog h2{font:700 20px/1.2 Arial,sans-serif;margin:2px 0}.shield-console-dialog h3{font:700 12px/1.2 Arial,sans-serif;text-transform:uppercase;color:#87e2b3;margin:0 0 10px}
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+body dialog.shield-console-dialog .shield-operations :is(label,p,small,button,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.shield-console-dialog .shield-operations input{font-family:Orbitron,sans-serif;font-size:16px}
 .shield-console-dialog>header>div:first-child{flex:1;min-width:0}.shield-console-dialog header small{font-size:11px;color:#9fe7c8}.shield-console-dialog[data-remote=true] header small{color:#ffdb8f}
 .shield-command{width:25%;min-width:150px}.shield-command strong{display:block;font-size:17px}.shield-console-dialog[data-flash=true] [data-turn]{color:#ff5d64!important;text-shadow:0 0 12px #ff4649}
 .shield-console-dialog [data-console-switch]{display:flex;gap:8px;align-items:center}
@@ -215,6 +218,12 @@
 .navigation-planner{width:min(1160px,calc(100vw - 24px));height:calc(100dvh - 24px)}
 .navigation-planner form{grid-template-columns:minmax(0,1fr) 220px;grid-template-rows:72px minmax(200px,1fr) auto}
 .navigation-planner .pilot-chart{grid-row:2/4}.navigation-planner .pilot-input{display:none}
+.navigation-planner footer{justify-content:flex-start}
+.navigation-planner footer>*{flex-shrink:0}
+.ship-navigation-dialog.navigation-planner footer>fieldset{padding:6px 2px}
+.ship-navigation-dialog.navigation-planner footer [data-boosts] label{flex-wrap:nowrap;gap:4px;padding:4px 0;font-size:13px;white-space:nowrap}
+.ship-navigation-dialog.navigation-planner footer [data-boosts] small{font-size:12px;flex:none}
+.ship-navigation-dialog.navigation-planner footer [name=boost]{width:16px;height:16px;flex:none;margin:0}
 .ship-navigation-dialog [data-navigation-summary]{font:12px/1.5 Arial;color:#bce6dc;margin:0;padding:6px;border-top:1px solid #3f6468}
 @media(max-width:760px){.ship-navigation-dialog.map-focus form,.navigation-planner form{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(280px,1fr) auto auto;padding:12px 24px;height:auto;min-height:100%}.ship-navigation-dialog.map-focus,.navigation-planner{overflow:auto}.ship-navigation-dialog.map-focus .pilot-chart,.navigation-planner .pilot-chart{grid-row:2;grid-column:1}.ship-navigation-dialog.map-focus .pilot-power,.navigation-planner .pilot-power{display:block;grid-column:1;grid-row:3;max-height:180px;overflow:auto}.ship-navigation-dialog.map-focus footer,.navigation-planner footer{grid-row:4;grid-column:1;display:flex;flex-direction:row;flex-wrap:wrap}.ship-navigation-dialog.map-focus footer button,.navigation-planner footer button{flex:1}.ship-navigation-dialog.map-focus .pilot-identity h2,.navigation-planner .pilot-identity h2{font-size:16px}}
 .ship-navigation-dialog:not(.navigation-planner):not(.map-focus) [data-navigation-summary]{display:none}
@@ -227,3 +236,67 @@
 
 [data-fleet] .sa-health-track{position:static!important;margin:0!important;float:none!important;transform:none!important;align-self:center!important;justify-content:flex-start!important}[data-fleet]>div{align-content:center}[data-common-fleet] .sa-health-track{vertical-align:middle}
 .ship-navigation-dialog footer>fieldset{border:2px solid #ecba53;padding:12px;margin:8px 0;background:#242010;min-width:0}.ship-navigation-dialog footer>fieldset legend{font-size:22px;font-weight:800;color:#ffda80}.ship-navigation-dialog footer [data-boosts] label{font-size:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0}.ship-navigation-dialog footer [data-boosts] small{font-size:16px;color:#ffe3a1}.ship-navigation-dialog footer [name=boost]{width:22px;height:22px}.pilot-power .pilot-vector-array{max-height:180px;overflow:hidden}
+
+/* Pilot consoles only: preserve the compact Combat command planner. */
+.ship-navigation-dialog:not(.navigation-planner):not(.map-focus) form{grid-template-rows:11% 46% 35%}
+.ship-navigation-dialog:not(.navigation-planner) header{gap:12px}
+.ship-navigation-dialog:not(.navigation-planner) header .pilot-vector-array{flex:0 0 92px;height:62px;min-height:0;border:0;padding:0;overflow:visible}
+.ship-navigation-dialog:not(.navigation-planner) header .pilot-vector-array svg{height:48px!important;width:85px!important;margin:auto}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart{position:relative;overflow:visible}
+.ship-navigation-dialog:not(.navigation-planner) [data-nav-route]{display:flex;flex-wrap:nowrap;gap:4px;position:relative;z-index:1;margin:4px 0}
+.ship-navigation-dialog:not(.navigation-planner) [data-nav-route] button{flex:1;min-width:0;min-height:28px;padding:4px;font-size:12px;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom{display:flex;align-items:center;gap:8px;margin-top:auto;position:relative;z-index:4;background:#071014e8;flex-shrink:0}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-camera-controls{display:flex;gap:4px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-camera-controls button{padding:4px;min-height:28px;font-size:12px;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .navigation-fields{margin:0 0 0 auto;padding:0;gap:5px;flex-wrap:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .navigation-fields label{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom input[name=q],.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom input[name=r]{width:58px;height:28px;padding:3px;font-size:14px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .conditional-order-controls{position:static;padding:0;border:0;max-height:none;overflow:visible;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-conditional-body{position:absolute;top:100%;left:0;right:0;padding:10px;background:#07171f;border:1px solid #78b8b0;box-shadow:0 5px 12px #000b;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;white-space:normal}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-conditional-body label{display:grid;gap:3px;margin:0;min-width:0}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-conditional-body label:has([data-conditional]){display:flex;align-items:center;grid-column:1/-1}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-conditional-body select{width:100%;min-width:0;background:#10242c;color:#eaf7fa;min-height:28px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-conditional-body>small{grid-column:1/-1}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart.command-page>.pilot-chart-bottom{display:flex!important}
+.ship-navigation-dialog.map-focus .pilot-conditional-body{top:auto;bottom:100%}
+.ship-navigation-dialog:not(.navigation-planner) footer [data-boosts] label{flex-wrap:nowrap;gap:4px;padding:4px 0;font-size:13px;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) footer [data-boosts] small{font-size:12px;flex:none}
+.ship-navigation-dialog:not(.navigation-planner) footer [name=boost]{width:16px;height:16px;flex:none;margin:0}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls{display:flex;gap:4px;position:relative;z-index:1;margin:4px 0;flex-shrink:0}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls [data-nav-route]{flex:1;margin:0}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls>button{min-width:0;min-height:28px;padding:4px;font-size:12px;white-space:nowrap}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart.command-page>.pilot-top-controls{display:flex!important}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart.command-page [data-nav-route]{visibility:hidden}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .move-map-navigation{position:static;display:flex;flex-wrap:nowrap;margin:0;padding:0;border:0;background:none;box-shadow:none;gap:3px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .move-map-navigation button{min-width:26px;min-height:28px;padding:3px;font-size:11px}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-chart-bottom .move-map-navigation [data-zoom]{width:28px!important;flex:0 0 28px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls .move-route-pill button{font-size:12px!important;padding:4px 7px!important;min-height:28px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls .move-secondary{flex-wrap:nowrap;gap:4px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls .move-secondary button{padding:4px!important;min-height:28px!important}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls .move-secondary button,.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls .move-route-pill button{flex:none}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls [data-nav-route] button{flex:none}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls button{font-size:12px!important;padding:4px!important;min-height:28px!important;flex-shrink:0}
+
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls,.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls [data-nav-route]{gap:2px}
+.ship-navigation-dialog:not(.navigation-planner) .pilot-top-controls button{padding:4px 2px!important}
+
+/* Cockpit-only rearrangement; the Bridge and compact planner keep their grids. */
+.ship-navigation-dialog.cockpit-layout:not(.map-focus) .pilot-chart{grid-row:2/4}
+.ship-navigation-dialog.cockpit-layout:not(.map-focus) .pilot-fleet{grid-row:2/4;height:59.5294%;align-self:start;overflow:auto}
+.ship-navigation-dialog.cockpit-layout:not(.map-focus) .pilot-input{grid-column:1;grid-row:2/4;height:35.7647%;align-self:end;overflow:auto}
+.ship-navigation-dialog.cockpit-layout .pilot-fleet .pilot-power{padding:12px 0 0;height:auto;overflow:visible;box-shadow:none;background:none}
+.ship-navigation-dialog.cockpit-layout .pilot-power .pilot-au{margin:0}
+.ship-navigation-dialog.cockpit-layout .pilot-rings{grid-template-columns:minmax(0,1fr);max-height:none;overflow:visible}
+.ship-navigation-dialog.cockpit-layout .cockpit-input-details{margin-top:10px;font-size:12px}
+.ship-navigation-dialog.cockpit-layout .cockpit-input-details summary{cursor:pointer;color:#edcc7d}
+.ship-navigation-dialog.cockpit-layout .cockpit-input-details [data-factors]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px}
+.ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet{display:block;grid-column:2;grid-row:2;height:auto;overflow:auto}
+.ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet>h3,
+.ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet>[data-fleet]{display:none}
+.ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet .pilot-power{display:block;max-height:none}

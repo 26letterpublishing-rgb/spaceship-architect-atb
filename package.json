@@ -6,7 +6,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "release:check-debug": "node scripts/release-debug-tools.cjs --check",
+    "release:strip-debug": "node scripts/release-debug-tools.cjs --strip",
+    "release:stage": "node scripts/stage-release-public.cjs --build",
+    "release:verify-stage": "node scripts/stage-release-public.cjs --verify"
   },
   "engines": {
     "node": ">=20"

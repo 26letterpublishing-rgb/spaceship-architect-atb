@@ -10,6 +10,18 @@
 .arena-cell.forced-visible{box-shadow:inset 0 0 0 3px #51dfa8!important}
 #surfaceCombatLayout{display:grid;grid-template-columns:minmax(300px, .8fr) minmax(0,1.4fr);gap:14px;align-items:start}
 .surface-atb-column{min-width:0;display:flex;flex-direction:column;gap:10px}
+.surface-combat-clock{align-self:stretch;width:100%;min-width:0;display:flex;flex-direction:column;gap:4px}
+#surfaceCombatLayout>.surface-atb-column,#surfaceCombatLayout>#surfaceArenaLive{grid-row:auto}
+body.surface-combat-mode .surface-combat-clock #activePanel{order:-1;display:block;width:auto;max-width:none;min-height:0;margin:0;padding:6px;line-height:1.2}
+body.surface-combat-mode .surface-combat-clock #activePanel h2{font-size:18px;line-height:1.25;margin:0 0 3px}
+body.surface-combat-mode .surface-combat-clock #activePanel .eyebrow{display:block}
+body.surface-combat-mode .surface-combat-clock #activeName{font-size:16px;line-height:1.2}
+.surface-combat-clock #readyCount{align-self:center;margin:0;order:1}
+.surface-combat-clock .paired-clock-actions{gap:3px}
+.surface-combat-clock .paired-clock-actions button{width:auto;min-width:0;min-height:28px;padding:3px 6px;font-size:12px}
+body.surface-combat-mode.surface-combat-mode #gmPanicPause{position:relative!important;inset:auto!important;transform:none!important;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;align-self:center;width:100%;max-width:100%;height:auto;min-height:42px;white-space:normal;text-align:center;margin:0 auto!important;font-size:14px;line-height:1.25}
+body.surface-combat-mode.surface-combat-mode #gmPanicPause.first-combat-engagement{min-height:44px;padding:4px 8px;background:#23844c;color:white;border:2px solid #84ed9e;animation:combat-begin-pulse 2.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){body.surface-combat-mode.surface-combat-mode #gmPanicPause.first-combat-engagement{animation:none}}
 body.surface-combat-mode.surface-combat-mode.surface-combat-mode #initiativePanel{display:block!important;position:relative!important;inset:auto!important;width:100%!important;max-height:none!important;transform:none!important;opacity:1!important;filter:none!important;overflow:visible!important;margin:0!important;padding:10px!important}
 body.surface-combat-mode.surface-combat-mode.surface-combat-mode #surfaceArenaLive{margin:0;min-width:0;position:sticky;top:8px}
 body.surface-combat-mode.surface-combat-mode.surface-combat-mode #surfaceArenaLive .arena-viewport{height:560px;max-height:560px}
@@ -24,6 +36,10 @@ body.surface-combat-mode.surface-combat-mode.surface-combat-mode #unitList .unit
 body.surface-combat-mode.surface-combat-mode.surface-combat-mode #unitList .unit-name{font-size:1rem!important}
 body.surface-combat-mode.surface-combat-mode.surface-combat-mode #unitList .unit-readout strong{font-size:1.1rem!important}
 .arena-live-footer{margin-top:8px;margin-bottom:0}.arena-live-footer [data-move-hint]{flex:1 1 160px}
+.arena-move-map{position:relative;min-width:0}
+.arena-live .arena-move-confirm{position:absolute;z-index:50;width:64px;height:64px;min-width:64px;min-height:64px;padding:6px;border-radius:50%;white-space:normal;line-height:1.1;font-size:12px;background:#145e3c;color:#eaffee;border:2px solid #64e39a;box-shadow:0 2px 6px #0009;touch-action:manipulation}
+.arena-live .arena-move-confirm[hidden]{display:none}
+.arena-live .arena-move-confirm:focus-visible{outline:3px solid #d19aff;outline-offset:2px}
 .arena-route-line{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}.arena-route-line polyline{stroke:#ffd34d;stroke-width:3;vector-effect:non-scaling-stroke;fill:none;stroke-dasharray:8 5;filter:drop-shadow(0 1px 2px #000)}.arena-route-line.extended polyline{stroke:#ffaf42}
 .arena-token .crew-figure{transform:rotate(var(--crew-heading,0deg));width:100%;height:100%}
 @media(max-width:760px){#surfaceCombatLayout{grid-template-columns:minmax(220px,.8fr) minmax(280px,1.2fr);gap:8px}body.surface-combat-mode.surface-combat-mode.surface-combat-mode #surfaceArenaLive .arena-viewport{height:420px}body.surface-combat-mode.surface-combat-mode.surface-combat-mode #myTurnBanner>.player-turn-actions.combat-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
@@ -58,3 +74,22 @@ body.surface-combat-mode #initiativePanel>.section-head{margin-bottom:8px}body.s
 .arena-fog.is-revealing{touch-action:none}
 .arena-fog.is-revealing rect:hover,.arena-fog.is-revealing rect:focus-visible{stroke:#fff;stroke-width:.09;outline:none}
 .arena-fog.is-revealing rect[fill="#50ddab"]{stroke:#73ffd3;stroke-width:.07}
+
+/* Shared by the combat frame and enlarged interiors in the parent document. */
+/* Shared route appearance also covers documents where the optional movement wrapper is unavailable. */
+.map-action-modes button[data-route-mode][aria-pressed=true],.map-action-modes button[data-crew-route][aria-pressed=true],.arena-toolbar button[data-route-mode][aria-pressed=true]{--button-accent:#39d875;color:#fff;border-color:#70e7a5}
+
+:is(.map-action-modes button[data-route-mode],.map-action-modes button[data-crew-route],.arena-toolbar button[data-route-mode]){--button-accent:#7ca394;border:1px solid color-mix(in srgb,var(--button-accent) 48%,rgba(255,255,255,.28))!important;border-radius:999px!important;margin:0!important;clip-path:none!important;
+background:linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.14) 18%,rgba(255,255,255,.02) 46%,rgba(0,0,0,.2) 100%),radial-gradient(120% 90% at 50% 82%,color-mix(in srgb,var(--button-accent) 50%,white 12%),transparent 55%),linear-gradient(90deg,color-mix(in srgb,var(--button-accent) 36%,#0b1018),color-mix(in srgb,var(--button-accent) 58%,#121722)),#1b2433!important;
+box-shadow:inset 0 2px 1px rgba(255,255,255,.35),inset 0 -7px 12px rgba(0,0,0,.28),inset 0 -1px 0 color-mix(in srgb,var(--button-accent) 65%,transparent),0 2px 0 rgba(0,0,0,.42),0 10px 18px color-mix(in srgb,var(--button-accent) 20%,transparent),0 8px 18px rgba(0,0,0,.22);
+color:#e5f0f5!important;min-height:38px;padding:7px 14px!important;font-size:14px!important}
+:is(.map-action-modes button[data-route-mode],.map-action-modes button[data-crew-route],.arena-toolbar button[data-route-mode])[aria-pressed="true"]{--button-accent:#39d875;color:#fff!important}
+
+/* Surface keeps its existing clock and GM recovery controls together above participants. */
+.surface-clock-group{align-self:center;display:grid;grid-template-columns:minmax(0,300px) 150px;gap:10px;align-items:center;width:min(100%,460px)}
+.surface-clock-group:not(:has(.combat-recovery-toolbar)){grid-template-columns:minmax(0,300px);width:min(100%,300px)}
+.surface-clock-group>.paired-combat-recovery:empty{display:none}
+body.surface-combat-mode .surface-clock-group .combat-recovery-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:5px;min-width:0;margin:0}
+body.surface-combat-mode .surface-clock-group .combat-recovery-toolbar button{width:100%;min-width:0;min-height:28px;padding:4px 6px;font-size:12px;line-height:1.2;white-space:normal}
+body.surface-combat-mode .surface-clock-group #combatSaveStatus{font-size:11px;min-width:0;overflow-wrap:anywhere}
+body:is(.embedded-gm,.embedded-player).surface-combat-mode .shell>.topbar:not(:has(.gm-top-controls:not(.hidden) > *)):not(:has(#gmMuteSound:not(.hidden))){display:none!important}

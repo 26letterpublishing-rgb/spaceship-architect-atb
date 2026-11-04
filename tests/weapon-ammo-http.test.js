@@ -6,8 +6,8 @@ test('remaining launcher ammunition purchases use server prices and retry-safe o
  const post=async(p,b,status=200)=>{const r=await fetch(base+'/api/campaign/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
  const demo=await post('showcase/start',{}),gm={code:demo.code,token:demo.gmToken},pc={code:demo.code,token:demo.players[0].token,characterId:demo.players[0].id};
  await post('shops',{...gm,operation:'save',shop:{id:'explore-supply',name:'Ammo Test',active:true,modifier:-99}});
- let credits=500;
- for(const [id,price] of [['skull-bore',5],['hull-bore',2],['rubber-bouncy-bombs',3],['mini-nuke',50]]){
+ let credits=300; // Fresh Mara has purchased her 200-credit sidearm.
+ for(const [id,price] of [['skull-bore',5],['hull-bore',2],['rubber-bouncy-bombs',4],['mini-nuke',50]]){
    const purchase={...pc,mode:'purchase',inventoryType:'weapon',requestId:'ammo-'+id,expectedPrice:price,item:{id:'owned-'+id,weaponId:id,name:id,unitCost:1}};
    await post('item/transaction',{...purchase,expectedPrice:price+1},409);
    credits-=price;

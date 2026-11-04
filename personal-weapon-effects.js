@@ -137,6 +137,7 @@ function blastTargets(room,origin,radius,multiplier=5,falloff=1) {
   return room.units.flatMap(unit=>{const distance=arena.distance(room,source,unit);if(distance===null||distance>=radius||!arena.canTarget(room,source,unit))return [];return [{unit,multiplier:Math.max(0,multiplier-Math.floor(distance/falloff))}];});
 }
 function explosive(weaponId, origin) {
+  if(weaponId==='triple-bomb-burst')return {...explosive('grenade',origin),name:'3× Bomb',tripleBomb:true};
   if(weaponId==='flash-bomb')return {name:'Flash Bomb',flash:true,origin,radius:18};
   if(weaponId==='mini-nuke')return {name:'Mini Nuke',formula:'3D12',element:'Physical',origin,radius:30,multiplier:10,falloff:3,fallout:true};
   if(['grenade','sticky-grenade','proximity-mine'].includes(weaponId))return {name:weaponId==='grenade'?'Grenade':weaponId==='sticky-grenade'?'Sticky Grenade':'Proximity Mine',formula:'3D8',element:'Physical',origin,radius:5,multiplier:5,falloff:1};

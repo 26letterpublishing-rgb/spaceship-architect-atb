@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('Bar typography browser regression: populated states, sizes and room isolation',{timeout:120000},async t=>{const r=await promisify(execFile)(process.execPath,[require.resolve('../scripts/playtest-bar-typography.cjs')],{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

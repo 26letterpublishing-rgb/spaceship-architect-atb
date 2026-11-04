@@ -1,3 +1,18 @@
+/* Lock-On component mode reuses the center viewport; other Consoles are unchanged. */
+dialog.lock-console .lock-scope{position:relative}
+dialog.lock-console .lock-space-host,dialog.lock-console .lock-component-floor{position:absolute;inset:0;min-width:0;min-height:0}
+dialog.lock-console .lock-component-floor{display:grid;place-items:center;overflow:auto;background:#020912}
+dialog.lock-console .lock-component-floor[hidden],dialog.lock-console .lock-space-host[hidden],dialog.lock-console [data-component][hidden],dialog.lock-console .lock-component-options[hidden]{display:none!important}
+dialog.lock-console .lock-component-floor .inline-map-orientation{margin:12px}
+dialog.lock-console .lock-component-floor .component-eligible{cursor:pointer}
+dialog.lock-console .lock-component-floor .component-selected{outline:2px solid #f9cf58;outline-offset:-2px;z-index:2}
+dialog.lock-console .lock-component-floor .component-preview{outline:3px solid #70e8ff;outline-offset:-3px;z-index:3}
+dialog.lock-console [data-component-picker]{width:100%;text-align:left;white-space:normal;background:#241e0e;color:#ffe49b;border:1px solid #a08339;padding:7px 9px;min-height:32px}
+dialog.lock-console .lock-component-options{position:fixed;z-index:40;box-sizing:border-box;overflow:auto;padding:4px;border:1px solid #a08339;background:#17190f;box-shadow:0 4px 15px #0009}
+dialog.lock-console .lock-component-options button{display:block;width:100%;text-align:left;white-space:normal;min-height:32px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:#ffe49b}
+dialog.lock-console .lock-component-options button:hover,dialog.lock-console .lock-component-options button[aria-selected="true"]{background:#3a361b}
+dialog.lock-console [data-component-picker]:focus-visible{outline:2px solid #70e8ff;outline-offset:2px}
+
 /* Phazon/Mine/Disruptor only: bottom-left timeline, full-height target map. */
 @media(min-width:901px){
  dialog.weapon-console:is([data-weapon-family="phazon-torpedo"],[data-weapon-family="mine-launcher"],[data-weapon-family="ion-disruptor"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-power{grid-row:2!important}
@@ -410,3 +425,19 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-empty{min-height:0;line-height:1.2;gap:0}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .sensor-timeline .tactical-ring-group>p{margin:0}
 }
+/* Console dismissal stays separate from the Combat panel's station movement. */
+dialog:is([data-console-owner],[data-catalog-snapshot]) [data-leave]{display:none!important}
+dialog:is([data-console-owner],[data-catalog-snapshot]) .shared-seat{justify-content:center}
+dialog.surveillance-console:is([data-console-owner],[data-catalog-snapshot]) .shared-seat{justify-content:flex-end;padding-right:16px!important}
+
+dialog.surveillance-console:is([data-console-owner],[data-catalog-snapshot]) .shared-seat{padding-block:0!important;align-items:center}
+dialog.surveillance-console:is([data-console-owner],[data-catalog-snapshot]) .shared-seat [data-hold]{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;flex-basis:48px!important}
+dialog.transporter-console:is([data-console-owner],[data-catalog-snapshot]) .transport-seat{justify-content:center}
+/* Keep the central Exit and left operator panel clear; center Hold in its action area. */
+dialog.cleanser-station:is([data-console-owner],[data-catalog-snapshot]) .cleanser-footer-actions{width:calc((100% - 300px)/2);justify-content:center}
+
+/* Crew panels reuse the combat heart artwork and keep long names inside the existing scroll region. */
+.crew-health-console [data-common-fleet] strong{overflow-wrap:anywhere}
+.crew-health-console [data-common-fleet] .npc-health{display:flex;gap:3px;align-items:center}
+
+.crew-health-console [data-common-fleet] .npc-heart{color:#27313d}.crew-health-console [data-common-fleet] .npc-heart.full{color:#ff405f}

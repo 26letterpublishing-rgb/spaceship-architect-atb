@@ -60,3 +60,23 @@ test('viewer uses production Lock On map styling before its shared sizing correc
  assert.ok(html.includes('href="ship-pass2.css"'));
  assert.ok(html.indexOf('href="ship-pass2.css"')<html.indexOf('href="console-common.css"'));
 });
+
+test('ALMA Warp interaction is local, bounded and explicitly illustrative',()=>{
+ const {visualFixture,warpPreview}=require('../console-viewer'),a=visualFixture('warp-drive-1'),b=visualFixture('warp-drive-1'),demo=warpPreview(a);
+ assert.throws(()=>warpPreview(visualFixture('bridge-1')));
+ for(const distanceLY of [0,-1,Infinity,NaN])assert.throws(()=>demo.command({kind:'warpPlan',distanceLY}));
+ assert.throws(()=>demo.command({kind:'destructApprove'}));
+ assert.deepEqual(demo.command({kind:'warpPlan',distanceLY:3.26}).result.counts,{A:1});
+ demo.command({kind:'warpStart',distanceLY:3.26});assert.throws(()=>demo.command({kind:'warpStart',distanceLY:3.26}));
+ demo.tick(1);assert.equal(a.starships[0].ship.warpState.remaining,2);demo.command({kind:'warpCancel'});assert.equal(a.starships[0].ship.warpState.phase,'cancelled');
+ demo.command({kind:'warpStart',distanceLY:3.26});demo.tick(3);assert.equal(a.starships[0].ship.warpState.phase,'traveling');demo.tick(1);demo.command({kind:'warpExit'});assert.equal(a.starships[0].ship.warpState.phase,'exited');
+ demo.command({kind:'warpStart',distanceLY:7});demo.tick(3);demo.tick(6);assert.equal(a.starships[0].ship.warpState.traveledLY,7);assert.match(a.starships[0].ship.warpState.report.reason,/SIMULATED arrived/);assert.equal(b.starships[0].ship.warpState,undefined);
+});
+
+test('Warp preview loads the existing travel effect and reads private viewer audio preferences',()=>{
+ const html=fs.readFileSync(require.resolve('../console-viewer.html'),'utf8');assert(html.indexOf('src="warp-effects.js"')<html.indexOf('src="transit-console-ui.js"'));assert.match(html,/connect-src 'none'/);
+ const source=fs.readFileSync(require.resolve('../warp-effects.js'),'utf8');let reads=0,personalReads=0;
+ const win={SABrowserStorage:{local:{getItem(){reads++;return 'on';}}},addEventListener(){}};
+ const context={window:win,document:{hidden:false,addEventListener(){}},matchMedia:()=>({matches:false,addEventListener(){}}),setInterval:fn=>{fn();return 1;},cancelAnimationFrame(){},requestAnimationFrame(){return 1;},ResizeObserver:class{observe(){}disconnect(){}},performance:{now:()=>0},Math};
+ Object.defineProperty(context,'localStorage',{get(){personalReads++;throw Error('Personal storage must not be accessed');}});vm.runInNewContext(source,context);assert(reads>0);assert.equal(personalReads,0);assert.equal(typeof win.SAWarpEffects.update,'function');let normalReads=0;const normal={...context,window:{addEventListener(){}},localStorage:{getItem(){normalReads++;return 'on';}}};vm.runInNewContext(source,normal);assert(normalReads>0,'Production fallback still reads its existing storage');
+});

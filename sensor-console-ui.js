@@ -1,6 +1,6 @@
 (function() {
   let dialog = null;
-  let lastCamera = null;
+
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function shipContacts(ship){return Object.values(ship.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&!c.isMissile&&!c.isDrone&&!c.isProbe&&!['Probe','Repair Drone','Missile'].includes(c.nature));}
   function rangePreviewShips(picture,observerId){
@@ -58,8 +58,8 @@
     const zoom=host.createElement('div');zoom.className='sensor-map-zoom';
     zoom.innerHTML='<button type="button" data-zoom="out" aria-label="Zoom out">-</button><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-auto-zoom>Fit Contacts</button><button type="button" data-map-focus>Enlarge Map</button>';
     const mapTools=host.createElement('div');mapTools.className='sensor-map-tools';get('[data-map]').after(mapTools);mapTools.append(zoom,get('.sensor-coordinates'));
-    const cameraKey=JSON.stringify([bridge.state().roomCode,bridge.state().encounterId,unit.id,initial.ship.id,sicId]);
-    let manualViewBox=lastCamera?.key===cameraKey?lastCamera.viewBox:null,selecting=null,scanPoint=null,hexSelected=false;
+    const cameraKey=window.SASpaceMap.cameraIdentity('sensors',unit.id,initial.ship.id,sicId);
+    let manualViewBox=null,selecting=null,scanPoint=null,hexSelected=false;
     get('[data-map-focus]').onclick=()=>window.SASpaceMap.focusMap(view,get('[data-map-focus]'));
     zoom.onclick=event=>{
       const svg=get('[data-map] svg[data-space-canvas]');if(!svg)return;
@@ -113,13 +113,8 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
       if(mapKey!==lastMap){
         const old=get('[data-map] svg[data-space-canvas]');manualViewBox=old?.dataset.userViewBox||manualViewBox;
         const svg=window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true});
-        if(!manualViewBox){
-          // First-open framing only. Subsequent scans, redraws, resize and map
-          // enlargement preserve this camera or the user's explicit pan/zoom/Fit.
-          const p=picture.shipPositions.find(p=>p.id===access.ship.id),radius=sensor.range*Math.sqrt(3)*2+1;
-          if(p){const ratio=(svg.clientWidth||600)/(svg.clientHeight||250),width=radius*2*Math.max(1,ratio),height=width/ratio;manualViewBox=`${Math.sqrt(3)*(p.q+p.r/2)-width/2} ${1.5*p.r-height/2} ${width} ${height}`;}
-          else{window.SASpaceMap.fitContacts(svg,picture.starships,picture.shipPositions);manualViewBox=svg.getAttribute('viewBox');}
-        }
+        window.SASpaceMap.mountCamera(svg,cameraKey);
+        manualViewBox=svg.getAttribute('viewBox');
         svg.setAttribute('viewBox',manualViewBox);window.SASpaceMap.coverViewport(svg);lastMap=mapKey;
       }
       const mapSvg=get('[data-map] svg[data-space-canvas]');if(mapSvg)renderRangePreview(mapSvg,picture,access.ship.id);
@@ -221,7 +216,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':person.delayed
     get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(bridge.state().units.find(u=>u.id===unit.id));}catch(error){get('[data-error]').textContent=error.message;}};
     view.addEventListener('cancel',dismiss);view.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     const resize=new ResizeObserver(()=>{if(!manualViewBox){lastMap='';redraw();}});resize.observe(get('[data-map]'));
-    const timer=setInterval(redraw,200),cleanup=()=>{lastCamera={key:cameraKey,viewBox:get('[data-map] svg[data-space-canvas]')?.dataset.userViewBox||manualViewBox};clearInterval(timer);resize.disconnect();view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};
+    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);resize.disconnect();view.remove();dialog=null;window.removeEventListener('pagehide',cleanup);setTimeout(()=>bridge.requestRender(),0);};
     view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();
   }
   window.SASensorConsoleUI={open,isOpen:()=>Boolean(dialog)};

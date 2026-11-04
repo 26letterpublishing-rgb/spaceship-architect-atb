@@ -26,7 +26,7 @@
     };
     refreshChoices();
     select.onchange=async event=>{
-      const view=select.closest('dialog');if(view.dataset.switching)return;view.dataset.switching='true';
+      const view=select.closest('dialog');if(select.value===currentId||view.dataset.switching)return;view.dataset.switching='true';
       const direction=event?.slideDirection||(select.selectedIndex<choices.findIndex(a=>a.item.id===currentId)?-1:1);slidePending=direction;
       try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)await Promise.race([view.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*100}vw)`,opacity:0}],{duration:500,fill:'forwards'}).finished,new Promise(resolve=>setTimeout(resolve,650))]);}catch{slidePending=0;}
       if(!view.isConnected||!view.open){slidePending=0;return;}
@@ -61,6 +61,11 @@
   const seatKey=unit=>`${window.SACombatBridge.state()?.roomCode}:${unit?.characterId||unit?.id}`;
   const factorNames={Situation:'Environment',Execution:'Uplink',Quality:'Drive Grade',Performance:'Response',Efficiency:'Throughput',Ingenuity:'Helm Sync'};
   const xy=p=>({x:Math.sqrt(3)*(p.q+p.r/2),y:1.5*p.r});
+  function confirmPosition(point,width,height,size=64){
+    const gap=10,margin=4,clamp=(v,max)=>Math.max(margin,Math.min(v,Math.max(margin,max-size-margin)));
+    const right=point.x+gap+8,left=point.x-gap-8-size;
+    return {x:clamp(right+size<=width-margin?right:left,width),y:clamp(point.y-size/2,height)};
+  }
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const waveform=`<div class="pilot-waveform" aria-hidden="true"><small>CARRIER / PHASE TRACE</small><svg viewBox="0 0 240 54"><path class="wave-grid" d="M0 13H240M0 27H240M0 41H240M30 0V54M90 0V54M150 0V54M210 0V54"/><g class="wave-trace"><path d="M0 27L12 27L18 17L24 38L30 6L36 48L42 20L48 27L66 27L72 15L78 38L84 11L90 43L96 27L120 27L132 27L138 17L144 38L150 6L156 48L162 20L168 27L186 27L192 15L198 38L204 11L210 43L216 27L240 27L252 27L258 17L264 38L270 6L276 48L282 20L288 27L306 27L312 15L318 38L324 11L330 43L336 27L360 27"/></g></svg></div>`;
   function open(unit,{compact=false,sicId=null}={}){
@@ -86,30 +91,54 @@
     let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
     const dialog=host.createElement('dialog');activeDialog=dialog;
     dialog.className=`ship-navigation-dialog${compact?' navigation-planner':''}`;dialog.setAttribute('aria-label',compact?'Move ship':'Pilot console');
+    if(compact)dialog.dataset.popupTheme='none';
     dialog.dataset.operatorId=unit.id;
     dialog.dataset.sicId=pilotSicId;
     dialog.innerHTML=`<form><header><div class="pilot-identity"><small>HELM / ${esc(unit.characterName)}</small><h2>${esc(seated.ship.title)}</h2></div><div class="pilot-command"><strong data-turn-announcement role="status" aria-live="polite"></strong><div class="pilot-command-track" role="progressbar" aria-label="Command window remaining" aria-valuemin="0" aria-valuemax="100"><i data-command-fill></i></div><small data-command-status></small></div><div class="pilot-header-actions"><button type="button" data-sound>${bridge.soundIcon()}</button><button type="button" data-close>Combat View</button></div></header>
       <section class="pilot-fleet"><h3>Fleet Condition</h3><div data-fleet></div><div class="pilot-telemetry" aria-hidden="true">NAV LINK 07.14<br>PHASE SYNC / NOMINAL<br><i></i>VECTOR LOCK 0A:9F</div></section>
       <section class="pilot-chart"><div class="pilot-chart-title"><h3>Navigation</h3><span data-flight></span></div><div data-navigation-map>${window.SASpaceMap.markup(initial.starships,initial.shipPositions,false,{navigation:true})}</div><nav class="map-action-modes" data-nav-route><button type="button" data-route-mode="direct" aria-pressed="true">Direct Route</button><button type="button" data-route-mode="custom" aria-pressed="false">Custom Route</button><button type="button" data-route-undo>Undo Last Point</button><button type="button" data-route-clear>Clear Route</button></nav><div class="navigation-fields"><label>Hex Q<input name="q" type="number" min="-10000" max="10000" step="1" required></label><label>Hex R<input name="r" type="number" min="-10000" max="10000" step="1" required></label><button type="button" data-zoom=".7" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-zoom="1.4" aria-label="Zoom out" title="Zoom out">&#8722;</button></div></section>
       <section class="pilot-activity"><h3>Combat Activity</h3><div data-activity></div></section>
-      <section class="pilot-power"><h3>Action Units</h3><div class="pilot-au" data-au></div><div class="pilot-recharge"><i data-recharge></i></div><fieldset><legend>AU Boosts</legend><div data-boosts></div></fieldset>${waveform}</section>
+      <section class="pilot-power"><h3>Action Units</h3><div class="pilot-au" data-au></div><div class="pilot-recharge"><i data-recharge></i></div><fieldset><legend>AU Boosts</legend><div data-boosts></div></fieldset>${compact?waveform:''}</section>
       <section class="pilot-input"><h3>Command Processor</h3><div class="pilot-rings" data-rings></div><div data-factors></div><div class="pilot-input-progress"><i data-input-progress></i></div><output data-input-status></output><output data-estimate></output></section>
       <footer><p data-navigation-summary></p><p role="alert" data-error></p><p data-availability></p><button type="submit">Move Ship</button><button type="button" data-leave>Leave Console</button><div class="pilot-vector-array" aria-hidden="true"><small>VECTOR ARRAY</small><svg viewBox="0 0 160 90"><path class="vector-axis" d="M15 45H145M80 5V85"/><g class="vector-orbit"><ellipse cx="80" cy="45" rx="48" ry="24"/><ellipse cx="80" cy="45" rx="26" ry="38"/><circle cx="128" cy="45" r="3"/></g><circle class="vector-core" cx="80" cy="45" r="9"/></svg></div></footer></form>`;
     host.body.append(dialog);dialog.showModal();
     if(!compact)mountSelector(dialog.querySelector('.pilot-header-actions'),unit,seated.cell?.sicId||unit.location.sicId,()=>dialog.close());
     const form=dialog.querySelector('form'),svg=dialog.querySelector('svg[data-space-canvas]'),q=form.elements.q,r=form.elements.r,submit=form.querySelector('[type=submit]'),error=form.querySelector('[data-error]');
     const leave=form.querySelector('[data-leave]');
+    if(compact)leave.textContent='Leave Station';
     const depart=host.createElement('button');depart.type='button';depart.textContent='Leave Atmosphere';depart.dataset.leaveAtmosphere='';depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);leave.before(depart);
     depart.onclick=async()=>{const confirmation=host.createElement('dialog');confirmation.className='galaxy-dialog';confirmation.innerHTML='<h2>Leave Atmosphere?</h2><p>The party departs together aboard this ship.</p><form method="dialog"><button value="cancel">Cancel</button><button value="depart">Leave Atmosphere</button></form>';host.body.append(confirmation);confirmation.showModal();confirmation.addEventListener('close',async()=>{const accepted=confirmation.returnValue==='depart';confirmation.remove();if(!accepted)return;depart.disabled=true;try{await bridge.leaveAtmosphere(shipId);remember(unit);dialog.close();}catch(e){error.textContent=e.message;depart.disabled=false;}},{once:true});};
     const departureTimer=setInterval(()=>{depart.hidden=!bridge.canLeaveAtmosphere?.(shipId);},500);dialog.addEventListener('close',()=>clearInterval(departureTimer),{once:true});
     const marker=host.createElementNS('http://www.w3.org/2000/svg','g');marker.classList.add('pilot-destination');svg.append(marker);
     let destination=null,waypoints=[],routeMode='direct',locked=false,planning=compact,submitting=false,lastBoosts='',lastFleet='',lastLog='',lastFactors='',lastRings='',lastMarker='',lastAu='';
     const begin=host.createElement('button'),cancel=host.createElement('button');begin.type=cancel.type='button';begin.textContent='Move Ship';cancel.textContent='Cancel Move';begin.dataset.beginMove='';cancel.dataset.cancelMove='';submit.before(begin,cancel);
-    begin.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!svg.dataset.manualCamera)fitVisible();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
+    const confirmMap=form.querySelector('[data-navigation-map]');confirmMap.classList.add('ship-confirm-map');
+    submit.classList.add('ship-move-confirm');submit.setAttribute('aria-label','Confirm Move');submit.title='Confirm Move';confirmMap.append(submit);
+    submit.addEventListener('pointerdown',event=>event.stopPropagation());
+    function positionConfirm(){
+      if(submit.hidden||!destination||!svg.getScreenCTM())return;
+      const at=xy(destination),point=new host.defaultView.DOMPoint(at.x,at.y).matrixTransform(svg.getScreenCTM()),rect=svg.getBoundingClientRect(),parent=confirmMap.getBoundingClientRect();
+      const pos=confirmPosition({x:point.x-rect.left,y:point.y-rect.top},rect.width,rect.height,64);
+      submit.style.left=(rect.left-parent.left+pos.x)+'px';submit.style.top=(rect.top-parent.top+pos.y)+'px';
+    }
+    const confirmCamera=new MutationObserver(positionConfirm);confirmCamera.observe(svg,{attributes:true,attributeFilter:['viewBox']});
+    begin.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{if(compact){rememberDismissal();dialog.close();return;}planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';leave.after(hold);if(!compact)leave.remove();
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
     const boostPanel=form.querySelector('.pilot-power fieldset'),vectorPanel=form.querySelector('.pilot-vector-array'),boostMarker=host.createTextNode('');boostPanel.before(boostMarker);vectorPanel.replaceWith(boostPanel);boostMarker.replaceWith(vectorPanel);
+    if(!compact)form.querySelector('.pilot-command').before(vectorPanel);
+    if(!compact&&/^cockpit-\d+$/.test(selected.item.type)){
+      dialog.classList.add('cockpit-layout');
+      const fleet=form.querySelector('.pilot-fleet'),power=form.querySelector('.pilot-power'),input=form.querySelector('.pilot-input');
+      fleet.querySelector('.pilot-telemetry').remove();
+      fleet.append(power);
+      input.querySelector('h3').textContent='Tactical Ring';
+      const details=host.createElement('details'),summary=host.createElement('summary');
+      details.className='cockpit-input-details';summary.textContent='Command input details';details.append(summary);
+      for(const selector of ['[data-factors]','.pilot-input-progress','[data-input-status]','[data-estimate]'])details.append(input.querySelector(selector));
+      input.append(details);
+    }
     const orbitDot=form.querySelector('.vector-orbit circle');
     // Animate in the ellipse's own coordinates, rather than rotating around its center.
     orbitDot.classList.add('vector-dot');orbitDot.setAttribute('cx','0');orbitDot.setAttribute('cy','0');form.querySelector('.vector-orbit').after(orbitDot);
@@ -118,12 +147,23 @@
     form.noValidate=true;
 
     const auto=host.createElement('button');auto.type='button';auto.textContent='Fit Contacts';auto.title='Fit visible ships and objects';auto.dataset.autoZoom='';form.querySelector('.navigation-fields').append(auto);
+    const cameraKey=window.SASpaceMap.cameraIdentity(compact?'navigation-planner':'navigation',pilotId,shipId,pilotSicId);
     const fitVisible=()=>window.SASpaceMap.fitRendered(svg);
     auto.onclick=()=>{delete svg.dataset.manualCamera;auto.setAttribute('aria-pressed','false');fitVisible();};
     {const enlarge=host.createElement('button');enlarge.type='button';enlarge.textContent='Enlarge Map';enlarge.dataset.enlargeNavigation='';enlarge.dataset.mapFocus='';enlarge.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();window.SASpaceMap.focusMap(dialog,enlarge);};form.querySelector('.pilot-chart-title').append(enlarge);}
     const resizeMap=()=>{if(!svg.clientWidth||!svg.clientHeight)return;const v=svg.viewBox.baseVal,h=v.width*svg.clientHeight/svg.clientWidth,y=v.y+(v.height-h)/2;svg.setAttribute('viewBox',`${v.x} ${y} ${v.width} ${h}`);for(const rect of svg.querySelectorAll(':scope > rect'))for(const [key,value] of Object.entries({x:v.x,y,width:v.width,height:h}))rect.setAttribute(key,value);};
     const mapObserver=new ResizeObserver(resizeMap);mapObserver.observe(svg);
     const redrawCommands = !compact ? window.SAShipCommandUI.mount(dialog,pilotId) : () => {};
+    if(!compact){
+      const chart=form.querySelector('.pilot-chart'),routes=form.querySelector('[data-nav-route]');
+      const top=host.createElement('div');top.className='pilot-top-controls';routes.before(top);
+      top.append(routes,form.querySelector('[data-enlarge-navigation]'),form.querySelector('[data-command-page]'));
+      const bottom=host.createElement('div');bottom.className='pilot-chart-bottom';
+      const fields=form.querySelector('.navigation-fields'),camera=host.createElement('div');camera.className='pilot-camera-controls move-map-navigation';
+      camera.append(...fields.querySelectorAll('button'));
+      bottom.append(camera,form.querySelector('.conditional-order-controls'),fields);chart.append(bottom);
+    }
+
     function redraw(){
       if(!bridge.state()){dialog.close();return;}
       redrawCommands();
@@ -177,7 +217,7 @@
       q.disabled=r.disabled=!available||!planning;
       begin.hidden=planning;begin.disabled=!available||!access;cancel.hidden=!planning;
       submit.disabled=!available||!access||!locked||!destination||speed<=0||length<1e-6||cost>(au.available??au.current);
-      submit.hidden=!planning||form.querySelector('.pilot-chart').classList.contains('command-page');
+      submit.hidden=!planning||!locked||!destination||(!submitting&&submit.disabled)||form.querySelector('.pilot-chart').classList.contains('command-page');
       if(submit.hidden)submit.disabled=true;
       form.querySelector('[data-availability]').textContent=submitting?'Sending order...':delay?(delay.shipOrder?'Coordinates are being entered.':`${delay.label||'Console action'} in progress.`):state.activeId!==pilotId?'Waiting for your next turn.':!available?'Finish the current action first.':!access?'Operational cockpit, engine and thrusters required.':cost>(au.available??au.current)?`Boosts need ${cost} AU; ${au.available??au.current} available.`:speed<=0?'Select an AU boost to provide positive movement speed.':!locked||!destination?'Choose a destination.':length<1e-6?'Choose a different hex.':'Destination locked';
       submit.textContent=submitting?'Submitting...':delay?'Entering Order':'Confirm Move';
@@ -191,7 +231,7 @@
       if(state.practice){form.querySelector('[data-availability]').textContent='Combat navigation unavailable outside combat.';form.querySelector('[data-command-status]').textContent='OUT OF COMBAT';}
       form.querySelector('[data-estimate]').textContent=`${speed} Units / 10 sec${destination?` | ${length.toFixed(1)} Units | Arrival ${speed?(100/settings.rate+length*10/speed).toFixed(1):'--'} sec | Drift ${window.SAShipNavigation.driftDistance(length)} Units / ${window.SAShipNavigation.driftSeconds(length)} sec`:''} | Boost ${cost} AU`;
       form.querySelector('[data-navigation-summary]').textContent=form.querySelector('[data-input-status]').textContent+' · '+form.querySelector('[data-estimate]').textContent;
-      const auMarkup=`<strong>${au.current}<small> / ${au.maximum}</small></strong><span>${Array.from({length:12},(_,i)=>`<i class="${i<Math.round(12*au.current/Math.max(1,au.maximum))?'charged':''}"></i>`).join('')}</span>`;
+      const auMarkup=`<strong>${au.current}<small> / ${au.maximum}</small></strong>${dialog.classList.contains('cockpit-layout')?'':`<span>${Array.from({length:12},(_,i)=>`<i class="${i<Math.round(12*au.current/Math.max(1,au.maximum))?'charged':''}"></i>`).join('')}</span>`}`;
       if(auMarkup!==lastAu){form.querySelector('[data-au]').innerHTML=auMarkup;lastAu=auMarkup;}
       form.querySelector('[data-recharge]').style.width=`${au.current>=au.maximum?100:au.progress}%`;
       const nav=seat.ship.navigation;
@@ -219,6 +259,7 @@
       const drift=window.SAShipNavigation.driftDistance(length),end=b&&finalLength?{x:b.x+(b.x-c.x)*drift/finalLength,y:b.y+(b.y-c.y)*drift/finalLength}:b;
       const nextMarker=b?`<path d="M${a.x} ${a.y} ${routeMode==='custom'?waypoints.map(p=>{const v=xy(p);return `L${v.x} ${v.y}`;}).join(' '):`L${b.x} ${b.y}`}" fill="none" stroke="#75ffc4" stroke-width="${scale}"/><circle cx="${b.x}" cy="${b.y}" r="${scale*2}" fill="#07120e" stroke="#75ffc4" stroke-width="${scale}"/><path d="M${b.x} ${b.y} L${end.x} ${end.y}" stroke="#ffe191" stroke-dasharray="${scale*3} ${scale*2}" stroke-width="${scale}"/><circle cx="${end.x}" cy="${end.y}" r="${scale*2}" fill="none" stroke="#ffe191" stroke-width="${scale}"/>`:'';
       if(nextMarker!==lastMarker){marker.innerHTML=nextMarker+(routeMode==='custom'?waypoints.map((p,i)=>{const v=xy(p);return `<text x="${v.x}" y="${v.y}" fill="white" stroke="#07120e" stroke-width="${pixel*3}" paint-order="stroke" text-anchor="middle" font-size="${pixel*16}">${i+1}</text>`;}).join(''):'');lastMarker=nextMarker;}
+      positionConfirm();
     }
     function select(event,lock){
       if(submitting||!planning||q.disabled||(!lock&&(locked||routeMode==='custom')))return;
@@ -242,7 +283,7 @@
     });
     form.addEventListener('input',e=>{if([q,r].includes(e.target)){waypoints=[];routeMode='direct';for(const b of form.querySelectorAll('[data-route-mode]'))b.setAttribute('aria-pressed',String(b.dataset.routeMode===routeMode));locked=true;destination=q.value!==''&&r.value!==''&&q.validity.valid&&r.validity.valid?{q:Number(q.value),r:Number(r.value)}:null;}error.textContent='';redraw();});
     for(const control of form.querySelectorAll('[data-zoom]'))control.onclick=()=>{svg.dataset.manualCamera='true';auto.setAttribute('aria-pressed','false');window.SASpaceMap.zoom(svg,Number(control.dataset.zoom));redraw();};
-    form.onsubmit=async e=>{e.preventDefault();redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',sicId:pilotSicId,destination:{...destination},waypoints:routeMode==='custom'?waypoints:[],boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});locked=false;destination=null;waypoints=[];planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
+    form.onsubmit=async e=>{e.preventDefault();if(submitting)return;redraw();if(submit.disabled)return;const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'moveStarship'))return;const order={action:'playerCombatAction',id:pilotId,kind:'moveStarship',sicId:pilotSicId,destination:{...destination},waypoints:routeMode==='custom'?waypoints:[],boostIds:[...form.querySelectorAll('[name=boost]:checked')].map(b=>b.value),trigger:window.SAShipCommandUI.conditionalPayload(dialog)};submitting=true;redraw();try{await bridge.action(order,'resolve',{throwOnError:true});if(compact){rememberDismissal();dialog.close();return;}locked=false;destination=null;waypoints=[];planning=false;q.value='';r.value='';}catch(err){error.textContent=err.message;}finally{submitting=false;if(dialog.isConnected)redraw();}};
     const rememberDismissal=()=>remember(bridge.state().units.find(u=>u.id===pilotId));
     leave.onclick=()=>{const pilot=bridge.state().units.find(u=>u.id===pilotId);if(!bridge.confirmGmPlayerAction(pilot,'leaveStation'))return;dialog.close();window.SACombatMap.openMove(pilot);};
     form.querySelector('[data-close]').onclick=()=>{rememberDismissal();dialog.close();};
@@ -251,9 +292,9 @@
     dialog.addEventListener('pointerdown',bridge.resumeAudio,{passive:true});
     dialog.addEventListener('keydown',bridge.resumeAudio);
     dialog.addEventListener('cancel',event=>{if(!event.defaultPrevented)rememberDismissal();});
-    dialog.addEventListener('mapfocuschange',()=>{requestAnimationFrame(()=>{resizeMap();if(!svg.dataset.manualCamera)fitVisible();redraw();});});
-    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);mapObserver.disconnect();chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
-    dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();requestAnimationFrame(()=>{fitVisible();redraw();});
+    dialog.addEventListener('mapfocuschange',()=>{requestAnimationFrame(()=>{resizeMap();redraw();});});
+    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);mapObserver.disconnect();confirmCamera.disconnect();chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
+    dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();requestAnimationFrame(()=>{window.SASpaceMap.mountCamera(svg,cameraKey);redraw();});
   }
   function sync(unit){
     const bridge=window.SACombatBridge;
@@ -306,8 +347,8 @@
       consoleButton.style.cssText='position:fixed;left:50%;bottom:0;translate:-50% 0;transform:none;transition:none;animation:none;z-index:10000;width:300px;max-width:90vw;min-width:0;height:64px;padding:12px 36px 8px;border:0;border-radius:0;background:transparent;color:#201500;font:900 20px Arial;box-shadow:none;filter:drop-shadow(0 -3px 8px #e9b93470);cursor:pointer';
       consoleButton.onclick=()=>{const candidates=b.state()?.units.filter(u=>b.mode()==='gm'?u.team!=='pc'&&window.SAStationAccess.consoles(b.state(),u).length:u.id===b.myUnitId())||[];const visibleConsole=doc.querySelector('dialog[open][data-operator-id]');if(visibleConsole){const person=b.state()?.units.find(u=>u.id===visibleConsole.dataset.operatorId);if(person)remember(person);visibleConsole.close();return;}if(candidates.length===1)toggle(candidates[0]);else if(candidates.length){const picker=doc.createElement('dialog');picker.innerHTML='<h2>Choose NPC Console</h2>';for(const person of candidates){const choice=doc.createElement('button');choice.textContent=person.characterName;choice.onclick=()=>{picker.close();picker.remove();open(person);};picker.append(choice);}const close=doc.createElement('button');close.textContent='Close';close.onclick=()=>{picker.close();picker.remove();};picker.append(close);doc.body.append(picker);picker.showModal();}};doc.body.append(consoleButton);
     }
-    const activeConsole=doc.querySelector('dialog[open][data-operator-id]');const buttonHost=activeConsole||doc.body;if(consoleButton.parentElement!==buttonHost)buttonHost.append(consoleButton);consoleButton.setAttribute('aria-pressed',String(!!activeConsole));consoleButton.querySelector('span').textContent=activeConsole?'Exit Console':'Console View';const stops=consoleButton.querySelectorAll('stop'),colors=activeConsole?['#ffaaa2','#da4545','#8c1e27']:['#fff1a0','#eac145','#be8919'];stops.forEach((n,i)=>n.setAttribute('stop-color',colors[i]));consoleButton.style.color=activeConsole?'#fff':'#201500';
-    consoleButton.hidden=!visible||!['player','gm'].includes(b.mode())||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]:not([data-operator-id])'));
+    const activeConsole=doc.querySelector('dialog[open][data-operator-id]:not(.navigation-planner)');const buttonHost=activeConsole||doc.body;if(consoleButton.parentElement!==buttonHost)buttonHost.append(consoleButton);consoleButton.setAttribute('aria-pressed',String(!!activeConsole));consoleButton.querySelector('span').textContent=activeConsole?'Exit Console':'Console View';const stops=consoleButton.querySelectorAll('stop'),colors=activeConsole?['#ffaaa2','#da4545','#8c1e27']:['#fff1a0','#eac145','#be8919'];stops.forEach((n,i)=>n.setAttribute('stop-color',colors[i]));consoleButton.style.color=activeConsole?'#fff':'#201500';
+    consoleButton.hidden=!visible||!['player','gm'].includes(b.mode())||window.SACombatMap?.isInlineMoveSelecting()||!unit||!window.SAStationAccess.consoles(state,unit).length||Boolean(doc.querySelector('dialog[open]:not([data-operator-id]),dialog.navigation-planner[open]'));
     if(visible)sync(unit);
   }
   window.addEventListener('sa-combat-state',restoreView);

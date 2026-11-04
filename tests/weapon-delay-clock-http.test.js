@@ -27,7 +27,7 @@ test('a weapon input with a subnormal remainder resolves on the live clock and r
   const act = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());
   let current = await act({ action: 'setHardPaused', paused: true });
-  const nova = current.units.find(u => u.characterName === 'Nova Vale'), slug = current.units.find(u => u.characterName === 'Space Slug');
+  const nova = current.units.find(u => u.team === 'pc'), slug = current.units.find(u => u.team === 'npc' && !u.allyNpc);
   const ship = current.starships.find(s => s.id === nova.location.starshipId), target = current.starships.find(s => s.id !== ship.id);
   const bridge = ship.ship.sicInventory.find(i => i.type === 'bridge-1'), gun = ship.ship.sicInventory.find(i => i.type === 'ripple-cannon-1');
   const square = ship.ship.placements.find(p => p.sicId === bridge.id).cell;

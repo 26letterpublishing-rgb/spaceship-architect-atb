@@ -1,0 +1,9 @@
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls :is(h3,p,label,button){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls label:has(input[type="checkbox"]){display:flex!important;align-items:center;gap:12px!important;margin:12px 0;overflow-wrap:anywhere}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]{appearance:none;position:relative;flex:0 0 50px;width:50px;min-width:50px;height:28px;margin:0;border:1px solid #728d95;border-radius:18px;background:linear-gradient(#13232c,#3f5965);box-shadow:inset 0 2px 5px #000b,0 1px 0 #c5f4ff66;cursor:pointer}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]::before{content:'';position:absolute;left:4px;top:4px;width:18px;height:18px;border-radius:50%;background:linear-gradient(#f2ffff,#8aa2ad);box-shadow:0 2px 3px #0009,inset 0 1px 1px #fff}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]:checked{background:linear-gradient(#125743,#348f6d)}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]:checked::before{transform:translateX(22px);background:linear-gradient(#fff,#a8f0cf)}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]:focus-visible{outline:2px solid #ffe17e;outline-offset:3px}
+body dialog:is(.triangulator-console,.security-droid-console) .utility-controls input[type="checkbox"]:disabled{opacity:.45;cursor:not-allowed}

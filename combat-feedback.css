@@ -23,3 +23,7 @@ body[data-impact-presenting] dialog:not(.combat-effect-stage)::backdrop{backgrou
 .combat-victory-banner strong{display:block;font-size:clamp(40px,8vw,80px);line-height:1.1}.combat-victory-banner span{display:block;font-size:18px;margin-top:12px;color:white}
 @keyframes victory-fade{0%,83%{opacity:1}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.combat-victory-banner{animation:none}}
+
+/* Zero HP reuses Victory presentation; this does not confirm permanent death. */
+.combat-zero-hp-banner{background:#53151d;border-color:#ff7385;box-shadow:0 0 24px #8e2436;color:#fff0f2}
+.combat-zero-hp-banner img{display:block;width:100px;height:128px;object-fit:contain;margin:0 auto 12px}

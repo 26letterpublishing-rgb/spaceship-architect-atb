@@ -263,7 +263,8 @@ const ALL_SKILLS = [...SPACECRAFT_SKILLS, ...GENERAL_SKILLS];
 const DEBUG_CONTROLS_ENABLED = false;
 const PAGE_PARAMS = new URLSearchParams(window.location.search);
 const GM_SHIP_VIEW = PAGE_PARAMS.get("gm") === "1" && PAGE_PARAMS.get("tab") === "starships" && !PAGE_PARAMS.get("character");
-const CAMPAIGN_READ_ONLY_VIEW = PAGE_PARAMS.get("campaignView") === "1";
+const SUBMISSION_REVIEW = PAGE_PARAMS.has("submissionReview");
+const CAMPAIGN_READ_ONLY_VIEW = PAGE_PARAMS.get("campaignView") === "1" || SUBMISSION_REVIEW;
 const GM_ADJUSTMENT_MODE = PAGE_PARAMS.get("gmAdjust") === "1";
 const $ = (selector) => document.querySelector(selector);
 
@@ -1961,7 +1962,15 @@ function renderCombatTabAttention(state=dom.playerAtbFrame?.contentWindow?.SACom
   button.title=activity==='ready'?'Your character has a combat action or roll waiting.':activity==='running'?'Your character’s ATB is advancing.':'';
   button.setAttribute('aria-label',activity==='ready'?'Combat — action waiting':activity==='running'?'Combat — ATB advancing':'Combat');
 }
+function updateZeroHpDisplay() {
+  const own=campaignState?.ownCharacterId,eligible=!CAMPAIGN_READ_ONLY_VIEW&&campaignState?.role==='character'&&own===campaignCharacterId;
+  const live=!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.find(u=>u.characterId===own);
+  const record=campaignState?.characters?.find(r=>r.id===own);
+  const value=campaignState?.combatActive&&!playerEncounterView?undefined:live?live.currentHp:record?.character?.health?.current;
+  window.SACharacterLifecycle?.zeroHp({code:campaignCode,id:own,eligible,hp:value===null||value===undefined?NaN:Number(value)});
+}
 function renderCombatStatus() {
+  updateZeroHpDisplay();
   window.SAInterfaceNotices?.setCombatActive(campaignState?.combatActive);
   renderCombatTabAttention();
   const status=document.getElementById('campaignCombatStatus');
@@ -2175,7 +2184,7 @@ function livePlayerShipRecord(record) {
   if(!record)return record;
   const locations={...record.characterLocations};
   for(const [id,loc]of Object.entries(locations))if(loc.environment==='surface')delete locations[id];
-  const interiorOccupants=campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,name:u.characterName,color:u.color,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
+  const interiorOccupants=campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt&&playerEncounterView?.units?.length?playerEncounterView.units.filter(u=>u.team==='npc'&&u.location?.starshipId===record.id).map(u=>({id:u.id,team:u.team,name:u.characterName,color:u.color,raceId:u.raceId,raceType:u.raceType,iconRace:u.iconRace,iconVariant:u.iconVariant,currentHp:u.currentHp,location:u.location})):record.interiorOccupants||[];
   for(const u of interiorOccupants)locations[u.id]=u.location;
   for(const [index,id] of (record.crewCharacterIds||[]).entries())if(!locations[id]&&record.ship.gridCells.length&&!['surface','boarding'].includes(record.characterLocations?.[id]?.environment)&&!(campaignState?.starships||[]).some(s=>s.id!==record.id&&s.characterLocations?.[id]))locations[id]={square:record.ship.gridCells[Math.min(Math.floor(index/2),record.ship.gridCells.length-1)],mesh:4};
   for(const unit of (campaignState?.combatActive&&!playerEncounterView?.encounterEndedAt?playerEncounterView?.units:[])||[])if(unit.location?.starshipId===record.id&&record.crewCharacterIds?.includes(unit.characterId))locations[unit.characterId]=unit.location;
@@ -2238,7 +2247,7 @@ function renderPlayerStarships(force = false) {
         const sameLocation = occupants.filter((occupant) => Number(visualLocations.get(occupant.id)?.mesh ?? 4) === mesh).sort((left, right) => String(left.id).localeCompare(String(right.id)));
         const offset = sameLocation.length > 1 ? sameLocation.findIndex((occupant) => occupant.id === entry.id) === 0 ? -5 : 5 : 0;
         const left = ((mesh % 3) + .5) / 3 * 100 + offset; const top = (Math.floor(mesh / 3) + .5) / 3 * 100;
-        return `<i ${window.SATokenArt.attributes(entry)} class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}">${escapeHtml(campaignCharacterName(entry).slice(0, 1).toUpperCase())}</i>`;
+        return `<i ${window.SATokenArt.attributes(entry)} class="player-ship-token ${entry.id === ownId ? "is-self" : ""}" style="left:${left}%;top:${top}%;--token-color:${escapeAttribute(entry.character?.presentation?.atbColor || "#39e58f")}" title="${escapeAttribute(campaignCharacterName(entry))}"></i>`;
       }).join("");
       const occupied = layout.footprint.get(square);
       const sicLabel = occupied?.label || "";
@@ -2247,7 +2256,7 @@ function renderPlayerStarships(force = false) {
         if (!playerShipMapView.stations && !stationOccupant) return "";
         const occupantName = stationOccupant ? campaignCharacterName(stationOccupant) : "";
         const occupantColor = stationOccupant?.character?.presentation?.atbColor || "#39e58f";
-        return `<i ${window.SATokenArt.attributes(stationOccupant||{})} class="player-ship-station ${stationOccupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${stationOccupant ? `--token-color:${escapeAttribute(occupantColor)}` : ""}" ${stationOccupant ? `title="${escapeAttribute(occupantName)} is stationed here" aria-label="${escapeAttribute(occupantName)} is stationed here"` : ""}>${stationOccupant ? `<span>${escapeHtml(occupantName.slice(0, 1).toUpperCase())}</span>` : ""}</i>`;
+        return `<i ${window.SATokenArt.attributes(stationOccupant||{})} class="player-ship-station ${stationOccupant ? "occupied" : ""}" style="left:${(((station.mesh % 3) + .5) / 3) * 100}%;top:${((Math.floor(station.mesh / 3) + .5) / 3) * 100}%;${stationOccupant ? `--token-color:${escapeAttribute(occupantColor)}` : ""}" ${stationOccupant ? `title="${escapeAttribute(occupantName)} is stationed here" aria-label="${escapeAttribute(occupantName)} is stationed here"` : ""}>${stationOccupant ? `` : ""}</i>`;
       }).join("") : "";
       const style = occupied ? `--sic-basic-color:${occupied.color || "#197a6f"};${playerShipMapView.highResolution && occupied.image ? window.SAShipMap.floorplanStyle(occupied.type, occupied.column, occupied.row,occupied) : ""}` : "";
       const classes = ["player-ship-cell", hull.has(square) ? "hull" : "", footprint.has(square) ? "sic" : "", route.has(square) ? "route" : "", starshipMoveDraft?.starshipId === record.id && starshipMoveDraft.destination === square ? "destination" : ""].filter(Boolean).join(" ");
@@ -2436,6 +2445,7 @@ function receiveCampaignState(nextState) {
   campaignState = nextState;
   window.SAUniverseUI?.update(nextState);
   window.SACharacterLifecycle?.update(nextState);
+  updateZeroHpDisplay();
   window.SACampaignMapUI?.update(nextState,campaignToken);
   window.SACrewLogs?.update(nextState,campaignToken);
   window.SACrewRoomStatus.update(nextState,body=>campaignRequest('/api/campaign/starship/crew-room',{method:'POST',body:JSON.stringify({code:campaignCode,token:campaignToken,characterId:nextState.ownCharacterId,...body})}));
@@ -7067,6 +7077,12 @@ function openRequestedCampaignRoll() {
     : "GM-requested roll. Confirm and Submit when your result is ready.";
 }
 
+function resumeSavedFinalization() {
+  if (CAMPAIGN_READ_ONLY_VIEW || GM_SHIP_VIEW || PAGE_PARAMS.has('shipRoll') || campaignCode) return;
+  if (activeRecovery?.character?.id !== character.id || character.phase !== 'finalizing' || !character.creation?.decimalBatch || character.creation.batchAnimating || diceRoller.isActive()) return;
+  processFinalization();
+}
+
 function processFinalization() {
 
   if(character.phase==='finalized'||character.creation?.skippingDecimals)return;
@@ -9464,6 +9480,7 @@ dom.importCharacter.addEventListener("change", async () => {
     if (!importedSource?.identity || !importedSource?.attributes) throw new Error("Missing character data");
     const imported = normalizeCharacter(importedSource);
     imported.id = uid();
+    imported.creation.roomImportApproval = true;
     if (library.some((entry) => entry.identity.characterName === imported.identity.characterName)) imported.identity.characterName += " (Imported)";
     library.push(imported);
     activeId = imported.id;
@@ -9571,6 +9588,10 @@ async function finishRoomCreation(){
     const state=await campaignRequest('/api/campaign/state?code='+encodeURIComponent(code)+'&token='+encodeURIComponent(token||''));
     if(state.ownCharacterId){await window.SARoomV03.openCharacter(state,token);return;}
     if(!state.roomOpen)throw Error('The room is unavailable. Your character is saved; return to the room to reconnect.');
+    if(character.creation?.roomImportApproval){
+      await window.SARoomV03.importIntoRoom(code,'character',character);
+      return;
+    }
     const password=await window.SARoomV03.input('Character Ready','Choose your character password');
     if(password===null){notice('Character saved. Use Finish Joining Room to set a password and enter.');return;}
     const result=await window.SARoomV03.api('character/create',{code,token,password,character});
@@ -9579,9 +9600,48 @@ async function finishRoomCreation(){
   finally{roomCreationPending=false;}
 }
 
+function pendingCharacterForReview(state, requestId) {
+  if (state?.role !== "gm") throw new Error("GM authorization is required to review this submission.");
+  const request = state.imports?.find(entry => entry.id === requestId && entry.kind === "character" && entry.status === "pending");
+  if (!request?.data) throw new Error("This character submission is no longer pending.");
+  return request.data;
+}
+
+async function initializeSubmissionReview() {
+  dom.campaignGate.hidden = true;
+  dom.characterWorkspace.hidden = true;
+  dom.characterWorkspace.style.setProperty("display", "none", "important");
+  const status = document.createElement("p");
+  status.setAttribute("role", "status");
+  status.textContent = "Loading submitted character...";
+  dom.characterWorkspace.before(status);
+  try {
+    const code = String(PAGE_PARAMS.get("campaign") || "").trim().toUpperCase();
+    const token = sessionStorage.getItem(`sa-gm-token-${code}`) || localStorage.getItem(`sa-gm-token-${code}`) || "";
+    const state = await campaignRequest(`/api/campaign/state?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
+    const submitted = pendingCharacterForReview(state, PAGE_PARAMS.get("submissionReview"));
+    // View the submitted copy only: never add it to the library or connect a live editor.
+    character = normalizeCharacter(deepCopy(submitted));
+    campaignCode = code;
+    campaignState = state;
+    campaignEditable = false;
+    campaignCharacterId = "";
+    campaignToken = "";
+    renderAll();
+    showCharacterPanel("sheet");
+    applyCampaignPermissions();
+    dom.characterWorkspace.hidden = false;
+    dom.characterWorkspace.style.removeProperty("display");
+    status.remove();
+  } catch (error) {
+    status.textContent = error.message || "Unable to review this submission.";
+  }
+}
+
 async function initializeCharacterApp() {
   const params = PAGE_PARAMS;
   const explicitNewCharacter = params.get("new") === "1";
+  if (SUBMISSION_REVIEW) { document.body.classList.add("embedded-sheet", "campaign-sheet-embed"); await initializeSubmissionReview(); return; }
   document.body.classList.toggle("embedded-sheet", params.get("embedded") === "1");
   document.body.classList.toggle("gm-ship-view", GM_SHIP_VIEW);
   const requestedCode = String(params.get("campaign") || (explicitNewCharacter || params.get("library") === "1" ? "" : localStorage.getItem("sa-character-campaign-code")) || "").trim().toUpperCase();
@@ -9777,6 +9837,7 @@ if (!PAGE_PARAMS.get('campaign')) {
   if (!CAMPAIGN_READ_ONLY_VIEW) saveLibrary("Saved locally");
 }
 initializeCharacterApp().then(() => {
+resumeSavedFinalization();
 if (!CAMPAIGN_READ_ONLY_VIEW && !GM_SHIP_VIEW && character.phase === "draft" && !character.creation.introductionSeen) {
   try { sessionStorage.setItem(`sa-draft-guide-${character.id}`, "shown"); } catch { /* Optional per-tab hint must not interrupt creation. */ }
   showDraftIntroduction();
@@ -9968,6 +10029,11 @@ setInterval(syncShipConsoleLauncher,500);
 const partyBrowse=document.createElement('button');partyBrowse.type='button';partyBrowse.textContent='View other party members';partyBrowse.setAttribute('aria-expanded','false');const partyNavigation=document.querySelector('.campaign-character-navigation');partyNavigation.hidden=true;partyNavigation.before(partyBrowse);partyBrowse.onclick=()=>{partyNavigation.hidden=!partyNavigation.hidden;partyBrowse.setAttribute('aria-expanded',String(!partyNavigation.hidden));};
 
 const vitalHud=document.getElementById('globalCharacterHud');
-if(vitalHud)new ResizeObserver(()=>{document.documentElement.style.setProperty('--character-hud-height',(vitalHud.hidden?0:Math.ceil(vitalHud.getBoundingClientRect().height)+8)+'px');}).observe(vitalHud);
+function syncCharacterHudOffset(){
+  const headerOwned=Boolean(vitalHud?.closest('.creator-header'));
+  const height=!vitalHud||vitalHud.hidden||headerOwned?0:Math.ceil(vitalHud.getBoundingClientRect().height)+8;
+  document.documentElement.style.setProperty('--character-hud-height',height+'px');
+}
+if(vitalHud){new ResizeObserver(syncCharacterHudOffset).observe(vitalHud);syncCharacterHudOffset();}
 
 window.addEventListener("sa-combat-reset",()=>resetCombatInterfaceState());

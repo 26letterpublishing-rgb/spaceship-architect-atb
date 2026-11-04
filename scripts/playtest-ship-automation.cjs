@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events'),maps=require('../ship-map-core'),ai=require('../ship-ai');
-const root=path.resolve(__dirname,'..'),out=path.join(root,'test-artifacts','ship-automation');fs.mkdirSync(out,{recursive:true});let child,browser,page;
+const root=path.resolve(__dirname,'..'),out=process.argv.includes('--npc-policy')?path.resolve(root,'../SA-ATB Local Development Files/outputs/npc-ai-nov01/browser'):path.join(root,'test-artifacts','ship-automation');fs.mkdirSync(out,{recursive:true});let child,browser,page;
 async function main(){
  child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-ai-'))},stdio:['ignore','pipe','pipe']});child.stderr.on('data',c=>process.stderr.write(c));
  const base=await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Startup timeout')),10000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(t);resolve(u);}});});
@@ -8,6 +8,30 @@ async function main(){
  const created=page.waitForResponse(r=>r.url().endsWith('/api/campaign/showcase/start'));await page.goto(base+'/showcase.html');const room=await(await created).json(),code=room.code,token=room.gmToken;
  const state=()=>fetch(`${base}/api/state?room=${code}&token=${token}`).then(r=>r.json()),backup=()=>fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json()),act=(body,status=200)=>post('action',{roomCode:code,gmToken:token,...body},status);
  const seed=await backup(),c=seed.campaign,ship=c.encounter.starships.find(s=>s.controlType==='pc'),enemy=c.encounter.starships.find(s=>s.controlType!=='pc');
+ if(process.argv.includes('--npc-policy')){
+  const policy=require('../ship-automation'),actor=c.encounter.units.find(u=>u.team==='npc'&&!u.shipAi),host=c.encounter.starships.find(s=>s.id===actor.location?.starshipId);assert.ok(host);
+  for(const u of c.encounter.units)Object.assign(u,{speed:.01,atb:0,automationMode:'off',delayedAction:null,timedAction:null,delayTimer:null,consoleHold:null,pendingShipRolls:[]});
+  actor.location=policy.seats(host).find(s=>s.bridge&&policy.free(c.encounter,actor,s));assert.ok(actor.location);
+  Object.assign(actor,{atb:100,exertionCurrent:2,exertionMax:3,automationSuspended:false});
+  Object.assign(c.encounter,{hasEngagedClock:true,encounterEndedAt:null,activeId:actor.id,pausedForTurn:true,hardPaused:true,holdPaused:false,running:false,resumeAfterTurn:true,commandRemaining:null});
+  for(const s of c.encounter.starships)s.sensorScenarioMasking=10;
+  c.encounter.shipPositions=[{id:ship.id,q:0,r:0},{id:enemy.id,q:1,r:0}];require('../ship-power').refresh(c.encounter,{reset:true});require('../ship-sensors').refresh(c.encounter);
+  const expected=policy.candidates(c.encounter,actor)[0];assert.ok(expected);assert.equal(expected.action,'weaponCommand');
+  await post('campaign/restore',{code,token,backup:seed});await page.reload();
+  const outer=page.frameLocator('[data-explore-perspective="gm"]');await outer.locator('.gm-tabs [data-tab=atb]').click();
+  const combat=outer.frameLocator('#atbFrame'),toggle=combat.locator(`[data-action=automation][data-id="${actor.id}"]`).first();await toggle.waitFor();
+  await page.locator('.critical-flight-banner').waitFor({state:'detached',timeout:25000});if(await combat.locator('#collapseNpcTurn').isVisible())await combat.locator('#collapseNpcTurn').click();await toggle.click();
+  async function until(check,label){const end=Date.now()+12000;while(Date.now()<end){const s=await state();if(check(s))return s;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out: '+label);}
+  await until(s=>s.units.find(u=>u.id===actor.id)?.automationMode==='npc','GM toggle on');
+  await act({action:'setHardPaused',paused:false});
+  let live=await until(s=>s.units.find(u=>u.id===actor.id)?.delayedAction,'validated automatic action');await act({action:'setHardPaused',paused:true});
+  const u=live.units.find(u=>u.id===actor.id),order=u.delayedAction.weaponOrder||u.delayedAction.missileOrder;assert.equal(order.sicId,expected.sicId);assert.equal(order.targetId,expected.targetId);assert.equal(u.exertionCurrent,2);
+  if(await combat.locator('#collapseNpcTurn').isVisible())await combat.locator('#collapseNpcTurn').click();await toggle.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'npc-ready-shot.png'),fullPage:true});await toggle.click();
+  live=await until(s=>s.units.find(u=>u.id===actor.id)?.automationMode==='off','GM takeover');assert.equal(live.units.find(u=>u.id===actor.id).exertionCurrent,2);
+  await page.reload();await outer.locator('.gm-tabs [data-tab=atb]').click();await toggle.waitFor();assert.equal((await state()).units.find(u=>u.id===actor.id).automationMode,'off');
+  await post('action',{roomCode:code,action:'setAutomation',id:actor.id,mode:'npc'},403);
+  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,expected,order,checks:['real GM toggle starts expected ordinary validated shot','no Exertion spent','GM Off takeover persists through browser reload','unauthenticated automation denied'],errors},null,2));console.log('PASS ordinary NPC ready shot, GM toggle/takeover, reload and permissions.');return;
+ }
  for(const record of [ship,c.starships.find(s=>s.id===ship.id)]){const bridge=record.ship.sicInventory.find(i=>maps.definition(i.type).bridge),cell=record.ship.placements.find(p=>p.sicId===bridge.id).cell;record.ship.sicInventory.push({id:'ai-test',type:'ship-ai',status:'installed'});record.ship.placements.push({sicId:'ai-test',cell});}
  for(const u of c.encounter.units)Object.assign(u,{speed:.01,atb:0,delayedAction:null,timedAction:null,delayTimer:null,consoleHold:null,pendingShipRolls:[]});
  ai.sync(c.encounter,b=>({...b,atb:100,queuedEffects:[]}));const actor=c.encounter.units.find(u=>u.shipAi);assert.ok(actor);const aiId=actor.id;

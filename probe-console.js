@@ -1,18 +1,37 @@
 (function(){
  let current=null;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ // Use only the selected launcher's own, currently disclosed probe contact.
+ function probePointerPoint(p,ownerId,sicId,picture){
+  if(!p||p.ownerId!==ownerId||p.launcherId!==sicId||!window.SAShipProbes.active(p))return null;
+  const contact=picture.starships?.find(s=>s.id===p.id&&s.isProbe&&s.probeOwnerId===ownerId&&!s.destroyedAt&&s.contactLevel!=='last-known'&&s.contactLevel!=='unknown');
+  const point=contact&&picture.shipPositions?.find(pos=>pos.id===p.id);
+  return point&&Number.isFinite(point.q)&&Number.isFinite(point.r)?point:null;
+ }
  function open(unit,sicId){
   if(current)return;const b=window.SACombatBridge,initial=window.SAStationAccess.access(b.state(),unit,sicId);if(!initial?.definition.probeLauncher)return;
   let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
   for(const name of ['sensor-console-ui.css','probe-console.css'])if(!doc.querySelector(`link[href="${name}"]`)){const link=doc.createElement('link');link.rel='stylesheet';link.href=name;doc.head.append(link);}
-  const view=doc.createElement('dialog');current=view;view.className='sensor-console probe-console';view.dataset.operatorId=unit.id;view.dataset.sicId=sicId;view.setAttribute('aria-label','Probe Launcher console');
+  const view=doc.createElement('dialog');current=view;view.className='sensor-console probe-console probe-launcher-console';view.dataset.operatorId=unit.id;view.dataset.sicId=sicId;view.setAttribute('aria-label','Probe Launcher console');
   view.innerHTML=`<header><div><small>${esc(unit.characterName)} / ${esc(initial.ship.title)}</small><h2>Probe Launcher</h2></div><strong data-turn></strong><div data-selector></div><button data-sound type="button">${b.soundIcon()}</button><button data-close type="button">Combat View</button></header><main><section class="sensor-chart"><h3>Scout Plot <small data-range></small></h3><div data-map></div><div class="sensor-coordinates"><label>Column (Q)<input data-q type="number" min="-10000" max="10000" step="1" disabled></label><label>Row (R)<input data-r type="number" min="-10000" max="10000" step="1" disabled></label><output data-destination></output></div><p data-plot-hint>Choose Launch Probe or Move Probe to plot a destination. Blue: ship link range. Gold: probe sensors.</p><div class="sensor-readout"><img data-art src="probe-launcher.svg" alt="Probe"><div><strong data-spec></strong><p data-status></p><progress data-input max="100" value="0" aria-label="Probe command input"></progress></div></div></section><section class="sensor-controls"><h3>Probe Orders</h3><label>Loaded Probe<select data-probe aria-label="Loaded Probe"></select></label><strong data-cooldown></strong><label data-target-label>Hacking Bug target<select data-target aria-label="Hacking Bug target"></select></label><p data-payload></p>${[['launch','Launch Probe'],['move','Move Probe'],['scan','Scan from Probe'],['return','Retract Probe'],['attach','Attach Bug to Ship'],['bugOn','Activate Bug · 1 AU / round'],['bugOff','Deactivate Bug'],['inhibit','Activate Warp Inhibitor'],['inhibitOff','Deactivate Inhibitor']].map(([id,title])=>`<div><button type="button" data-order="${id}">${title}</button><small data-reason="${id}"></small></div>`).join('')}<div data-planner hidden><button type="button" data-confirm-flight disabled>Confirm Flight</button><button type="button" data-replot>Choose Another Hex</button><button type="button" data-cancel-flight>Cancel Plot</button></div><output data-error role="status"></output><div class="sensor-seat-actions"><button data-hold type="button">Hold</button><button data-leave type="button">Leave Console</button></div></section><section class="sensor-reports"><h3>Probe Reports</h3><div data-reports></div></section><section class="sensor-timeline"><div class="pilot-rings" data-rings></div></section></main>`;
-  const get=s=>view.querySelector(s),person=()=>b.state().units.find(u=>u.id===unit.id);let busy=false,lastOptions='',lastMap='',lastReports='',lastRings='',lastTargets=null,planning=null,manualViewBox=null;
+  const get=s=>view.querySelector(s),person=()=>b.state().units.find(u=>u.id===unit.id);let busy=false,lastOptions='',lastMap='',lastReports='',lastRings='',lastTargets=null,planning=null,manualViewBox=null,fitLinkRequested=false;
   get('.sensor-controls h3').after(get('[data-planner]'));
   const zoom=doc.createElement('div');zoom.className='sensor-map-zoom';zoom.innerHTML='<button type="button" data-zoom="out" aria-label="Zoom out">−</button><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-auto-zoom>Fit Link Range</button><button type="button" data-map-focus>Enlarge Map</button>';const mapTools=doc.createElement('div');mapTools.className='sensor-map-tools';get('[data-map]').after(mapTools);mapTools.append(zoom,get('.sensor-coordinates'));
   get('[data-map-focus]').onclick=()=>window.SASpaceMap.focusMap(view,get('[data-map-focus]'));
-  zoom.addEventListener('click',event=>{const svg=get('[data-map] svg[data-space-canvas]');if(!svg)return;if(event.target.closest('[data-auto-zoom]')){manualViewBox=null;delete svg.dataset.userViewBox;lastMap='';redraw();return;}const button=event.target.closest('[data-zoom]');if(!button)return;window.SASpaceMap.zoom(svg,button.dataset.zoom==='in'?.8:1.25);manualViewBox=svg.getAttribute('viewBox');});
+  zoom.addEventListener('click',event=>{const svg=get('[data-map] svg[data-space-canvas]');if(!svg)return;if(event.target.closest('[data-auto-zoom]')){fitLinkRequested=true;manualViewBox=null;delete svg.dataset.userViewBox;lastMap='';redraw();return;}const button=event.target.closest('[data-zoom]');if(!button)return;window.SASpaceMap.zoom(svg,button.dataset.zoom==='in'?.8:1.25);manualViewBox=svg.getAttribute('viewBox');});
   view.addEventListener('mapfocuschange',()=>{if(!manualViewBox){lastMap='';redraw();}});
+  const pointer=doc.createElement('span');pointer.className='probe-position-pointer';pointer.hidden=true;pointer.setAttribute('aria-hidden','true');get('[data-map]').append(pointer);
+  function drawPointer(){
+   const {state,access,p}=selected(),svg=get('[data-map] svg[data-space-canvas]');pointer.hidden=true;
+   if(!access||!svg)return;const point=probePointerPoint(p,access.ship.id,sicId,window.SAShipSensors.view(state,access.ship.id)),matrix=svg.getScreenCTM();
+   if(!point||!matrix)return;const local=svg.createSVGPoint();local.x=Math.sqrt(3)*(point.q+point.r/2);local.y=1.5*point.r;
+   const screen=local.matrixTransform(matrix),box=get('[data-map]').getBoundingClientRect(),x=screen.x-box.left,y=screen.y-box.top;
+   // Never pin an offscreen probe to a misleading edge position.
+   if(x<20||x>box.width-20||y<42||y>box.height)return;
+   pointer.style.left=x+'px';pointer.style.top=(y-8)+'px';pointer.hidden=false;
+   if(!pointer.isConnected)get('[data-map]').append(pointer);
+  }
+  const cameraChanges=new MutationObserver(()=>drawPointer());cameraChanges.observe(get('[data-map]'),{subtree:true,attributes:true,attributeFilter:['viewBox']});
   function circle(svg,point,range,color,key){if(!point)return;const c=doc.createElementNS('http://www.w3.org/2000/svg','circle');c.dataset[key]='';c.setAttribute('cx',Math.sqrt(3)*(point.q+point.r/2));c.setAttribute('cy',1.5*point.r);c.setAttribute('r',range*Math.sqrt(3));c.setAttribute('fill','none');c.setAttribute('stroke',color);c.setAttribute('stroke-width','.08');c.setAttribute('stroke-opacity','.6');c.style.pointerEvents='none';svg.append(c);}
   function selected(){const state=b.state(),access=window.SAStationAccess.access(state,person(),sicId);return {state,access,p:Object.values(access?.ship.ship.probeState?.probes||{}).find(p=>p.id===get('[data-probe]').value)};}
   function plot(){
@@ -67,15 +86,17 @@
     if(p?.position&&p.phase!=='docked'){const c=xy(p.position);bounds.push({x:c.x-2,y:c.y-2},{x:c.x+2,y:c.y+2});}
     window.SASpaceMap.update(get('[data-map]'),picture.starships,picture.shipPositions,{navigation:true,fitBounds:bounds});
     const svg=get('[data-map] svg[data-space-canvas]');if(svg){
+     window.SASpaceMap.mountCamera(svg,window.SASpaceMap.cameraIdentity('probe',unit.id,access.ship.id,sicId));
+     if(!fitLinkRequested){manualViewBox=svg.getAttribute('viewBox');}
      if(manualViewBox=get('[data-map] svg[data-space-canvas]')?.dataset.userViewBox||manualViewBox)svg.setAttribute('viewBox',manualViewBox);else if(bounds.length){const rect=svg.getBoundingClientRect(),ratio=Math.max(.25,rect.width/Math.max(1,rect.height)),left=Math.min(...bounds.map(p=>p.x)),right=Math.max(...bounds.map(p=>p.x)),top=Math.min(...bounds.map(p=>p.y)),bottom=Math.max(...bounds.map(p=>p.y)),width=Math.max(12,right-left+4,(bottom-top+4)*ratio),height=width/ratio;svg.setAttribute('viewBox',[(left+right-width)/2,(top+bottom-height)/2,width,height].join(' '));}
-     window.SASpaceMap.coverViewport(svg);
+     fitLinkRequested=false;manualViewBox=svg.getAttribute('viewBox');window.SASpaceMap.coverViewport(svg);
      // The sensor metric is a hex disk; show its exact boundary for destination selection.
      svg.querySelector('[data-probe-link-range]')?.remove();const boundary=doc.createElementNS(svg.namespaceURI,'polygon');boundary.dataset.probeLinkRange='';boundary.setAttribute('points',[[range,0],[0,range],[-range,range],[-range,0],[0,-range],[range,-range]].map(([q,r])=>{const c=xy({q:point.q+q,r:point.r+r});return `${c.x},${c.y}`;}).join(' '));boundary.setAttribute('fill','#67d6ed08');boundary.setAttribute('stroke','#67d6ed');boundary.setAttribute('stroke-width','.08');boundary.style.pointerEvents='none';svg.append(boundary);
      svg.querySelector('[data-probe-sensor-range]')?.remove();
      if(p&&p.linked)circle(svg,p.position,range,'#efc977','probeSensorRange');
     }lastMap=mapKey;
    }
-   plot();
+   plot();drawPointer();
    const reports=(access.ship.ship.probeState?.reports||[]).map(r=>`<article><time>${esc(new Date(r.at).toLocaleTimeString())}</time><p>${esc(r.text)}</p></article>`).join('')||'<p>No probe activity yet.</p>';if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;}
    const rings=b.pilotRings();if(rings!==lastRings){window.SALiveDOM.render(get('[data-rings]'),rings);lastRings=rings;}
    get('[data-hold]').hidden=Boolean(state.practice);get('[data-hold]').disabled=busy||(!ready&&!u?.consoleHold);get('[data-hold]').textContent=u?.consoleHold?'Resume':'Hold';get('[data-leave]').hidden=Boolean(state.practice);get('[data-leave]').disabled=!ready;
@@ -95,7 +116,7 @@
   get('[data-confirm-flight]').onclick=()=>{plot();if(!get('[data-confirm-flight]').disabled)submit(planning.kind);};
   view.addEventListener('click',event=>{const button=event.target.closest('[data-order]');if(!button||button.disabled||busy)return;const kind=button.dataset.order;if(['launch','move'].includes(kind)){planning={kind,probeId:get('[data-probe]').value,destination:null,locked:false};get('[data-q]').value='';get('[data-r]').value='';get('[data-error]').textContent='';redraw();}else submit(kind);});
   get('[data-close]').onclick=()=>{window.SAShipNavigationUI.remember(person());view.close();};get('[data-sound]').onclick=()=>b.toggleSound();get('[data-hold]').onclick=async()=>{try{await window.SAShipNavigationUI.toggleHold(person());}catch(e){get('[data-error]').textContent=e.message;}};get('[data-leave]').onclick=()=>{if(!b.confirmGmPlayerAction(person(),'leaveStation'))return;view.close();window.SACombatMap.openMove(person());};
-  window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());doc.body.append(view);view.showModal();redraw();const resize=new ResizeObserver(()=>{if(!manualViewBox){lastMap='';redraw();}});resize.observe(get('[data-map]'));const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);resize.disconnect();current=null;view.remove();window.removeEventListener('pagehide',cleanup);b.requestRender();};view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});
+  window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());doc.body.append(view);view.showModal();redraw();const resize=new ResizeObserver(()=>{drawPointer();if(!manualViewBox){lastMap='';redraw();}});resize.observe(get('[data-map]'));const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);resize.disconnect();cameraChanges.disconnect();current=null;view.remove();window.removeEventListener('pagehide',cleanup);b.requestRender();};view.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});
  }
  window.SAProbeConsole={open};
 }());

@@ -4,7 +4,7 @@
  // write the player's storage; tier changes share only this viewer's memory.
  if(root?.document.currentScript?.hasAttribute('data-viewer-audio-bootstrap')){
   const values=new Map([['sa-atb-alerts','off'],['sa-atb-gm-muted','on']]);
-  root.SABrowserStorage=root.parent!==root?root.parent.SABrowserStorage:{local:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value))}};
+  root.SABrowserStorage=root.parent!==root&&root.parent.SABrowserStorage?root.parent.SABrowserStorage:{local:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value))}};
   root.SAAudioMixOptions={clipTransport:'media'};
   return;
  }
@@ -55,8 +55,38 @@
   return {roomCode:'SIMULATED-VIEWER',debugConsole:true,running:true,activeId:unit.id,units:[unit],starships:[ship,target],shipPositions:[{id:ship.id,q:0,r:0},{id:'dummy',q:5,r:0}],spaceObjects:[],log:[],threshold:100};
  }
  function power(state,on){const item=state.starships[0].ship.sicInventory.find(i=>i.id===(state.primaryId||(state.debugFamily==='lock'?'lock':'sensor')));item.disabled=!on;item.status=on?'online':'powered-down';state.units[0].delayedAction=null;state.units[0].consoleHold=false;}
- if(typeof module==='object'){module.exports={fixture,power,catalog,visualFixture};return;}
- const params=new URLSearchParams(location.search),stage=params.has('stage');
+ // Deliberately illustrative ALMA transitions, not fuel/range or combat rules.
+ function warpPreview(state){
+  if(!state.debugConsole||maps.definition(state.debugType)?.utility!=='warp')throw Error('Warp preview requires its isolated fixture.');
+  const ship=state.starships[0].ship;
+  const report=(s,phase)=>{s.phase=phase;s.report={reason:'SIMULATED '+phase,traveledLY:s.traveledLY,elapsedSeconds:6,fuelUsed:{A:1},discardedLY:0};};
+  return {command(body){
+   if(!['warpPlan','warpStart','warpCancel','warpExit'].includes(body.kind))throw Error('Unsupported simulated Warp action.');
+   const distance=body.destination?Math.max(Math.abs(body.destination.q),Math.abs(body.destination.r),Math.abs(body.destination.q+body.destination.r))*3.26:Number(body.distanceLY),s=ship.warpState;
+   if(['warpPlan','warpStart'].includes(body.kind)&&(!Number.isFinite(distance)||distance<=0))throw Error('Enter a positive finite distance.');
+   if(body.kind==='warpPlan')return {result:{ok:true,counts:{A:1},travelSeconds:6,targetLY:distance}};
+   if(body.kind==='warpStart'){
+    if(['activating','traveling'].includes(s?.phase))throw Error('Simulated Warp is already active.');
+    ship.warpState={phase:'activating',remaining:3,total:3,targetLY:distance,traveledLY:0,secondsPerParsec:6*3.26/distance};
+   }else if(body.kind==='warpCancel'){if(s?.phase!=='activating')throw Error('No activation to cancel.');report(s,'cancelled');}
+   else {if(s?.phase!=='traveling')throw Error('Not in simulated Warp.');report(s,'exited');}
+   return {result:{ok:true}};
+  },tick(seconds){const s=ship.warpState;if(!s||!Number.isFinite(seconds)||seconds<=0)return;
+   if(s.phase==='activating'){s.remaining=Math.max(0,s.remaining-seconds);if(!s.remaining)s.phase='traveling';}
+   else if(s.phase==='traveling'){s.traveledLY=Math.min(s.targetLY,s.traveledLY+s.targetLY*seconds/6);if(s.traveledLY>=s.targetLY)report(s,'arrived');}
+  }};
+ }
+ if(typeof module==='object'){module.exports={fixture,power,catalog,visualFixture,warpPreview};return;}
+ const params=new URLSearchParams(location.search),stage=params.has('stage'),interactive=stage&&params.get('inspection')==='interactive',interactiveWarp=interactive&&maps.definition(params.get('type'))?.utility==='warp';
+ if(stage&&params.get('inspection')==='scroll'){
+  // ALMA-only inspection: real simulated markup and native scrolling, no orders.
+  const block=e=>{e.preventDefault();e.stopImmediatePropagation();};
+  for(const type of ['click','dblclick','submit','change','input'])document.addEventListener(type,block,true);
+  root.addEventListener('keydown',e=>{if(e.key==='Escape'){block(e);root.parent.postMessage({type:'alma-inspection-close'},location.origin);}},true);
+  document.addEventListener('keydown',e=>{if(!['Tab','ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key))block(e);},true);
+  const disable=()=>{for(const el of document.querySelectorAll('button,input,select,textarea,a')){if(el.matches('a'))el.removeAttribute('href');else if(!el.disabled)el.disabled=true;}};
+  new MutationObserver(disable).observe(document.body,{childList:true,subtree:true});disable();
+ }
  if(!stage){
   root.addEventListener('pagehide',()=>root.SAAudioMix.stopButtonSound(),{once:true});
   const frame=document.getElementById('stage'),select=document.getElementById('tier'),family=document.getElementById('family'),scenario=document.getElementById('scenario');
@@ -73,6 +103,9 @@
   const consoles=root.SAStationAccess.consoles;
   root.SAStationAccess={...root.SAStationAccess,consoles:(s,u)=>consoles(s,u).filter(a=>a.item.id===primaryId)};
  }
+ const warpDemo=interactiveWarp?warpPreview(state):null;
+ const localDemo=interactive&&visual?root.SAConsolePreviewActions.create(state):null;
+ if(localDemo&&maps.definition(primary.type).crewRoom)state.practice=true;
  const typingVisual=root.SAConsoleTypingVisual.create(document);
  const scanFeedback=root.SAConsoleScanFeedback.create(document,root.SAAudioMix,()=>typingVisual.update(null,false,false));
  const audioNodes=new Set(),mix=root.SAAudioMix;
@@ -101,6 +134,7 @@
   scanFeedback.update(view,unit,state,{offline,soundEnabled:!mix.isMuted()});
  }
  const action=async body=>{
+  if(localDemo)return localDemo.action(body);
   if(visual)throw Error('Visual preview only; gameplay actions are unavailable.');
   if(body.action==='shipMaintenance'){power(state,body.kind!=='off');refreshScanFeedback();if(body.kind==='off')stopAudio();return {ok:true};}
   if(body.action==='playerCombatAction'){unit.consoleHold=body.kind==='holdConsole';return {ok:true};}
@@ -120,12 +154,13 @@
   }
   return {ok:false,error:'This simulation does not implement that operation.'};
  };
- root.SACombatBridge={state:()=>state,mode:()=> 'player',myUnitId:()=>unit.id,soundEnabled:()=>!mix.isMuted(),soundIcon:()=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg>',toggleSound(){mix.setMuted(!mix.isMuted());mix.unlock();},resumeAudio:()=>mix.unlock(),consoleTick,requestRender(){},pilotRings:rings,delayIcon:()=> '',confirmGmPlayerAction:()=>true,action};
+ root.SACombatBridge={campaignMapContext:()=>({role:"player",starships:state.starships,starmaps:{maps:[{id:"preview-sector",name:"Simulated sector",lightYearsPerHex:3.26,stars:[{id:"preview-home",name:"Simulated Home",q:0,r:0},{id:"preview-destination",name:"Simulated Destination",q:2,r:0}]}],positions:{[ship.id]:{mapId:"preview-sector",q:0,r:0}},journeys:{}}}),state:()=>state,mode:()=> 'player',myUnitId:()=>unit.id,soundEnabled:()=>!mix.isMuted(),soundIcon:()=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"></path><path class="mute-slash" d="m4 4 16 16"></path></svg>',toggleSound(){mix.setMuted(!mix.isMuted());mix.unlock();},resumeAudio:()=>mix.unlock(),consoleTick,requestRender(){},pilotRings:rings,delayIcon:()=> '',confirmGmPlayerAction:()=>true,action};
  if(visual){
   const unavailable=async()=>{throw Error('Visual preview only; gameplay actions are unavailable.');};
   const info={details:{notes:[],prisoners:[],enabled:false,jobs:[]},skills:[],attributes:[],patients:[],shipMinerals:ship.ship.minerals,fabricators:[],targets:[],passengers:[],capacity:{ships:[],used:0,maximum:162},cargo:[],report:'SIMULATED / Visual preview',gm:false,rooms:[],crew:[],reports:[],title:ship.title,columns:20};
   const inspect=async body=>{if(body.kind&&body.kind!=='inspect')return unavailable();return {result:structuredClone(info)};};
-  Object.assign(root.SACombatBridge,{utilityAction:unavailable,transitAction:unavailable,crewRoomRequest:inspect,fieldUtilityRequest:inspect,surveillanceRequest:inspect,crewLogRequest:async()=>({logs:[],entries:[]}),canLeaveAtmosphere:()=>false,leaveAtmosphere:unavailable,setShipColor:unavailable,alertSound:consoleTick});
+  Object.assign(root.SACombatBridge,{utilityAction:unavailable,transitAction:warpDemo?async body=>warpDemo.command(body):unavailable,crewRoomRequest:inspect,fieldUtilityRequest:inspect,surveillanceRequest:inspect,crewLogRequest:async()=>({logs:[],entries:[]}),canLeaveAtmosphere:()=>false,leaveAtmosphere:unavailable,setShipColor:unavailable,alertSound:consoleTick});
+  if(localDemo)Object.assign(root.SACombatBridge,{utilityAction:async body=>localDemo.utility(body),crewRoomRequest:async body=>localDemo.request(body),fieldUtilityRequest:async body=>localDemo.request(body),surveillanceRequest:async body=>localDemo.request(body)});
  }
  root.SAMaintenanceUI={open:(_u,_id,kind)=>{power(state,kind!=='off');refreshScanFeedback();if(kind==='off')stopAudio();}};
  root.SACombatMap={openMove:close,isInlineMoveSelecting:()=>false};
@@ -169,6 +204,7 @@
   const running=Boolean(view&&!offline&&state.running&&!state.hardPaused&&!state.holdPaused&&!state.rollPaused&&!state.pausedForTurn&&!document.hidden);
   refreshScanFeedback();
   if(!running)return;
+  warpDemo?.tick(.2);
   tick++;
   timelineCrew.atb=(tick*3)%100;timelineCrew.queuedEffects=[{progress:(tick*2)%100}];
   state.command={unitId:unit.id,total:100,remaining:100-(tick%100)};

@@ -50,12 +50,12 @@ test('laser and heat resistance reduce only their typed Hull hits and preserve t
  add(ship.ship,'shield-1','host',null,24);shields.refresh(room);shields.damage(room,ship.id,11,{damageType:'laser'});assert.equal(ship.shieldSystems.host.hp,0);assert.equal(ship.currentHullHp,70.25,'A burst never spills resistant or raw excess onto Hull');
  ship.shieldSystems.host.hp=10;shields.damage(room,ship.id,8,{damageType:'heat',bypassShield:true});assert.equal(ship.currentHullHp,68.25);assert.equal(ship.shieldSystems.host.hp,10);
 });
-test('Static Shields follow their specific operational host, cost 3 EN and never stack Masking',()=>{
+test('Static Shields follow their specific operational host, cost 3 EN and stack Masking across distinct active hosts',()=>{
  const ship={id:'ship',ship:hull(),currentHullHp:100};add(ship.ship,'shield-1','first',null);add(ship.ship,'shield-2','second',null,23);const first=add(ship.ship,'static-shield','static-first','first');add(ship.ship,'static-shield','static-second','second',23);
- const room={starships:[ship],units:[]};shields.refresh(room);const base=maps.propulsion(ship).hsm;assert.equal(maps.masking(ship),base+4);assert.equal(power.demand(ship),5+10+5+6);
- ship.shieldSystems.first.hp=0;assert.equal(maps.staticShieldActive(ship),true);ship.shieldSystems.second.hp=0;assert.equal(maps.staticShieldActive(ship),false);assert.equal(maps.masking(ship),base);
+ const room={starships:[ship],units:[]};shields.refresh(room);const base=maps.propulsion(ship).hsm;assert.equal(maps.masking(ship),base+8);assert.equal(power.demand(ship),5+10+5+6);
+ ship.shieldSystems.first.hp=0;assert.equal(maps.masking(ship),base+4);assert.equal(maps.staticShieldActive(ship),true);ship.shieldSystems.second.hp=0;assert.equal(maps.staticShieldActive(ship),false);assert.equal(maps.masking(ship),base);
  ship.shieldSystems.first.hp=10;first.disabled=true;assert.equal(maps.staticShieldActive(ship),false);first.disabled=false;ship.ship.sicInventory.find(i=>i.id==='first').disabled=true;assert.equal(maps.staticShieldActive(ship),false);
- ship.ship.sicInventory.find(i=>i.id==='first').disabled=false;add(ship.ship,'static-shield','duplicate','first');assert.match(maps.exteriorError(ship.ship),/Only one Static/);
+ ship.ship.sicInventory.find(i=>i.id==='first').disabled=false;add(ship.ship,'static-shield','duplicate','first');assert.match(maps.exteriorError(ship.ship),/Only one Static/);assert.equal(maps.masking(ship),base+4,'invalid duplicate on one host cannot add another bonus');
  const wrong=hull();add(wrong,'life-support','life',null);add(wrong,'static-shield','static','life');assert.match(maps.exteriorError(wrong),/attached.*shield/);
 });
 function encounter(){
@@ -88,4 +88,17 @@ test('active Static Shields reject hails, cancel in-flight hail input and close 
  assert.match(commands.queue(room,targetUnit,{kind:'accept',sicId:'bridge',callId:call.id,requestId:'static-hail-accept'}).error,/Static Shields/);
  commands.reconcileCalls(room);assert.equal(call.status,'closed');assert.equal(source.commandSystems.calls[0].status,'closed');
  target.shieldSystems.shield.hp=0;add(source.ship,'shield-1','own-shield',null,24);add(source.ship,'static-shield','own-static','own-shield',24);shields.refresh(room);assert.match(commands.queue(room,unit,{...body,requestId:'static-outgoing'}).error,/Static Shields/);
+});
+
+test('Static Shield additive hosts survive reload and track storage, pending removal, restored HP and Gravity',()=>{
+ const ship={id:'s',ship:hull(80),currentHullHp:100};
+ for(let n=1;n<=3;n++){add(ship.ship,'shield-'+n,'host'+n,null,20+n);add(ship.ship,'static-shield','addon'+n,'host'+n,20+n);}
+ shields.refresh({starships:[ship],units:[]});const base=maps.propulsion(ship).hsm;
+ assert.equal(maps.masking(ship),base+12);assert.equal(maps.masking(JSON.parse(JSON.stringify(ship))),base+12);
+ const addon=ship.ship.sicInventory.find(i=>i.id==='addon3'),host=ship.ship.sicInventory.find(i=>i.id==='host3');
+ addon.disabled=true;assert.equal(maps.masking(ship),base+8);addon.disabled=false;assert.equal(maps.masking(ship),base+12);
+ addon.pendingDisposition='storage';assert.equal(maps.masking(ship),base+8);delete addon.pendingDisposition;
+ const placement=ship.ship.placements.find(p=>p.sicId===addon.id);addon.storage=true;ship.ship.placements=ship.ship.placements.filter(p=>p!==placement);assert.equal(maps.masking(ship),base+8);addon.storage=false;ship.ship.placements.push(placement);assert.equal(maps.masking(ship),base+12);
+ host.disabled=true;assert.equal(maps.masking(ship),base+8);host.disabled=false;ship.shieldSystems.host3.hp=0;assert.equal(maps.masking(ship),base+8);ship.shieldSystems.host3.hp=1;assert.equal(maps.masking(ship),base+12);
+ add(ship.ship,'gravity-absolution-field','gravity',null,30);ship.ship.gravityFieldState={active:true,sicId:'gravity'};assert.equal(maps.masking(ship),base);assert.equal(maps.staticShieldActive(ship),false);ship.ship.gravityFieldState.active=false;assert.equal(maps.masking(ship),base+12);
 });

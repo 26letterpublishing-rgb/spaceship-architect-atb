@@ -1,8 +1,101 @@
 (() => {
  'use strict';
+ function createDebugUnlock(reveal){
+  const sequence=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];let keys=[],unlocked=false;
+  return (event,{active=true,editable=false}={})=>{
+   if(unlocked)return false;
+   if(!active||editable||event.ctrlKey||event.metaKey||event.altKey||event.isComposing){keys=[];return false;}
+   if(event.repeat)return false;
+   const key=event.key?.length===1?event.key.toLowerCase():event.key;
+   keys.push(key);while(keys.length&&!keys.every((value,index)=>sequence[index]===value))keys.shift();
+   if(keys.length)event.preventDefault?.();
+   if(keys.length===sequence.length){unlocked=true;reveal();return true;}return false;
+  };
+ }
+ function installDebugUnlock(document,window,welcome){
+ if(window.SARuntimeConfig?.debugTools!==true)return false;
+ const debug=document.createElement('a');debug.className='home-debug';debug.href='console-viewer.html';debug.textContent='Debug';debug.setAttribute('aria-label','Debug Console viewer');welcome.append(debug);
+ debug.hidden=true;debug.style.display='none';
+ const unlock=createDebugUnlock(()=>{debug.hidden=false;debug.style.display='';try{window.SAAudioMix?.unlock?.();window.SAAudioMix?.turnDing?.();}catch{}});
+ document.addEventListener('keydown',event=>unlock(event,{active:!document.hidden&&document.body.classList.contains('welcome-mode'),editable:Boolean(event.target?.isContentEditable||event.target?.closest?.('input,textarea,select,[contenteditable]'))}));
+ return true;
+ }
+ function installMenuMedia(window,document,banner){
+  const start=window.performance.now(),base='home-animation-frame-0.jpg',frames=[];
+  let stopped=false,ready=false,loading=false,framesDone=false,attempting=false,started=false,animation=0,generation=0,restartTimer=null;
+  const timers=[],audio=new window.Audio('home-intro-song.m4a');audio.preload='auto';
+  const active=()=>!stopped&&document.body.classList.contains('welcome-mode');
+  const visible=()=>active()&&!document.hidden;
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const mix=window.SAAudioMix;
+  function play(){
+   if(!visible()||window.performance.now()-start<10000||restartTimer!==null||attempting||(started&&(!audio.paused||audio.ended))||!mix?.level('game'))return;
+   // Resume and play in the same activation turn. Context resume is asynchronous;
+   // checking its state synchronously would consume the first gesture silently.
+   if(window.navigator?.userActivation?.hasBeenActive===false)return;
+   mix.trackMedia(audio,1,'game');
+   const context=mix.context();
+   attempting=true;
+   Promise.all([context&&context.state!=='running'?context.resume():Promise.resolve(),audio.play()]).then(()=>{if(!visible()||!mix.level('game'))audio.pause();else{started=true;syncFrames();}},()=>{audio.pause();}).finally(()=>{attempting=false;});
+  }
+  function releaseFrames(){generation++;framesDone=true;ready=false;for(const image of frames)image.removeAttribute('src');frames.length=0;}
+  function songEnded(){
+   if(!active()||restartTimer!==null)return;
+   window.cancelAnimationFrame(animation);animation=0;banner.src=base;releaseFrames();
+   restartTimer=window.setTimeout(()=>{
+    restartTimer=null;if(!active())return;
+    audio.currentTime=0;started=false;framesDone=false;loading=false;play();
+   },10000);
+  }
+  function tick(){
+   animation=0;syncFrames();
+  }
+  async function preloadFrames(){
+   loading=true;const cycle=generation;
+   try{for(let i=1;i<=9;i++){if(!active()||framesDone||cycle!==generation)return;const image=new window.Image();image.src=`home-animation-frame-${i}.jpg`;await image.decode();if(!active()||framesDone||cycle!==generation){image.removeAttribute('src');return;}frames.push(image);}ready=true;syncFrames();}catch{if(cycle===generation)releaseFrames();}
+  }
+  function syncFrames(){
+   if(!active()||framesDone)return;
+   const position=audio.currentTime;
+   if(!Number.isFinite(position))return;
+   if(reduced.matches){window.cancelAnimationFrame(animation);animation=0;banner.src=base;releaseFrames();return;}
+   if(!visible()||audio.paused){window.cancelAnimationFrame(animation);animation=0;return;}
+   // Keep preload and the cue on the media clock, including delayed autoplay,
+   // buffering and pauses. Reuse decoded frames for the 20-second repeats;
+   // release them at song end. RAF runs only near each one-second cue.
+   if(position>=140&&!loading)void preloadFrames();
+   const phase=position>=170?(position-170)%20:-1;
+   if(phase>=0&&phase<1&&ready){
+    const src=frames[Math.min(8,Math.floor(phase*9))].src;
+    if(banner.src!==src)banner.src=src;
+   }else if(!banner.src.endsWith(base))banner.src=base;
+   if(position>=169&&(phase<1||phase>=19)&&!animation)animation=window.requestAnimationFrame(tick);
+  }
+  function stop(){
+   if(stopped)return;stopped=true;timers.forEach(id=>window.clearTimeout(id));
+   if(restartTimer!==null)window.clearTimeout(restartTimer);restartTimer=null;
+   window.cancelAnimationFrame(animation);audio.pause();mix?.releaseMedia(audio);
+   audio.removeAttribute('src');audio.load();banner.src=base;releaseFrames();
+   observer.disconnect();document.removeEventListener('pointerup',play);document.removeEventListener('keydown',play);
+   document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',stop);
+   for(const event of ['timeupdate','playing','pause','seeked'])audio.removeEventListener(event,syncFrames);
+   audio.removeEventListener('ended',songEnded);
+  }
+  function visibility(){if(document.hidden){audio.pause();window.cancelAnimationFrame(animation);animation=0;banner.src=base;}else play();}
+  const observer=new window.MutationObserver(()=>{if(!active())stop();});
+  observer.observe(document.body,{attributes:true,attributeFilter:['class']});
+  document.addEventListener('pointerup',play);document.addEventListener('keydown',play);
+  document.addEventListener('visibilitychange',visibility);window.addEventListener('pagehide',stop);
+  for(const event of ['timeupdate','playing','pause','seeked'])audio.addEventListener(event,syncFrames);
+  audio.addEventListener('ended',songEnded);
+  timers.push(window.setTimeout(play,10000));
+  return {stop};
+ }
+ if(typeof module==='object'){module.exports={createDebugUnlock,installDebugUnlock,installMenuMedia};return;}
  const hero=document.querySelector('.welcome-hero'),welcome=document.getElementById('welcomePanel');
  if(!hero||!welcome)return;
- const debug=document.createElement('a');debug.className='home-debug';debug.href='console-viewer.html';debug.textContent='Debug';debug.setAttribute('aria-label','Debug Console viewer');welcome.append(debug);
+ installMenuMedia(window,document,hero.querySelector('.welcome-banner'));
+ installDebugUnlock(document,window,welcome);
  const layer=document.createElement('div');layer.className='home-star-layer';layer.setAttribute('aria-hidden','true');hero.append(layer);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
  let joinButton;

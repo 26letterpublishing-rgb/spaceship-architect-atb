@@ -317,6 +317,7 @@
             <div id="existingEncounterActions" class="existing-encounter-actions" hidden>
               <p id="existingEncounterSummary">A saved encounter is ready.</p>
               <button id="resumeEncounter" class="primary" type="button">Resume Encounter</button>
+              <button id="prepareReinforcement" type="button">Add a Ship to Active Combat</button>
               <button id="prepareNewEncounter" class="danger" type="button">Start New Encounter</button>
             </div>
             <div id="encounterBuilder" class="encounter-builder">
@@ -324,7 +325,7 @@
                 <button type="button" class="active" data-encounter-mode="surface" aria-pressed="true"><strong>Surface Combat</strong><span>Characters fight without starships.</span></button>
                 <button type="button" data-encounter-mode="starship" aria-pressed="false"><strong>Starship Combat</strong><span>Everyone fights aboard a selected ship.</span></button>
               </div>
-              <label class="arena-help"><input type="checkbox" id="prepareFog"> Fog of War (shared PC vision, 15 movement units, explored areas remembered)</label>
+              <label class="arena-help"><input type="checkbox" id="prepareFog"> Fog of War</label>
               <section id="surfaceArenaEditor" class="arena-editor"></section>
               <section class="encounter-roster">
                 <div class="section-title"><h3 id="encounterRosterTitle">Campaign Characters</h3><small id="encounterRosterHint">Selected characters enter before their phones connect.</small></div>
@@ -343,6 +344,7 @@
               </section>
               <div class="encounter-preparation-actions">
               <button id="saveCombatPreparation" type="button">Save Preparation &amp; Return to Campaign</button>
+              <button id="addEncounterShip" type="button" hidden title="Select one new ship and its arrival hex above. Deploy its crew next. Existing ships, turns and timing are preserved.">Add Ship to Active Combat</button>
               <button id="beginEncounter" class="primary begin-encounter" type="button">Begin Combat</button>
               </div>
             </div>

@@ -9,7 +9,7 @@ function editor(shop,scope){
  vm.runInContext(source.slice(source.indexOf(' function setPrice('),source.indexOf(' function preview(')),context);
  vm.runInContext(source.slice(source.indexOf(" d.querySelector('[data-percent]').oninput="),source.indexOf(" d.querySelector('[data-search]').oninput=")),context);
  vm.runInContext(source.slice(source.indexOf(' d.onclick=async'),source.indexOf(';renderStock();}',source.indexOf(' d.onclick=async'))+1),context);
- return {saved,s,input:value=>fields['[data-percent]'].oninput({target:{value}}),click:attribute=>d.onclick({target:{closest:()=>({dataset:{},hasAttribute:key=>key===attribute})}})};
+ return {saved,s,input:value=>fields['[data-percent]'].oninput({target:{value}}),preset:value=>d.onclick({target:{closest:()=>({dataset:{step:String(value)},hasAttribute:()=>false})}}),click:attribute=>d.onclick({target:{closest:()=>({dataset:{},hasAttribute:key=>key===attribute})}})};
 }
 const initial=()=>shops.normalize({id:'test',name:'Merchant',active:true,modifier:20,categoryModifiers:{'Weapons / Projectile':10},itemModifiers:{'weapon:ballistic-sidearm':-10}});
 test('inherited item price stays inherited after Apply Changes and follows later category changes',async()=>{
@@ -25,4 +25,16 @@ test('explicit zero remains an override after saving',async()=>{
 });
 test('typed percentages save without requiring blur and can replace inherited prices',async()=>{
  const e=editor(initial(),'item');await e.click('data-inherit');e.input('-25');await e.click('data-save');assert.equal(shops.quote({shops:{list:[e.saved[0]]}},'weapon:ballistic-sidearm').price,120);
+});
+test('signed presets replace current or inherited adjustments and repeated clicks do not accumulate',async()=>{
+ for(const scope of ['all','category','item']){const e=editor(initial(),scope);e.input('1500');await e.preset(75);await e.preset(75);await e.click('data-save');const value=s=>scope==='all'?s.modifier:scope==='category'?s.categoryModifiers['Weapons / Projectile']:s.itemModifiers['weapon:ballistic-sidearm'];assert.equal(value(e.saved.at(-1)),75);await e.click('data-inherit');await e.preset(-25);await e.click('data-save');assert.equal(value(e.saved.at(-1)),-25);}
+});
+
+
+test('modifier display includes sign and percent without changing numeric values',()=>{
+ const c={};vm.runInNewContext(source.slice(source.indexOf('function formatModifier('),source.indexOf('function download(')),c);
+ for(const [n,text]of [[10,'+10%'],[-10,'-10%'],[0,'0%'],[-0,'0%'],[12.5,'+12.5%'],[-2.75,'-2.75%'],[10000,'+10000%']])assert.equal(c.formatModifier(n),text);
+});
+test('manual decimal and limit values still save as numbers with unchanged pricing',async()=>{
+ for(const [typed,expected]of [['12.5',12.5],['-2.75',-2.75],['-101',-100],['10001',10000]]){const e=editor(initial(),'all');e.input(typed);await e.click('data-save');assert.equal(e.saved[0].modifier,expected);assert.equal(typeof e.saved[0].modifier,'number');}
 });

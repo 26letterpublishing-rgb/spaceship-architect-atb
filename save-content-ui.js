@@ -40,7 +40,16 @@
    await adapter.beforeLoad();const result=await send('load',{...config,file,target:getTarget(),replace:d.querySelector('[data-operation]')?.value==='replace',confirmReplace:true,confirmPreparation:true,assignments,openShop:!!d.querySelector('[data-open-shop]')?.checked,relocate:!!d.querySelector('[data-relocate]')?.checked,carrierId:d.querySelector('[data-carrier]')?.value,arrivalStar:d.querySelector('[data-arrival]')?.value,receipt:loadReceipt});d.close();for(const editor of document.querySelectorAll('dialog.galaxy-dialog[open]'))editor.close();await openResult(result.result);if(!result.result.chapterId&&!result.result.preparation&&!result.result.shopId)notice(result.result.alreadyLoaded?'Already loaded. Current campaign content has been preserved.':'Content loaded into the campaign.');
   });
  }
- async function chooseLoad(kind,target,extra={}){const [item]=await pick(false,T.type(kind)?.extension+',.json');if(item){if(T.identify(item.file).id!==kind)throw Error('Choose a '+T.type(kind).label+' file.');return load(item.file,{...item,target,...extra});}}
+ async function chooseLoad(kind,target,extra={}){
+  let item;
+  try{[item]=await pick(false,T.type(kind)?.extension+',.json');}
+  catch{notice('Could not read this file. Choose a valid JSON save file smaller than 40 MB and try again.');return;}
+  if(!item)return;
+  try{
+   if(T.identify(item.file).id!==kind){notice('Choose a '+T.type(kind).label+' save file and try again.');return;}
+   return await load(item.file,{...item,target,...extra});
+  }catch{notice('Could not load this save file. Check that its type and version are supported, then try again.');}
+ }
  async function attach(){const [item]=await pick(false,'.sa2module,.json');if(!item)return;const different=state().moduleSource&&state().moduleSource.id!==item.file.id;if(different&&!await adapter.confirm('Replace Module source?','This changes the file catalog. Content already imported into the campaign is preserved.'))return;await send('module',{file:item.file,confirmReplace:!!different});await cache.put(item.file);notice('Module source attached. Its unused files remain in your local Module library.');}
  async function filePrompt(command,config={}){
   const original=command;command=window.SAModuleConditions.resolve(command,state(),command.alternatives||[]);if(config.key)config={...config,key:config.key+'/'+command.fileName};

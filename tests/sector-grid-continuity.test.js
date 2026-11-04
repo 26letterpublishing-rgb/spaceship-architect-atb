@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const source=fs.readFileSync(require.resolve('../campaign-starmaps-ui.js'),'utf8');
+const source=fs.readFileSync(require.resolve('../campaign-map-chart.js'),'utf8');
 const pattern=source.match(/<pattern id="galaxy-hex-grid"[\s\S]*?<\/pattern>/)[0];
 const d=pattern.match(/<path d="([^"]+)"/)[1],a=.866025404,W=2*a;
 function segments(path){

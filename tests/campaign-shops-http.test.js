@@ -10,8 +10,8 @@ test('campaign shops enforce prices, ownership, receipts and portable campaign p
  await post('shops',{...gm,operation:'save',shop});
  const weapon={...pc,mode:'purchase',inventoryType:'weapon',requestId:'weapon-retry',expectedPrice:200,item:{id:'bought-sidearm',weaponId:'ballistic-sidearm',name:'Ballistic Sidearm',unitCost:1}};
  await post('item/transaction',{...weapon,expectedPrice:160},409);
- let result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,300);
- result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,300);
+ let result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,100);
+ result=await post('item/transaction',weapon);assert.equal(result.campaign.characters.find(c=>c.id===pc.characterId).character.resources.creditsBase,100);
  const buy={...pc,operation:'purchase',starshipId:'showcase-pc-ship',requestId:'sic-retry',itemId:'sic:sensors-1'};
  await post('shops',{...buy,itemId:'sic:sensors-3'},409);
  await post('shops',{...buy,expectedPrice:1},409);

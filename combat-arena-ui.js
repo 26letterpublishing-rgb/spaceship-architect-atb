@@ -28,7 +28,8 @@
     for(let n=0;n<a.width*a.height;n++){const occupied=units.filter(u=>A.position(u)?.square===n&&A.position(u)?.arenaId==='surface');cells+=`<button type="button" class="arena-cell ${floors.has(n)?'floor':'wall'} ${options.selected===n?'selected':''} ${options.visibility?.forced?.includes(n)?'forced-visible':''}" ${reveal&&mode==='gm'?`data-fog-square="${n}"`:''} data-arena-cell="${n}" aria-label="Row ${Math.floor(n/a.width)+1}, column ${n%a.width+1}: ${floors.has(n)?'floor':'wall'}${occupied.length?', '+occupied.map(u=>esc(u.characterName||u.name)).join(', '):''}"></button>`;}
     const layout=A.boundaryLayout(a),edges=Array.from({length:a.width*a.height},(_,n)=>`<div class="arena-boundary">${window.SAShipMap.boundaryMarkup(layout,n,{isOpen:k=>a.doors[k]?.open,doorAttributes:k=>({'data-arena-door':k})})}</div>`).join('');
     const tokens=units.filter(u=>A.position(u)?.arenaId==='surface').map(u=>{const n=A.position(u).square,walking=u.timedAction?.kind==='move';return `<i data-unit-id="${esc(u.id)}" data-walking="${walking}" data-fallen="${Number(u.currentHp)<=0}" class="arena-token crew-token ${Number(u.currentHp)<=0?'crew-is-fallen':''} ${walking?'crew-walking':''}" style="left:${(n%a.width+.5)/a.width*100}%;top:${(Math.floor(n/a.width)+.5)/a.height*100}%;--token-color:${esc(u.color||'#32c9ff')};width:${70/a.width}%;height:${70/a.height}%" title="${esc(u.characterName||u.name)}">${window.SATokenArt?.figure(window.SATokenArt.character(u).race||'human',u.iconVariant)||esc((u.characterName||u.name||'?')[0])}</i>`;}).join('');
-    return `<div class="arena-viewport"><div class="arena-board" data-terrain-theme="${esc(a.theme||'plain')}" style="--arena-columns:${a.width};aspect-ratio:${a.width}/${a.height}"><div class="arena-cells">${cells}</div><div class="arena-boundaries">${edges}</div>${tokens}${options.visibility?fogMarkup(options.visibility):''}</div></div>`;
+    const html=`<div class="arena-viewport"><div class="arena-board" data-terrain-theme="${esc(a.theme||'plain')}" style="--arena-columns:${a.width};aspect-ratio:${a.width}/${a.height}"><div class="arena-cells">${cells}</div><div class="arena-boundaries">${edges}</div>${tokens}${options.visibility?fogMarkup(options.visibility):''}</div></div>`;
+    return options.moveConfirm?`<div class="arena-move-map">${html}<button type="button" class="primary arena-move-confirm" data-arena-confirm aria-label="Confirm Move" title="Confirm Move" hidden disabled>Confirm Move</button></div>`:html;
   }
   function editor(host,options){
     window.SASpaceMap.ensureMapStyles(host.ownerDocument);
@@ -68,9 +69,12 @@
     document.body.classList.toggle('surface-combat-mode',showArena);
     let layout=document.querySelector('#surfaceCombatLayout');
     if(showArena){
-      if(!layout){layout=document.createElement('div');layout.id='surfaceCombatLayout';layout.innerHTML='<div class="surface-atb-column"></div>';list.before(layout);layout.firstElementChild.append(list);layout.append(host);}
+      if(!layout){layout=document.createElement('div');layout.id='surfaceCombatLayout';layout.innerHTML='<div class="surface-atb-column"><div class="surface-clock-group"><div class="surface-combat-clock paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="paired-combat-recovery"></div></div></div>';list.before(layout);layout.firstElementChild.append(list);layout.append(host);}
+      if(host.parentElement!==layout)layout.append(host);
+      window.SACombatBridge?.mountCombatClock(layout.querySelector('.surface-combat-clock'));
+      if(mode==='gm')window.parent?.SACombatRecoveryLayout?.mount(layout.querySelector('.paired-combat-recovery'));
       for(const id of ['myTurnBanner','turnDialog']){const node=document.getElementById(id);if(node&&!origins.has(node)){const marker=document.createComment('surface action panel origin');node.before(marker);origins.set(node,marker);layout.firstElementChild.insertBefore(node,list);}}
-    }else if(layout){for(const [node,marker]of origins)marker.replaceWith(node);origins.clear();layout.before(list,host);layout.remove();}
+    }else if(layout){if(layout.querySelector('.combat-recovery-toolbar'))window.parent?.SACombatRecoveryLayout?.restore(document);for(const [node,marker]of origins)marker.replaceWith(node);origins.clear();layout.before(list,host);layout.remove();}
     return host;
   }
   async function command(data){return window.SACombatBridge.action(data,'tap',{throwOnError:true});}
@@ -83,6 +87,23 @@
     finally{revealingSquares.delete(key);}
   }
   function refreshFog(){window.SACombatMap?.renderInlineMaps(document,true);window.SACombatMap?.refreshArenaFog?.();}
+  function confirmPosition(cell,view,size=64,route=[]){
+    const gap=10,pad=6,clamp=(v,max)=>Math.max(pad,Math.min(v,Math.max(pad,max-size-pad)));
+    const choices=[[cell.right+gap,cell.top],[cell.left-size-gap,cell.top],[cell.left,cell.bottom+gap],[cell.left,cell.top-size-gap]];
+    const overlap=(x,y)=>[cell,...route].reduce((sum,r)=>sum+Math.max(0,Math.min(x+size,r.right)-Math.max(x,r.left))*Math.max(0,Math.min(y+size,r.bottom)-Math.max(y,r.top)),0);
+    return choices.map(([x,y])=>({x:clamp(x,view.width),y:clamp(y,view.height),distance:Math.abs(x-clamp(x,view.width))+Math.abs(y-clamp(y,view.height))})).sort((a,b)=>overlap(a.x,a.y)-overlap(b.x,b.y)||a.distance-b.distance)[0];
+  }
+  function positionConfirm(host){
+    const control=host?.querySelector('[data-arena-confirm]'),viewport=host?.querySelector('.arena-viewport');if(!control||!viewport)return;
+    control.hidden=!moveUnit||!moveLocked||!moveRoute?.length;
+    if(control.hidden)return;
+    const cell=host.querySelector(`[data-arena-cell="${moveRoute.at(-1).square}"]`);if(!cell){control.hidden=true;return;}
+    const v=viewport.getBoundingClientRect(),r=cell.getBoundingClientRect(),wrap=control.parentElement.getBoundingClientRect();
+    const relative=r=>({left:r.left-v.left,right:r.right-v.left,top:r.top-v.top,bottom:r.bottom-v.top});
+    const route=[...host.querySelectorAll('.arena-cell.route')].filter(n=>n!==cell).map(n=>relative(n.getBoundingClientRect()));
+    const p=confirmPosition(relative(r),{width:viewport.clientWidth,height:viewport.clientHeight},control.offsetWidth||64,route);
+    control.style.left=(v.left-wrap.left+p.x)+'px';control.style.top=(v.top-wrap.top+p.y)+'px';
+  }
   function syncTokens(host){if(!state.arena)return;const width=state.arena.width,height=state.arena.height;
     for(const token of host.querySelectorAll('.arena-token[data-unit-id]')){const unit=state.units.find(u=>u.id===token.dataset.unitId);if(!unit)continue;
       const carrier=unit.carriedBy&&state.units.find(u=>u.id===unit.carriedBy),moving=carrier||unit;
@@ -94,6 +115,7 @@
     const cell=focusView?64:Math.min((viewport.clientWidth-18)/state.arena.width,(viewport.clientHeight-18)/state.arena.height);
     board.style.width=Math.max(12,cell)*state.arena.width*zoom+'px';
     if(center){const unit=state.units.find(u=>u.id===(moveUnit?.id||mine||state.activeId)),p=A.position(unit);if(p){viewport.scrollLeft=(p.square%state.arena.width+.5)*cell*zoom-viewport.clientWidth/2;viewport.scrollTop=(Math.floor(p.square/state.arena.width)+.5)*cell*zoom-viewport.clientHeight/2;}}
+    positionConfirm(host);
   }
   function refreshPreview(host){const board=host.querySelector('.arena-board');if(!board)return;board.querySelector('.combat-move-line')?.remove();board.querySelectorAll('.arena-cell.route').forEach(n=>n.classList.remove('route'));
     if(moveUnit&&moveRoute?.length){const points=[moveUnit.location,...moveRoute].map(p=>`${p.square%state.arena.width+.5},${Math.floor(p.square/state.arena.width)+.5}`).join(' ');
@@ -101,6 +123,7 @@
       for(const p of moveRoute)board.querySelector(`[data-arena-cell="${p.square}"]`)?.classList.add('route');
     }
     const confirm=host.querySelector('[data-arena-confirm]');if(confirm){confirm.disabled=moveSubmitting||!moveLocked||!moveRoute?.length;confirm.textContent=moveSubmitting?'Starting…':'Confirm Move';}
+    positionConfirm(host);
     const hint=host.querySelector('[data-move-hint]');if(hint)hint.textContent=moveRoute===null&&hoverSquare!==null?'No legal path reaches that square.':moveRoute?.length?`${moveRoute.length} units${moveLocked?' selected. Confirm the move.':': click to select.'}`:routeMode==='custom'?'Click or tap each waypoint, then Confirm Move.':'Point to preview a route; click to select.';
   }
   function chooseRoute(square,locked){if(routeMode==='custom'){if(!locked)return;const actor=state.units.find(u=>u.id===moveUnit?.id);if(!actor)return;const segment=A.route(state.arena,waypoints.at(-1)?.square??A.position(actor).square,square,state.units.filter(u=>u.id!==actor.id&&A.position(u)?.arenaId==='surface').map(u=>A.position(u).square));if(!segment?.length){pane().querySelector('.arena-error').textContent='No legal path reaches that point.';return;}waypoints.push({square,segment});moveRoute=waypoints.flatMap(p=>p.segment);moveLocked=true;refreshPreview(pane());return;}const actor=state.units.find(u=>u.id===moveUnit?.id);if(!actor)return;hoverSquare=square;moveLocked=locked;moveRoute=A.route(state.arena,A.position(actor).square,square,state.units.filter(u=>u.id!==actor.id&&A.position(u)?.arenaId==='surface').map(u=>A.position(u).square));refreshPreview(pane());}
@@ -111,7 +134,8 @@
     const key=JSON.stringify([state.arena,state.units.map(u=>[u.id,u.characterName,u.color,u.location,u.raceId,u.raceType,u.iconRace,u.iconVariant,u.currentHp,!!u.timedAction]),state.visibility,state.fog?.enabled,mode,previewFog,reveal,moveUnit?.id]);
     if(key===liveKey){syncTokens(host);return;}liveKey=key;
     const old=host.querySelector('.arena-viewport'),scroll=old?{x:old.scrollLeft,y:old.scrollTop}:null;
-    window.SALiveDOM.render(host,`<div class="arena-toolbar"><strong>${state.arena?'Surface Arena':'Interior Visibility'}</strong>${gm?`<label><input type="checkbox" data-live-fog ${state.fog?.enabled?'checked':''}>Fog of War</label><label><input type="checkbox" data-fog-preview ${previewFog?'checked':''}>Preview player fog</label><button type="button" data-fog-reveal aria-pressed="${reveal}">${reveal?'Done Revealing':'Reveal Squares'}</button>`:state.fog?.enabled?'<span>Grey: unexplored · dimmed: remembered</span>':''}</div><p class="arena-error" role="status"></p>${state.arena?mapMarkup(state.arena,state.units,{visibility:state.fog?.enabled&&(!gm||previewFog||reveal)?state.visibility?.surface:null}):''}${state.arena?`<div class="arena-toolbar arena-live-footer">${moveUnit?`<strong>Move ${esc(moveUnit.characterName)}</strong><button type="button" data-route-mode="direct" aria-pressed="${routeMode==='direct'}">Direct Route</button><button type="button" data-route-mode="custom" aria-pressed="${routeMode==='custom'}">Custom Route</button><button type="button" data-route-undo>Undo Last Point</button><button type="button" data-route-clear>Clear Route</button><span data-move-hint></span><button type="button" data-arena-cancel>Cancel</button><button type="button" data-arena-confirm disabled>Confirm Move</button>`:''}<button type="button" data-arena-zoom="-1" aria-label="Zoom out arena">−</button><button type="button" data-arena-zoom="1" aria-label="Zoom in arena">+</button><button type="button" data-arena-fit>Fit Map</button><button type="button" data-arena-focus>Enlarge / Character</button></div>`:''}`);
+    window.SALiveDOM.render(host,`<div class="arena-toolbar"><strong>${state.arena?'Surface Arena':'Interior Visibility'}</strong>${gm?`<label><input type="checkbox" data-live-fog ${state.fog?.enabled?'checked':''}>Fog of War</label><label><input type="checkbox" data-fog-preview ${previewFog?'checked':''}>Preview player fog</label><button type="button" data-fog-reveal aria-pressed="${reveal}">${reveal?'Done Revealing':'Reveal Squares'}</button>`:state.fog?.enabled?'<span>Grey: unexplored · dimmed: remembered</span>':''}</div><p class="arena-error" role="status"></p>${state.arena?mapMarkup(state.arena,state.units,{visibility:state.fog?.enabled&&(!gm||previewFog||reveal)?state.visibility?.surface:null,moveConfirm:!!moveUnit}):''}${state.arena?`<div class="arena-toolbar arena-live-footer">${moveUnit?`<strong>Move ${esc(moveUnit.characterName)}</strong><button type="button" data-route-mode="direct" aria-pressed="${routeMode==='direct'}">Direct Route</button><button type="button" data-route-mode="custom" aria-pressed="${routeMode==='custom'}">Custom Route</button><button type="button" data-route-undo>Undo Last Point</button><button type="button" data-route-clear>Clear Route</button><span data-move-hint></span><button type="button" data-arena-cancel>Cancel</button>`:''}<button type="button" data-arena-zoom="-1" aria-label="Zoom out arena">−</button><button type="button" data-arena-zoom="1" aria-label="Zoom in arena">+</button><button type="button" data-arena-fit>Fit Map</button><button type="button" data-arena-focus>Enlarge / Character</button></div>`:''}`);
+    const viewport=host.querySelector('.arena-viewport');if(viewport)viewport.onscroll=()=>positionConfirm(host);
     fitMap(host);if(scroll){const viewport=host.querySelector('.arena-viewport');if(viewport){viewport.scrollLeft=scroll.x;viewport.scrollTop=scroll.y;}}syncTokens(host);refreshPreview(host);
     if(state.arena)bindDrag(host,state.arena,async(id,square)=>{await command({action:'setCombatLocation',id,location:A.surfaceGrid(state.arena).location(square)});liveKey='';render();},gm&&!moveUnit);
     host.onpointerover=event=>{const cell=event.target.closest('[data-arena-cell]');if(moveUnit&&!moveLocked&&!moveSubmitting&&cell&&Number(cell.dataset.arenaCell)!==hoverSquare)chooseRoute(Number(cell.dataset.arenaCell),false);};

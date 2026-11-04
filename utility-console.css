@@ -32,6 +32,44 @@
 .utility-console .utility-controls .utility-switch{gap:8px;min-width:0;overflow-wrap:anywhere}
 .utility-console .utility-controls .utility-switch input{min-width:50px;max-width:50px;box-sizing:border-box;flex:0 0 50px}
 .utility-console .life-radials span{display:flex;align-items:center;justify-content:center;text-align:center;width:66px;height:auto;max-height:100%;flex:0 1 66px;font-size:14px;line-height:1.1;padding:3px}
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+body dialog.breach-drone-console .utility-controls :is(h3,p,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+
+/* Nutrition: scale the existing scene and cup overlays together, cropping only artwork. */
+dialog.utility-console:has(.nut-scene-viewport) .utility-scene{display:grid!important;grid-template-rows:minmax(0,1fr) auto;align-items:stretch;justify-content:stretch;gap:8px}
+dialog.utility-console .nut-scene-viewport{position:relative;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden}
+dialog.utility-console .nut-scene-viewport .nut-dispenser{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0}
+dialog.utility-console:has(.nut-scene-viewport) .nut-caption{min-height:0;padding:4px 0;overflow-wrap:anywhere}
+
+body dialog.relay-pulse-console .utility-controls :is(h3,p,[data-reports]){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Receiver local-authority controls; Controller owns its separate holder stylesheet. */
+body dialog.remote-console:not(.remote-holder-console) .utility-controls :is(h3,p,button){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.remote-console:not(.remote-holder-console) .utility-controls h3{font-size:18px}
+
+/* Nutrition Flavor Mixer only; retain the separate terminal report typography. */
+body dialog.utility-console:has(.nut-scene-viewport) .utility-controls :is(h3,label,select,button,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+body dialog.utility-console:has(.nut-scene-viewport) .utility-controls h3{font-size:18px}
+body dialog.utility-console:has(.nut-scene-viewport) .utility-controls :is(label,output){overflow-wrap:anywhere}
+
+/* Cloaking controls only; the shared Gravity Field renderer keeps its own text. */
+body dialog.utility-console:has(.utility-scene>img[src="cloak-console-scene.webp"]) .utility-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.utility-console:has(.utility-scene>img[src="cloak-console-scene.webp"]) .utility-controls :is(p,button,output){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Gravity Absolution controls only; preserve the other shared utility families. */
+body dialog.utility-console:has(.utility-scene>img[src="gravity-console-scene.webp"]) .utility-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.utility-console:has(.utility-scene>img[src="gravity-console-scene.webp"]) .utility-controls :is(p,button,output){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Life Support controls: centered labels and proportionally enlarged existing switches. */
+body dialog.utility-console:has(.life-machine) .utility-controls :is(h3,.utility-switch){font-family:Orbitron,sans-serif;font-size:18px;line-height:1.4;text-align:center}
+body dialog.utility-console:has(.life-machine) .utility-controls :is(p,output){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5;text-align:center}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch{flex-direction:column;justify-content:center;gap:10px;padding:8px 0}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch:has([data-oxygen]){margin-top:24px}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch input{flex:0 0 auto;width:85px;min-width:85px;max-width:85px;height:47.6px;border-width:1.7px;border-radius:30.6px;background:linear-gradient(#13232c,#3f5965);box-shadow:inset 0 3px 8px #000b,0 1px 0 #c5f4ff66}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch input::before{left:6.8px;top:6.8px;width:30.6px;height:30.6px;background:linear-gradient(#f2ffff,#8aa2ad);box-shadow:0 3px 5px #0009,inset 0 1px 1px #fff}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch input:checked{background:linear-gradient(#125743,#348f6d)}
+body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch input:checked::before{transform:translateX(37.4px);background:linear-gradient(#fff,#a8f0cf)}
+
 /* Life Support only: unobscured machine image above live instruments. */
 @media(min-width:901px){
  dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .utility-scene{display:grid!important;grid-template-rows:minmax(0,1fr) auto;align-items:stretch;justify-content:stretch;gap:8px;overflow:auto!important}

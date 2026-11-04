@@ -7,7 +7,7 @@ function context(c,b){const s=state(c),map=s.maps.find(m=>m.id===b.mapId),star=m
 function surface(star,planet){star.surfaces||={};return star.surfaces[planet.id]||={seed:planet.id,size:planet.size||'large',gridVersion:2,hexes:{},regions:{}};}
 function normalizeWorld(raw,seed,size='large',variant='temperate'){
  raw=raw?.gridVersion===2?raw:require('./planet-grid-migration').resize({...raw,seed:raw?.seed||seed},variant).world;size=raw.size||size;
- const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,...(source?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(source.arrivalContent)}:{}),hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region,size)).slice(0,terrain.count(region,size)).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.npcMarkers?{npcMarkers:require('./planet-npc-markers').normalize(h.npcMarkers)}:{}),...(h?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(h.arrivalContent)}:{}),...(h?.attachments?{attachments:require('./planet-attachments').normalize(h.attachments)}:{}),...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
+ const clean=(source,region=false)=>({seed:text(source?.seed,120)||seed,...(source?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(source.arrivalContent)}:{}),hexes:Object.fromEntries(Object.entries(source?.hexes||{}).filter(([key])=>terrain.validHex(key,region,size)).slice(0,terrain.count(region,size)).map(([key,h])=>[String(Number(key)),{...(terrain.types.includes(h?.terrain)?{terrain:h.terrain}:{}),label:text(h?.label,80),description:text(h?.description),gmNotes:text(h?.gmNotes),city:!!h?.city,...(h?.landingStrip===true?{landingStrip:true}:{}),...(h?.npcMarkers?{npcMarkers:require('./planet-npc-markers').normalize(h.npcMarkers)}:{}),...(h?.arrivalContent?{arrivalContent:require('./content-arrivals').normalize(h.arrivalContent)}:{}),...(h?.attachments?{attachments:require('./planet-attachments').normalize(h.attachments)}:{}),...(h?.shop?{shop:require('./campaign-shops').normalize({...h.shop,active:false})}:{})}]))});
  const world={...clean(raw),size,gridVersion:2,...(raw.legacyGrid?{legacyGrid:structuredClone(raw.legacyGrid)}:{}),...(raw.resizeBackup?{resizeBackup:structuredClone(raw.resizeBackup)}:{})};world.description=text(raw?.description);world.regions={};
  for(const [key,r]of Object.entries(raw?.regions||{}).filter(([k])=>terrain.validHex(k,false,size)).slice(0,terrain.count(false,size)))world.regions[String(Number(key))]={...clean(r,true),name:text(r?.name,80)||'Region',uniform:r?.uniform===true,type:terrain.types.includes(r?.type)?r.type:'temperate'};
  return world;
@@ -33,6 +33,22 @@ function arrival(c,ship,{ownerId,transport=false,passengers=[]}={}){
 }
 function depart(c,ship){const s=state(c);delete s.party;delete s.shopArrival;s.navigation={...(s.surfaceReturnPolicy||{}),mode:'orbit',mapId:s.localPositions[ship.id].mapId,starId:s.localPositions[ship.id].starId,planetId:s.localPositions[ship.id].planetId,allowed:{surface:true,orbit:true,system:true,galaxy:true}};delete s.surfaceReturnPolicy;}
 function canLaunch(c,ship){if(!ship)return false;require('./campaign-starmaps').travelRoom(c);return ship.currentHullHp>0&&!ship.destroyedAt&&maps.propulsion(ship).moveSpeed>0&&maps.capabilities(ship).some(x=>['hover','aerofoil'].includes(x.key)&&x.available)&&ship.ship.sicInventory.some(i=>maps.definition(i.type).landing&&maps.operational(i)&&(maps.definition(i.type).landing==='aerofoil'||!i.impaired)&&ship.ship.placements.some(p=>p.sicId===i.id))&&require('./ship-power').output(ship,require('./campaign-starmaps').travelRoom(c).units).en>=require('./ship-power').demand(ship);}
+// A regional strip is one physical site, displayed on its parent surface hex.
+function landingSite(world,hex){
+ const key=String(hex),region=world?.regions?.[key],children=Object.entries(region?.hexes||{}).filter(([,h])=>h.landingStrip===true);
+ if(children.length>1||children.length&&world?.hexes?.[key]?.landingStrip)throw Error('Only one Landing Strip is allowed per surface hex and Region.');
+ if(children.length)return {hex:key,regionId:key,regionHex:children[0][0]};
+ return world?.hexes?.[key]?.landingStrip?{hex:key,regionId:'',regionHex:''}:null;
+}
+function sameLandingSite(a,b){return !!a&&String(a.hex)===String(b.hex)&&String(a.regionId||'')===String(b.regionId||'')&&(!a.regionId||String(a.regionHex)===String(b.regionHex));}
+function landingError(c,destination){
+ const ship=c.starships.find(s=>s.id===destination.shipId);
+ if(!ship)return 'The landing ship is unavailable. Select a valid ship before landing.';
+ if(!canLaunch(c,ship))return 'Restore the ship hull, power, thrusters and landing equipment, then select a landing site again.';
+ const {star,planet}=context(c,destination);
+ if(maps.requiresLandingStrip(ship)&&!sameLandingSite(landingSite(star.surfaces?.[planet.id],destination.hex),destination))return 'This ship requires a Landing Strip. Select a marked strip, ask the GM to mark one, or restore eligible Hover Generators.';
+ return '';
+}
 function command(c,b,auth){
  if(!commands.has(b.kind))return false;
  const {gm,characterId,combatActive}=auth;
@@ -57,7 +73,31 @@ function command(c,b,auth){
  if(b.kind==='planetRegenerate')chart.seed=randomUUID();
  if(b.kind==='planetPaint'){
   if(!Array.isArray(b.edits)||!b.edits.length||b.edits.length>(terrain.count(region,size)))throw Error('Choose a valid terrain stroke.');
-  const seen=new Set(),edits=b.edits.map(edit=>{const key=hexKey(edit.hex,region,size);if(seen.has(key))throw Error('A stroke contains duplicate hexes.');seen.add(key);if(edit.city!==undefined){if(typeof edit.city!=='boolean')throw Error('Choose a city brush.');if(edit.expectedCity!==undefined&&!!chart.hexes[key]?.city!==edit.expectedCity)throw Error('This landmark has changed since the stroke.');return {key,city:edit.city};}if(edit.terrain!==''&&!terrain.types.includes(edit.terrain))throw Error('Choose a terrain type.');if(edit.expected!==undefined&&(chart.hexes[key]?.terrain||'')!==edit.expected)throw Error('This terrain has changed since the stroke. Paint it again instead.');return {key,terrain:edit.terrain};});
+  const seen=new Set(),edits=b.edits.map(edit=>{const key=hexKey(edit.hex,region,size);if(seen.has(key))throw Error('A stroke contains duplicate hexes.');seen.add(key);if(edit.landingStrip!==undefined){if(typeof edit.landingStrip!=='boolean')throw Error('Choose a Landing Strip brush.');return {key,landingStrip:edit.landingStrip,expectedLandingStrip:edit.expectedLandingStrip,landingRegionHex:edit.landingRegionHex};}if(edit.city!==undefined){if(typeof edit.city!=='boolean')throw Error('Choose a city brush.');if(edit.expectedCity!==undefined&&!!chart.hexes[key]?.city!==edit.expectedCity)throw Error('This landmark has changed since the stroke.');return {key,city:edit.city};}if(edit.terrain!==''&&!terrain.types.includes(edit.terrain))throw Error('Choose a terrain type.');if(edit.expected!==undefined&&(chart.hexes[key]?.terrain||'')!==edit.expected)throw Error('This terrain has changed since the stroke. Paint it again instead.');return {key,terrain:edit.terrain};});
+  // Validate the entire stroke before changing any authored hex.
+  if(edits.some(e=>e.landingStrip!==undefined)){
+   if(edits.some(e=>e.landingStrip===undefined))throw Error('Paint one kind of landmark at a time.');
+   const candidate=structuredClone(world),target=region?candidate.regions[b.regionId]:candidate;
+   for(const e of edits){
+    const current=region?(target.hexes[e.key]?.landingStrip?{regionHex:e.key}:null):landingSite(candidate,e.key);
+    if(e.expectedLandingStrip!==undefined&&Boolean(current)!==e.expectedLandingStrip)throw Error('This Landing Strip changed since the stroke.');
+    if(region){
+     if(e.landingStrip&&candidate.hexes[b.regionId]?.landingStrip)throw Error('This surface hex already has a Landing Strip. Erase it before placing one in its Region.');
+     if(e.landingStrip&&Object.entries(target.hexes).some(([k,h])=>k!==e.key&&h.landingStrip))throw Error('Only one Landing Strip is allowed per Region. Erase the existing strip first.');
+     target.hexes[e.key]={...target.hexes[e.key],landingStrip:e.landingStrip};
+    }else{
+     const child=e.landingRegionHex!==undefined&&e.landingRegionHex!==''?hexKey(e.landingRegionHex,true,size):current?.regionId?current.regionHex:null;
+     if(e.landingStrip&&current?.regionId&&e.landingRegionHex===undefined)throw Error('This hex already represents its Region Landing Strip.');
+     if(child!==null){
+      const r=candidate.regions[e.key];if(!r)throw Error('The Landing Strip Region no longer exists.');
+      if(e.landingStrip&&(candidate.hexes[e.key]?.landingStrip||Object.entries(r.hexes).some(([k,h])=>k!==child&&h.landingStrip)))throw Error('Only one Landing Strip is allowed per surface hex and Region.');
+      if(current?.regionId&&current.regionHex!==child)throw Error('This Landing Strip changed since the stroke.');
+      r.hexes[child]={...r.hexes[child],landingStrip:e.landingStrip};
+     }else candidate.hexes[e.key]={...candidate.hexes[e.key],landingStrip:e.landingStrip};
+    }
+   }
+   world.hexes=candidate.hexes;world.regions=candidate.regions;return true;
+  }
   for(const edit of edits){const next={...chart.hexes[edit.key]};if(edit.city!==undefined)next.city=edit.city;else if(edit.terrain)next.terrain=edit.terrain;else delete next.terrain;if(Object.keys(next).length)chart.hexes[edit.key]=next;else delete chart.hexes[edit.key];}
  }
  if(b.kind==='planetHex'){
@@ -65,6 +105,7 @@ function command(c,b,auth){
   if(b.terrain!==undefined){if(b.terrain&&!terrain.types.includes(b.terrain))throw Error('Choose a terrain type.');if(b.terrain)next.terrain=b.terrain;else delete next.terrain;}
   for(const prop of ['label','description','gmNotes'])if(b[prop]!==undefined)next[prop]=text(b[prop],prop==='label'?80:5000);
   if(b.city!==undefined)next.city=!!b.city;
+  if(b.landingStrip!==undefined)throw Error('Use the Landing Strip or Erase Landing Strip map brush.');
   if(b.shopFile){if(b.shopFile.format!=='sa2shop'||b.shopFile.version!==1)throw Error('Choose a Save Shop file.');next.shop=require('./campaign-shops').normalize(b.shopFile.shop);next.shop.active=false;}
   if(b.shopId){const shop=require('./campaign-shops').state(c).list.find(x=>x.id===b.shopId);if(!shop)throw Error('Choose an existing shop.');next.shop=structuredClone(shop);next.shop.active=false;}
   if(b.removeShop)delete next.shop;
@@ -88,7 +129,7 @@ function command(c,b,auth){
   if(combatActive)throw Error('Finish the encounter before selecting a landing site.');
   const p=s.party;if(!p?.awaitingLanding||p.planetId!==planet.id||p.starId!==b.starId||p.mapId!==b.mapId||region)throw Error('There is no landing site to select here.');
   if(!gm&&p.landingOwnerId!==characterId)throw Error('The player who began descent selects the landing hex.');
-  const hex=hexKey(b.hex,false,size);require('./planet-travel').begin(c,{...p,hex,regionId:'',awaitingLanding:false,landingOwnerId:''},{kind:'landing',ownerId:characterId,duration:4});
+  const hex=hexKey(b.hex,false,size),destination={...p,hex,regionId:'',regionHex:'',...(landingSite(world,hex)||{}),awaitingLanding:false,landingOwnerId:''},error=landingError(c,destination);if(error)throw Error(error);require('./planet-travel').begin(c,destination,{kind:'landing',ownerId:characterId,duration:4});
  }
  if(b.kind==='planetShop'){
   const a=s.shopArrival;if(!a||a.id!==b.arrivalId)throw Error('This arrival prompt has already been handled.');
@@ -106,7 +147,10 @@ function project(s,gm){
   for(const [id,world]of Object.entries(star.surfaces||{})){
    delete world.arrivalContent;for(const r of Object.values(world.regions||{}))delete r.arrivalContent;
    if(!ids.has(id)){delete star.surfaces[id];continue;}
-   const clean=hexes=>Object.fromEntries(Object.entries(hexes||{}).map(([key,h])=>[key,Object.fromEntries(['terrain','label','description','city','npcMarkers'].filter(k=>h[k]!==undefined).map(k=>[k,h[k]]))]));
+   const clean=hexes=>Object.fromEntries(Object.entries(hexes||{}).map(([key,h])=>[key,Object.fromEntries(['terrain','label','description','city','landingStrip','npcMarkers'].filter(k=>h[k]!==undefined).map(k=>[k,h[k]]))]));
+   // Public parent marker describes the same regional site without disclosing
+   // the inactive Region's coordinates or other authored details.
+   for(const [key,r]of Object.entries(world.regions||{}))if(Object.values(r.hexes||{}).some(h=>h.landingStrip===true))world.hexes[key]={...world.hexes[key],landingStrip:true};
    world.hexes=clean(world.hexes);
    for(const [key,r]of Object.entries(world.regions||{})){
     // Send the active region only; all other regions are small directory entries.
@@ -126,4 +170,4 @@ function resetModule(s,ships=[]){
   if(planet)for(const ship of ships.filter(x=>x.controlType==='pc')){s.positions[ship.id]={mapId:s.party.mapId,q:star.q,r:star.r};s.localPositions[ship.id]={surfaceHex:s.party.hex,regionId:s.party.regionId||'',regionHex:s.party.regionHex,...(s.localPositions[ship.id]||{}),mapId:s.party.mapId,starId:star.id,planetId:planet.id,q:planet.q,r:planet.r,phase:'surface'};}
  }
 }
-module.exports={command,context,surface,target,place,arrival,depart,project,resetModule,canLaunch,normalizeWorld};
+module.exports={command,context,surface,target,place,arrival,depart,project,resetModule,canLaunch,landingError,landingSite,sameLandingSite,normalizeWorld};

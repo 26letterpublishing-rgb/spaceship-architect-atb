@@ -134,3 +134,16 @@ test('powered-down shield reserves cannot absorb a collision',()=>{
   commands.queue(room,pilot,{kind:'ram',targetId:b.id,requestId:'offline-ram-test'});commands.resolveInput(room,pilot,()=>12);
   assert.equal(a.shieldSystems.sh.hp,stored);assert.equal(a.currentHullHp,0);
 });
+
+for(const kind of ['ram','skim','hail'])test(`destroyed ${kind} target rejects queue and stale resolution without new cost or damage`,()=>{
+ const {room,pilot,a,b}=fixture(),body={kind,targetId:b.id,disclosedPosition:{q:0,r:0},requestId:'destroyed-'+kind};
+ assert.equal(commands.queue(room,pilot,body).ok,true);const order=structuredClone(pilot.delayedAction.commandOrder);pilot.delayedAction=null;b.destroyedAt=123;b.currentHullHp=0;const before=JSON.stringify({hull:a.currentHullHp,shield:a.currentShieldHp,au:a.auState,atb:pilot.atb});
+ assert.equal(commands.queue(room,pilot,{...body,requestId:'dead-retry-'+kind}).ok,false);assert.equal(pilot.delayedAction,null);
+ let rolls=0;commands.resolveInput(room,pilot,()=>{rolls++;return 12;},order);commands.resolveInput(room,pilot,()=>{rolls++;return 12;},order);
+ assert.equal(rolls,0);assert.equal(JSON.stringify({hull:a.currentHullHp,shield:a.currentShieldHp,au:a.auState,atb:pilot.atb}),before);assert.equal(b.currentHullHp,0);assert.ok(a.sensorState.contacts.b,'wreck knowledge retained');assert.equal(a.commandSystems.calls.length,0);
+});
+test('destroyed conditional trigger is rejected before arming cost and disarms saved orders before movement triggers',()=>{
+ const {room,pilot,a,b}=fixture();a.auState.current=10;const order={kind:'evade',shipId:a.id,sicId:'c',station:navigation.station(room,pilot,'c').key,trigger:{kind:'movement',targetId:b.id},receipt:'saved-order'};
+ b.destroyedAt=123;b.currentHullHp=0;assert.equal(commands.validateTrigger(room,a,order.trigger).ok,false);const before=a.auState.current;commands.resolveInput(room,pilot,()=>{throw Error('unexpected roll')},order);assert.equal(a.auState.current,before);assert.ok(!a.commandSystems.armed);
+ a.commandSystems.armed={order,unitId:pilot.id,location:{...pilot.location},remaining:12,traveled:0};const positions=structuredClone(room.shipPositions);room.shipPositions[1].q=1;commands.advance(room,1,positions);assert.equal(a.commandSystems.armed,null);assert.equal(pilot.pendingShipRolls?.length||0,0);assert.equal(a.auState.current,before);
+});

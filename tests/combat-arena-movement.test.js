@@ -12,7 +12,8 @@ test('melee movement bonus counts only the final straight portion, across automa
 });
 
 test('Space Slug has two D4 Strength dice while retaining its other physical stats',()=>{
- const source=require('../data/npc-templates.json').find(n=>n.id==='space-slug'),u={team:'npc'};engine.applyNpcSimplifiedStats(u,source);
+ const source={physicalAttribute:6,mentalAttribute:2,physicalSkill:1,mentalSkill:0,strengthDiceOverride:[4,4]},u={team:'npc'}; // Explicit historical strength override fixture.
+ engine.applyNpcSimplifiedStats(u,source);
  assert.deepEqual(u.strengthDice,[4,4]);assert.deepEqual(u.dexterityDice,engine.npcAttributeDice(6));assert.equal(u.physicalSkill,1);
 });
 test('surface movement uses normal gravity and stops when a manual door closes during travel',()=>{const r=room(),u={id:'pc',team:'pc',moveSpeed:6,location:{arenaId:'surface',square:0,mesh:4}};engine.migrateUnitCombat(u);r.units=[u];r.activeId=u.id;r.arena.doors['1:2'].open=true;const result=engine.resolvePlayerCombatAction(r,u,{kind:'move',route:A.route(r.arena,0,3)},helpers);assert.equal(result.ok,true);assert.equal(u.timedAction.gravityScale,1);assert.equal(u.timedAction.total,1.5);r.arena.doors['1:2'].open=false;engine.tickCombatTimers(u,.1,1,r);assert.equal(u.timedAction,null);assert.equal(u.location.square,0);assert.deepEqual(u.travelRoute,[]);});

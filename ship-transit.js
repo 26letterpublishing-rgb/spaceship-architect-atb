@@ -166,7 +166,7 @@ function ready(room, unit, outsideCombat) {
 // Body kinds: warpStart/warpCancel/warpExit/destructApprove/destructCancel.
 // Receipts are actor-owned and payload-bound, retained across journey replacement.
 // Cancels/exits are free. Start/approval return spent:true for caller turn handling.
-function command(room, actor, body = {}, { outsideCombat = false } = {}) {
+function command(room, actor, body = {}, { outsideCombat = false, resolveDestination } = {}) {
   const unit = room?.units?.find(u => u.id === actor?.id);
   if (!unit) return fail('An authenticated room actor is required.');
   if (typeof body.requestId !== 'string' || !/^[\w-]{8,100}$/.test(body.requestId)) return fail('Invalid command receipt.');
@@ -174,7 +174,7 @@ function command(room, actor, body = {}, { outsideCombat = false } = {}) {
   const allowed = body.sicId ? stations.access(room, unit, body.sicId) : null;
   const ship = room.starships?.find(s => s.id === (body.shipId || allowed?.ship.id || unit.location?.starshipId));
   if (!ship) return fail('Ship not found.');
-  const fingerprint = JSON.stringify([body.kind, body.sicId ?? null, body.distanceLY ?? null, body.countdownSeconds ?? null]);
+  const fingerprint = JSON.stringify([body.kind, body.sicId ?? null, body.distanceLY ?? null, body.countdownSeconds ?? null,...(body.destination?[body.destination]:[])]);
   const receipts = data(ship).transitReceipts || [], owner = JSON.stringify([unit.id, unit.characterId || null, unit.templateId || null]);
   const receipt = receipts.find(r => r.id === body.requestId);
   if (receipt) return receipt.owner === owner && receipt.fingerprint === fingerprint ? { ok:true, duplicate:true, spent:false, ship, events:[] } : fail('This receipt belongs to another command or actor.');
@@ -188,7 +188,9 @@ function command(room, actor, body = {}, { outsideCombat = false } = {}) {
       if (moving(ship)) return fail('Stop ship movement and inertia before activating warp.');
       const available = hardware(room, ship, body.sicId);
       if (!available.ok) return available;
-      const planned = plan(ship, body.distanceLY, { sicId:body.sicId });
+      const campaignDestination=body.destination ? resolveDestination?.(ship,body.destination) : null;
+      if(body.destination&&!campaignDestination)return fail("Campaign destination could not be validated.");
+      const planned = plan(ship, campaignDestination?.distanceLY ?? body.distanceLY, { sicId:body.sicId });
       if (!planned.ok) return planned;
       const engineers = engineerCount(room, ship, body.sicId);
       const total = activationSeconds(room, ship, planned);
@@ -200,7 +202,7 @@ function command(room, actor, body = {}, { outsideCombat = false } = {}) {
       }
       const origin = distances.positions(room.starships, room.shipPositions || []).find(p => p.id === ship.id);
       data(ship).warpState = { phase:'activating', id:randomUUID(), unitId:unit.id, owner, sicId:body.sicId, remaining:total, total,
-        targetLY:planned.targetLY, traveledLY:0, elapsedSeconds:0, secondsPerParsec:planned.secondsPerParsec, tier:planned.tier,
+        ...(campaignDestination?{campaignDestination}:{}), targetLY:planned.targetLY, traveledLY:0, elapsedSeconds:0, secondsPerParsec:planned.secondsPerParsec, tier:planned.tier,
         instantWarp:Boolean(planned.instantWarp),faultRoll,impaired:planned.impaired, engineers, plan:planned.plan, planIndex:0, planUsed:0, currentFuel:null,
         fuelUsed:Object.fromEntries(Object.keys(FUEL_PARSECS).map(g => [g,0])), origin:{ q:origin.q, r:origin.r }, report:null };
       if(planned.instantWarp){data(ship).warpState.fuelUsed.S=2;const points=Math.max(Number(available.item.impairmentPoints)||0,impaired(available.item)?1:0);if(faultRoll!==null&&faultRoll<=points){ship.currentHullHp=0;data(ship).currentHullHp=0;ship.destroyedAt=new Date().toISOString();events.push(endJourney(ship,'exploded','EW-FTL failure: D8 '+faultRoll+' against '+points+' impairment points.'));}}

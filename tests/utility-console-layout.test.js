@@ -1,5 +1,11 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const css=fs.readFileSync('utility-console.css','utf8');
+test('Life Support control labels and raised switches are family scoped and preserve native controls',()=>{
+ const block=css.split('/* Life Support controls:')[1].split('/* Life Support only:')[0];
+ for(const selector of [...block.matchAll(/([^{}]+)\{/g)].map(m=>m[1].split('*/').pop().trim()))assert(selector.startsWith('body dialog.utility-console:has(.life-machine)'),selector);
+ assert.match(block,/font-size:18px/);assert.match(block,/width:85px;min-width:85px;max-width:85px;height:47\.6px/);assert.match(block,/flex-direction:column/);assert.match(block,/translateX\(37\.4px\)/);
+ const source=fs.readFileSync('utility-console-ui.js','utf8');for(const control of ['data-gravity','data-oxygen'])assert(source.includes(control+' type="checkbox" role="switch"'));
+});
 test('Life Support alone places live instruments below the unchanged machine image',()=>{
  const block=css.split('/* Life Support only: unobscured machine image above live instruments. */')[1];assert.ok(block,'Life Support layout block');
  const selectors=[...block.matchAll(/([^{}]+)\{/g)].map(m=>m[1].trim()).filter(s=>!s.startsWith('@'));
@@ -24,6 +30,16 @@ test('Nutrition preserves its scene and paste registration while sharing the bot
  assert.match(source,/clearTimeout\(pasteTimer\)/);
  assert.match(source,/if\(!dialog\.isConnected\)return/);
  assert.match(source,/blob\.setAttribute\('aria-label','Eat paste'\)/);
+});
+
+test('Nutrition fills its artwork viewport proportionally without separating paste or leaking resize observers',()=>{
+ const source=fs.readFileSync('utility-console-ui.js','utf8');
+ assert.match(source,/viewport\.append\(dispenser\)/);
+ assert.match(source,/Math\.max\(width\/16,height\/9\)/);
+ assert.match(source,/sceneObserver\?\.disconnect\(\)/);
+ assert.match(css,/\.nut-scene-viewport\{[^}]*overflow:hidden/);
+ assert.match(css,/\.nut-scene-viewport \.nut-dispenser\{[^}]*transform:translate\(-50%,-50%\)/);
+ assert.match(css,/:has\(\.nut-scene-viewport\) \.utility-scene\{[^}]*grid-template-rows:minmax\(0,1fr\) auto/);
 });
 
 test('Cloaking, Gravity Absolution and Sensor Lure use migrated utility Ring structure',()=>{

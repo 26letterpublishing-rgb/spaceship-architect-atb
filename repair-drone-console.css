@@ -1,0 +1,8 @@
+/* Repair Drone controls only; retain the shared zone geometry and scrolling. */
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+.drone-console .utility-controls{overflow:auto}
+.drone-console .utility-controls :is(h3,strong,p,button,output){font-family:Orbitron,sans-serif;font-size:16px;line-height:1.55;overflow-wrap:anywhere}
+.drone-console .utility-controls h3{font-size:18px}
+.drone-console .utility-controls button{max-width:100%;min-width:0;white-space:normal}
+.drone-console .utility-controls output:empty{min-height:0;margin-top:0}
+.drone-console .utility-controls p{margin-block:12px}

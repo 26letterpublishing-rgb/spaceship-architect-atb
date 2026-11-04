@@ -19,3 +19,13 @@ test('out-of-combat boarding persists across reconstructed room ticks',()=>{
  assert.equal(room(f.campaign).units[0].location.environment,'boarding');dock.advance(room(f.campaign),5,f.campaign);
  assert.equal(room(f.campaign).units.filter(u=>u.characterId==='pc').length,1);assert.equal(room(f.campaign).units[0].location.starshipId,'other');
 });
+
+test('boarding location survives normal combat migration and JSON reload without initiative or oxygen exposure',()=>{
+ const f=fixture();f.room.outsideCombat=false;f.other.controlType='gm';f.ship.sensorState={contacts:{other:{level:'detected'}}};
+ dock.command(f.room,f.unit,{kind:'airlock-dock',targetId:'other',receipt:'dock-normalize'});dock.advance(f.room,20);
+ f.unit.location={starshipId:f.ship.id,square:21,mesh:4};f.ship.characterLocations.pc={...f.unit.location};dock.reserve(f.room,f.unit,'other',21);dock.advance(f.room,0,f.campaign);
+ const engine=require('../combat-engine');engine.migrateUnitCombat(f.unit);assert.equal(f.unit.location.environment,'boarding');
+ const restored=JSON.parse(JSON.stringify(f.room));engine.migrateUnitCombat(restored.units[0]);assert.equal(restored.units[0].location.environment,'boarding');
+ dock.advance(restored,4,f.campaign);assert.equal(restored.units[0].location.environment,'boarding');assert.equal(restored.starships[0].ship.airlockDocking.transfers[0].remaining,1);
+ dock.advance(restored,1,f.campaign);assert.equal(restored.units[0].location.starshipId,'other');assert.equal(restored.starships[1].crewCharacterIds.includes('pc'),false);
+});

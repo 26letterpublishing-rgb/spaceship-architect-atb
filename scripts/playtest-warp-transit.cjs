@@ -1,4 +1,4 @@
-const {chromium}=require('playwright'),{spawn}=require('node:child_process'),{once}=require('node:events'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict'),maps=require('../ship-map-core');
+const chromium=require('./capture-console-layout.cjs').chromium(),{spawn}=require('node:child_process'),{once}=require('node:events'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict'),maps=require('../ship-map-core');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'test-artifacts','warp-transit');fs.mkdirSync(out,{recursive:true});let child,browser,page;const errors=[];
 async function main(){
  child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'sa-warp-ui-'))},stdio:['ignore','pipe','pipe']});
@@ -46,4 +46,72 @@ async function main(){
  await page.frameLocator('[data-player-ship-details]').getByRole('button',{name:'Toggle Console',exact:true}).click();dialog=page.locator('.transit-console');await dialog.waitFor();await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'console-mobile.png'),fullPage:true});const overflowing=await dialog.locator('button,input,select').evaluateAll(nodes=>nodes.filter(e=>e.getBoundingClientRect().width&&e.getBoundingClientRect().right>innerWidth+2).map(e=>e.textContent));assert.deepEqual(overflowing,[]);
  assert.deepEqual(errors,[]);console.log('PASS: real Chrome purchase, placement, stock, independent PC console, warp animation, GM downtime, early exit, registered cancellation, reload and mobile controls.');
 }
-main().catch(async e=>{console.error(e,errors);await page?.screenshot({path:path.join(out,'failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});
+async function destinationMain(){let browser;  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'sa-transit-http-'));let child,base;
+  async function launch(){child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:directory},stdio:['ignore','pipe','pipe']});base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),10000);child.stdout.on('data',c=>{const u=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(u){clearTimeout(timer);resolve(u);}});});}
+  async function stop(){if(child.exitCode===null){const ended=once(child,'exit');child.kill();await ended;}}await launch();try{
+  const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+  const demo=await post('campaign/showcase/start',{}),created={campaign:{code:demo.code},token:demo.gmToken},code=created.campaign.code;let token=created.token;
+  const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());backup.campaign.code=code;backup.campaign.name='Transit HTTP';backup.campaign.showcase=true;
+  const c=backup.campaign,record=c.starships.find(s=>s.id==='showcase-pc-ship'),nova=c.characters[0],npc=c.encounter.units.find(u=>u.team==='npc'),pilot=c.encounter.units.find(u=>u.characterId===nova.id);
+  const ship={gridCells:maps.rectangleCells({},42,16,16),groupCredits:10000,sicInventory:[{id:'bridge-test',type:'bridge-1'},{id:'en-test',type:'en-engine-6'},{id:'life-test',type:'life-support'},{id:'warp-test',type:'warp-drive-zero'},{id:'destruct-test',type:'self-destruct'},...Array.from({length:4},(_,i)=>({id:`thruster-test-${i}`,type:'exhaust-thruster-1'}))],placements:[{sicId:'bridge-test',cell:42},{sicId:'en-test',cell:162},{sicId:'life-test',cell:66},{sicId:'warp-test',cell:48},{sicId:'destruct-test',cell:42},...Array.from({length:4},(_,i)=>({sicId:`thruster-test-${i}`,cell:41+i*20}))],warpFuel:{D:3},minerals:{Iron:7},confirmedOnce:true};ship.confirmed=structuredClone(ship);assert.equal(maps.exteriorError(ship),'');
+  record.ship=ship;record.crewNpcUnitIds=[npc.id];const stations=maps.definition('bridge-1').stations;
+  const location=index=>({starshipId:record.id,sicId:'bridge-test',square:42+stations[index].y*20+stations[index].x,mesh:stations[index].mesh,stationed:true});
+  record.characterLocations={[nova.id]:location(0)};Object.assign(npc,{location:location(1),currentHp:40,defeatedAt:null});c.npcRoster=[structuredClone(npc)];Object.assign(pilot,{location:location(0),currentHp:40,defeatedAt:null,atb:100});
+  const source=c.encounter.starships.find(s=>s.id===record.id);Object.assign(source,structuredClone(record),{maximumHullHp:256,currentHullHp:256});Object.assign(c.encounter,{hasEngagedClock:false,encounterEndedAt:Date.now(),running:false,hardPaused:false,activeId:null});
+  c.interfaceVersion='0.3';c.roomOpen=true;c.starmaps.localPositions={};c.starmaps.localJourneys={};delete c.starmaps.party;c.starmaps.navigation={mode:'galaxy',allowed:{galaxy:true,system:true,orbit:true,surface:true}};await post('campaign/restore',{code,token,backup});
+  const pc=demo.players.find(p=>p.id===nova.id);
+
+ const sector=c.starmaps.maps[0],origin=c.starmaps.positions[record.id];
+ await post('campaign/v03/starmap',{code,token,kind:'scale',mapId:sector.id,scale:.01,receipt:crypto.randomUUID()});
+ browser=await chromium.launch({channel:'chrome',headless:true});const context=await browser.newContext({viewport:{width:1920,height:1080}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ await page.goto(base+'/');await page.evaluate(({code,id,token})=>{sessionStorage.setItem('sa-character-token-'+code+'-'+id,token);localStorage.setItem('sa-character-token-'+code+'-'+id,token);},{code,id:nova.id,token:pc.token});
+ await page.goto(base+'/character.html?campaign='+code+'&character='+nova.id);
+ await page.getByRole('button',{name:'Starships',exact:true}).click();
+ await page.frameLocator('[data-player-ship-details]').getByRole('button',{name:'Toggle Console',exact:true}).click();
+ let dialog=page.getByRole('dialog',{name:'Pilot console',exact:true});await dialog.waitFor();await dialog.getByRole('combobox',{name:'Station console'}).selectOption('warp-test');dialog=page.getByRole('dialog',{name:'Warp Drive Zero console',exact:true});await dialog.waitFor();
+ await dialog.locator('[data-plan]').click();await page.waitForTimeout(1000);await dialog.locator('[data-destination-picker] svg').waitFor();
+ const target=sector.stars.find(s=>s.q!==origin.q||s.r!==origin.r);await dialog.locator('[data-star="'+target.id+'"]').press('Enter');await dialog.getByRole('button',{name:'Confirm Destination',exact:true}).click();await dialog.locator('[data-start]:enabled').waitFor();
+ await dialog.locator('[data-start]').click();await dialog.locator('[data-phase]').filter({hasText:'WARP ACTIVATION'}).waitFor();
+ await dialog.locator('[data-cancel]').click();await dialog.locator('[data-phase]').filter({hasText:'CANCELLED'}).waitFor();
+ const cancelled=await fetch(base+'/api/campaign/state?code='+code+'&token='+token).then(r=>r.json());assert.deepEqual(cancelled.starmaps.positions[record.id],origin);
+ await dialog.locator('[data-start]').click();await dialog.locator('[data-phase]').filter({hasText:'WARP ACTIVATION'}).waitFor();
+ await post('campaign/time/pass',{code,token,amount:1,unit:'days',requestId:'destination-day'});
+ await dialog.locator('[data-phase]').filter({hasText:'ARRIVED',exact:true}).waitFor();
+ const final=await fetch(base+'/api/campaign/state?code='+code+'&token='+token).then(r=>r.json());assert.equal(final.starmaps.positions[record.id].q,target.q);assert.equal(final.starmaps.positions[record.id].r,target.r);assert.equal(final.starmaps.warpVisits[record.id].length,1);
+ await dialog.locator('[data-report]').filter({hasText:target.name}).waitFor();
+ const out=path.resolve(root,'../SA-ATB Local Development Files/outputs/warp-destination-nov04');await page.screenshot({path:path.join(out,'real-pc-arrival.png')});
+ for(const viewport of [{width:1920,height:1080},{width:1366,height:768},{width:1280,height:720}]){
+  await page.setViewportSize(viewport);await dialog.locator('[data-plan]').click();await dialog.locator('[data-destination-picker] svg').waitFor();await page.waitForTimeout(250);
+  const box=await dialog.locator('[data-destination-picker]').boundingBox();assert(box.x>=0&&box.y>=0&&box.x+box.width<=viewport.width&&box.y+box.height<=viewport.height);
+  await page.screenshot({path:path.join(out,'real-picker-'+viewport.width+'.png')});
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await dialog.locator('[data-destination-picker]').count(),0);
+ }
+ await page.reload();await page.getByRole('button',{name:'Starships',exact:true}).click();await page.frameLocator('[data-player-ship-details]').getByRole('button',{name:'Toggle Console',exact:true}).click();
+ const reopened=page.locator('dialog.transit-console');if(!await reopened.count())await page.getByRole('combobox',{name:'Station console'}).selectOption('warp-test');
+ await page.locator('dialog.transit-console [data-report]').filter({hasText:target.name}).waitFor();
+
+
+ await page.keyboard.press('Escape');await page.locator('dialog.transit-console').waitFor({state:'detached'});
+ const act=body=>post('action',{roomCode:code,gmToken:token,...body});
+ const before=await fetch(base+'/api/state?room='+code+'&token='+token).then(r=>r.json());
+ await act({action:'prepareEncounter',confirmCampaignName:'Transit HTTP',expectedEncounterId:before.encounterId,preparationId:crypto.randomUUID(),mode:'starship',starships:before.starships,shipPositions:before.shipPositions,units:[{...pilot,preparationUnitId:pilot.id}]});
+ await act({action:'setRunning',running:true});await act({action:'setHardPaused',paused:true});
+ await page.reload();await page.getByRole('button',{name:'Combat',exact:true}).click();
+ const combat=page.frames().find(f=>f.url().includes('/index.html'));await combat.waitForFunction(()=>window.SACombatBridge?.state()?.hasEngagedClock);
+ const actorId=await combat.evaluate(id=>SACombatBridge.state().units.find(u=>u.characterId===id).id,nova.id);
+ await act({action:'nudge',id:actorId,amount:100});await combat.waitForFunction(id=>SACombatBridge.state().activeId===id,actorId);
+ await page.locator('[data-console-view]').click();
+ await page.getByRole('combobox',{name:'Station console'}).selectOption('warp-test');
+ const activeDialog=page.getByRole('dialog',{name:'Warp Drive Zero console',exact:true});await activeDialog.locator('[data-plan]').click();await activeDialog.locator('[data-destination-picker] svg').waitFor();
+ await activeDialog.locator('[data-star="'+sector.stars.find(star=>star.q===origin.q&&star.r===origin.r).id+'"]').press('Enter');
+ console.log('PICKER_GEOMETRY',await activeDialog.evaluate(e=>({rect:e.getBoundingClientRect().toJSON(),style:{left:getComputedStyle(e).left,transform:getComputedStyle(e).transform,translate:getComputedStyle(e).translate},scrolls:[...e.querySelectorAll('*'),e,document.body,document.documentElement].filter(n=>n.scrollLeft).map(n=>({tag:n.tagName,cls:n.className,left:n.scrollLeft}))})));await page.screenshot({path:path.join(out,'combat-before-confirm.png')});
+ const confirm=activeDialog.getByRole('button',{name:'Confirm Destination',exact:true});const cb=await confirm.boundingBox();assert(cb.x>=0&&cb.y>=0&&cb.x+cb.width<=1280&&cb.y+cb.height<=720,'Active picker confirmation fits viewport');await page.mouse.click(cb.x+cb.width/2,cb.y+cb.height/2);await activeDialog.locator('[data-start]:enabled').click();
+ await activeDialog.locator('[data-phase]').filter({hasText:'WARP ACTIVATION'}).waitFor();await page.screenshot({path:path.join(out,'active-combat-warp.png')});
+ const started=await fetch(base+'/api/state?room='+code+'&token='+token).then(r=>r.json());assert.equal(started.hasEngagedClock,true);assert.equal(started.starships.find(ship=>ship.id===record.id).ship.warpState.phase,'activating');
+ await activeDialog.locator('[data-cancel]').click();await activeDialog.locator('[data-phase]').filter({hasText:'CANCELLED'}).waitFor();
+ const settled=await fetch(base+'/api/campaign/state?code='+code+'&token='+token).then(r=>r.json());assert.deepEqual(settled.starmaps.positions[record.id],final.starmaps.positions[record.id]);
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({pass:true,code,position:final.starmaps.positions[record.id],visits:final.starmaps.warpVisits[record.id],errors}));
+ }finally{await browser?.close();await stop();}
+}
+
+(process.argv.includes("--destination")?destinationMain():main()).catch(async e=>{console.error(e,errors);await page?.screenshot({path:path.join(out,'failure.png'),fullPage:true}).catch(()=>{});process.exitCode=1;}).finally(async()=>{await browser?.close();if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}});

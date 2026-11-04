@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+for(const delayed of [false,true])test('Ionic typography: '+(delayed?'controlled delayed shared-UI readiness':'populated states, sizes and isolation'),{timeout:120000},async t=>{const args=[require.resolve('../scripts/playtest-ionic-typography.cjs'),...(delayed?['--delay-shared-ui']:[])];const r=await promisify(execFile)(process.execPath,args,{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

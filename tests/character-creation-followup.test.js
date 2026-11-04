@@ -47,3 +47,20 @@ test('fanfare honors mute and schedules its musical resolution when enabled',()=
   vm.runInContext(source.slice(source.indexOf('function playFinalizationFanfare('),source.indexOf('let identityRevealToken')),c);
   c.playFinalizationFanfare();assert.equal(notes.length,0);c.ensureCharacterAudio=()=>({});c.playFinalizationFanfare();assert.equal(notes.length,18);
 });
+
+test('celebration owns its roll: normal completion stops it, replacement and cancelled rolls survive stale callbacks',async()=>{
+ const dice=fs.readFileSync(require.resolve('../dice-roller.js'),'utf8');const method=dice.slice(dice.indexOf('  celebrate(duration'),dice.indexOf('  stop() {',dice.indexOf('  celebrate(duration')));
+ for(const mode of ['normal','replacement','cancelled']){
+  let timeout,stops=0;const c=vm.createContext({window:{setTimeout:fn=>{timeout=fn;}},Promise});vm.runInContext('class Probe {'+method+'};this.Probe=Probe;',c);
+  const roller=new c.Probe(),old={id:'old'},next={id:'batch'};roller.active=old;roller.shell={style:{setProperty(){}},classList:{add(){}},hidden:false};roller.stop=()=>{stops++;roller.active=null;};
+  const done=roller.celebrate(420);if(mode==='replacement')roller.active=next;if(mode==='cancelled')roller.active=null;timeout();await done;
+  assert.equal(stops,mode==='normal'?1:0);assert.equal(roller.active,mode==='replacement'?next:null);assert.equal(roller.shell.hidden,mode==='normal');
+ }
+});
+
+test('local saved-batch resume is once-only and excludes unrelated or read-only views',()=>{
+ const c=vm.createContext({CAMPAIGN_READ_ONLY_VIEW:false,GM_SHIP_VIEW:false,PAGE_PARAMS:new URLSearchParams(),campaignCode:'',activeRecovery:{character:{id:'saved'}},character:{id:'saved',phase:'finalizing',creation:{decimalBatch:[{key:'base:Piloting',value:7}]}},diceRoller:{isActive:()=>false},processFinalization(){c.calls++;c.character.creation.batchAnimating=true;},calls:0});
+ vm.runInContext(source.slice(source.indexOf('function resumeSavedFinalization('),source.indexOf('function processFinalization(')),c);c.resumeSavedFinalization();c.resumeSavedFinalization();assert.equal(c.calls,1);assert.equal(c.character.creation.decimalBatch[0].value,7);
+ for(const key of ['CAMPAIGN_READ_ONLY_VIEW','GM_SHIP_VIEW','campaignCode']){c.character.creation.batchAnimating=false;c[key]=true;c.resumeSavedFinalization();assert.equal(c.calls,1);c[key]=key==='campaignCode'?'':false;}
+ c.PAGE_PARAMS.set('shipRoll','1');c.resumeSavedFinalization();assert.equal(c.calls,1);c.PAGE_PARAMS.delete('shipRoll');c.activeRecovery.character.id='other';c.resumeSavedFinalization();assert.equal(c.calls,1);
+});

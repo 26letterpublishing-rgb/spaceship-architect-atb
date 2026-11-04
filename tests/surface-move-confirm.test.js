@@ -1,0 +1,5 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const s=fs.readFileSync(require.resolve('../combat-arena-ui'),'utf8'),c={};vm.runInNewContext(s.slice(s.indexOf('  function confirmPosition('),s.indexOf('  function positionConfirm('))+';this.place=confirmPosition;',c);
+const overlap=(a,b)=>a.x<b.right&&a.x+64>b.left&&a.y<b.bottom&&a.y+64>b.top;
+test('confirmation stays inside viewport and outside destination at all four corners',()=>{for(const [x,y] of [[0,0],[448,0],[0,448],[448,448]]){const cell={left:x,top:y,right:x+52,bottom:y+52},p=c.place(cell,{width:500,height:500});assert.ok(p.x>=6&&p.y>=6&&p.x+64<=494&&p.y+64<=494);assert.equal(overlap(p,cell),false);}});
+test('confirmation avoids approach route and clamps a scrolled-off destination',()=>{const cell={left:200,top:200,right:250,bottom:250},route={left:250,top:200,right:350,bottom:250},p=c.place(cell,{width:500,height:500},64,[route]);assert.equal(overlap(p,cell),false);assert.equal(overlap(p,route),false);const off=c.place({left:900,top:-900,right:950,bottom:-850},{width:500,height:500});assert.ok(off.x>=6&&off.x<=430&&off.y>=6&&off.y<=430);});

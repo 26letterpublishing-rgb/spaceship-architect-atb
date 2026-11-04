@@ -4,11 +4,24 @@ const clone=structuredClone,id=()=>randomUUID(),state=c=>c.starmaps||={maps:[],p
 const text=(s,max=2000)=>String(s||'').trim().slice(0,max);
 function point(p){if(!Number.isInteger(p?.q)||!Number.isInteger(p?.r)||Math.abs(p.q)>10000||Math.abs(p.r)>10000)throw Error('Choose whole hex coordinates between -10000 and 10000.');return {q:p.q,r:p.r};}
 function note(c,message,ship){const travelEventId=id(),createdAt=new Date().toISOString();c.privateNotes||=[];c.privateNotes.push({id:id(),travelEventId,direction:'to-gm',kind:'system',message,createdAt,readAt:null});for(const characterId of ship?.crewCharacterIds||[])c.privateNotes.push({id:id(),travelEventId,direction:'to-character',kind:'system',characterId,message,createdAt,readAt:null});}
+function visibleStar(c,mapId,starId){
+ const s=c?.starmaps,m=s?.maps?.find(m=>m.id===mapId),star=m?.stars?.find(star=>star.id===starId),n=s?.navigation;
+ return Boolean(star&&!star.hidden&&(n?.allowed?.galaxy!==false||(n.mapId===mapId&&n.starId===starId)));
+}
+function publicWarpState(w,c){
+ if(!w)return w;const result=clone(w),j=result.campaignDestination;
+ if(j&&!visibleStar(c,j.mapId,j.starId)){
+  delete j.starId;delete j.name;
+  if(c?.starmaps?.navigation?.allowed?.galaxy===false&&c.starmaps.navigation.mapId!==j.mapId)delete result.campaignDestination;
+  else j.name=`Hex ${j.to?.q}, ${j.to?.r}`;
+ }
+ return result;
+}
 function view(c,gm,characterId){
- require('./campaign-navigation').state(c);const s=clone(require('./planet-grid-migration').liveState(state(c)));delete s.receipts;const personal=s.characterWorldLocations?.[characterId];if(!gm){s.ownLocation=personal||null;delete s.characterWorldLocations;if(personal?.environment==='surface'){s.party={...personal};s.navigation={...s.navigation,...personal,mode:'surface'};}else if(personal?.starshipId){const p=s.localPositions?.[personal.starshipId];if(p){delete s.party;s.navigation={...s.navigation,...p,mode:p.phase==='surface'?'surface':p.phase==='orbit'?'orbit':'system',shipId:personal.starshipId};}}}s.recallShipIds=(s.party?.transport?c.starships:[]).filter(ship=>(gm||ship.controlType==='pc')&&ship.id===s.party.shipId&&s.localPositions?.[ship.id]?.phase==='orbit'&&require('./campaign-starmaps').travelRoom(c).units.some(u=>u.location?.starshipId===ship.id&&!u.shipAi&&require('./station-access').conscious(u))).map(ship=>ship.id);s.launchableShipIds=c.starships.filter(ship=>(gm||ship.controlType==='pc')&&require('./campaign-planets').canLaunch(c,ship)&&(!s.party||s.localPositions?.[ship.id]?.surfaceHex===undefined||require('./planet-boarding').atShip(c,ship))).map(ship=>ship.id);
+ require('./campaign-navigation').state(c);const s=clone(require('./planet-grid-migration').liveState(state(c)));delete s.receipts;delete s.consoleWarpProgress;const personal=s.characterWorldLocations?.[characterId];if(!gm){s.ownLocation=personal||null;delete s.characterWorldLocations;if(personal?.environment==='surface'){s.party={...personal};s.navigation={...s.navigation,...personal,mode:'surface'};}else if(personal?.starshipId){const p=s.localPositions?.[personal.starshipId];if(p){delete s.party;s.navigation={...s.navigation,...p,mode:p.phase==='surface'?'surface':p.phase==='orbit'?'orbit':'system',shipId:personal.starshipId};}}}s.recallShipIds=(s.party?.transport?c.starships:[]).filter(ship=>(gm||ship.controlType==='pc')&&ship.id===s.party.shipId&&s.localPositions?.[ship.id]?.phase==='orbit'&&require('./campaign-starmaps').travelRoom(c).units.some(u=>u.location?.starshipId===ship.id&&!u.shipAi&&require('./station-access').conscious(u))).map(ship=>ship.id);s.launchableShipIds=c.starships.filter(ship=>(gm||ship.controlType==='pc')&&require('./campaign-planets').canLaunch(c,ship)&&(!s.party||s.localPositions?.[ship.id]?.surfaceHex===undefined||require('./planet-boarding').atShip(c,ship))).map(ship=>ship.id);
  if(!gm){
   const ids=new Set(c.starships.filter(x=>x.controlType==='pc').map(x=>x.id));
-  for(const type of ['positions','journeys','localPositions','localJourneys'])for(const key of Object.keys(s[type]||{}))if(!ids.has(key))delete s[type][key];
+  for(const type of ['positions','journeys','localPositions','localJourneys','warpVisits'])for(const key of Object.keys(s[type]||{}))if(!ids.has(key))delete s[type][key];
   const n=s.navigation;
   if(n.allowed.galaxy===false){s.maps=s.maps.filter(m=>m.id===n.mapId);for(const m of s.maps)m.stars=m.stars.filter(star=>star.id===n.starId);}
  }
@@ -17,11 +30,52 @@ function view(c,gm,characterId){
    x.system=require('./campaign-navigation').objects(x).filter(o=>!o.hidden&&!hiddenPlanets.some(p=>p.name===o.name));
    if(s.navigation.allowed.system===false)x.system=x.id===s.navigation.starId?x.system.filter(o=>o.id===s.navigation.planetId):[];
   }return x;
- });return require('./campaign-planets').project(s,gm);
+ });if(!gm){for(const [shipId,visits] of Object.entries(s.warpVisits||{}))s.warpVisits[shipId]=visits.filter(v=>visibleStar(c,v.mapId,v.starId));for(const j of Object.values(s.journeys||{}))if(!visibleStar(c,j.mapId,j.starId))delete j.starId;}return require('./campaign-planets').project(s,gm);
 }
 function canPilot(c,ship,characterId){const loc=ship.characterLocations?.[characterId];if(loc?.environment==='surface')return false;if((c.characters?.find(r=>r.id===characterId)?.character.health?.current??1)<=0||!ship.crewCharacterIds?.includes(characterId)||!loc?.stationed)return false;const cell=maps.buildLayout(ship.ship).footprint.get(loc.square);return Boolean(cell&&maps.definition(cell.type).bridge&&maps.operational(cell.item));}
 const travelRoom=require('./campaign-ship-room');
 function quote(c,shipId,starId,mapId,fuelCounts){const s=state(c),ship=c.starships.find(x=>x.id===shipId),m=s.maps.find(x=>x.id===mapId),star=m?.stars.find(x=>x.id===starId),from=s.positions[shipId];if(!ship||!star||!from||from.mapId!==mapId)throw Error('Choose a ship placed on this map and a destination star.');if(ship.ship.fieldState?.dockedIn)throw Error('Docked ships travel with their carrier.');const distanceLY=hex.hexDistance(from,star)*m.lightYearsPerHex;const p=transit.plan(ship,distanceLY,{fuelCounts,allowPartial:true});if(!p.ok)throw Error(p.error);return {ship,m,star,from,plan:p};}
+// Console journeys keep their existing clock and fuel owner. This resolves only
+// the Campaign destination; it must never start a second Campaign travel timer.
+function consoleDestination(c,ship,destination,{gm=false}={}){
+ const s=state(c),from=s.positions[ship.id],m=s.maps.find(m=>m.id===destination?.mapId);
+ if(!m||!from||from.mapId!==m.id)throw Error('Choose a destination on the ship’s current sector map.');
+ if(!gm&&(ship.controlType!=='pc'||s.navigation?.allowed?.galaxy===false))throw Error('This sector map is not available.');
+ if(ship.ship.fieldState?.dockedIn)throw Error('Docked ships travel with their carrier.');
+ if(s.localPositions?.[ship.id]?.phase==='surface'||s.localJourneys?.[ship.id])throw Error('Leave the planet and finish local travel before entering warp.');
+ const to=point(destination),distanceLY=hex.hexDistance(from,to)*m.lightYearsPerHex;
+ if(!Number.isFinite(distanceLY)||distanceLY<=0)throw Error('Choose a different destination hex.');
+ if(destination.origin&&(destination.origin.mapId!==from.mapId||destination.origin.q!==from.q||destination.origin.r!==from.r))throw Error('The ship moved. Choose the destination again.');
+ const star=m.stars.find(star=>star.q===to.q&&star.r===to.r&&(gm||!star.hidden));
+ return {mapId:m.id,from:clone(from),to,distanceLY,starId:star?.id||null,name:star?.name||`Hex ${to.q}, ${to.r}`};
+}
+function recordVisit(c,ship,journey,journeyId,elapsedMinutes=c.elapsedMinutes){
+ const s=state(c),star=s.maps.find(m=>m.id===journey.mapId)?.stars.find(star=>star.id===journey.starId&&star.q===journey.to.q&&star.r===journey.to.r);
+ if(!star)return;
+ const visits=(s.warpVisits||={})[ship.id]||[];
+ if(visits.some(v=>v.journeyId===journeyId))return;
+ s.warpVisits[ship.id]=[...visits,{journeyId,mapId:journey.mapId,starId:star.id,name:star.name,...require('./universe-clock').stamp({...c,elapsedMinutes})}].slice(-50);
+}
+function arrivalTimes(c,ships=c.starships){return Object.fromEntries((ships||[]).filter(ship=>ship.ship?.warpState).map(ship=>{const w=ship.ship.warpState;return [ship.id,(Number(c.elapsedMinutes)||0)+((w.phase==='activating'?w.remaining:0)+Math.max(0,w.targetLY-w.traveledLY)/transit.PARSEC_LY*w.secondsPerParsec)/60];}));}
+function syncConsoleTravel(c,ships=c.starships,times={}){
+ const s=state(c);let changed=false;
+ for(const ship of ships||[]){
+  const w=ship.ship?.warpState,j=w?.campaignDestination;if(!j||w.campaignClock)continue;
+  const progress={id:w.id,phase:w.phase,traveledLY:w.traveledLY},previous=s.consoleWarpProgress?.[ship.id];
+  if(JSON.stringify(previous)===JSON.stringify(progress))continue;
+  (s.consoleWarpProgress||={})[ship.id]=progress;changed=true;
+  if(w.phase==='activating'||w.phase==='cancelled'||w.phase==='exploded')continue;
+  const t=Math.max(0,Math.min(1,(w.traveledLY||0)/w.targetLY)),before=s.positions[ship.id]&&clone(s.positions[ship.id]);
+  // An interrupted windup never left the local system.
+  if(w.phase==='interrupted'&&t===0)continue;
+  delete s.localPositions?.[ship.id];
+  s.positions[ship.id]={mapId:j.mapId,q:j.from.q+(j.to.q-j.from.q)*t,r:j.from.r+(j.to.r-j.from.r)*t};
+  require('./star-discovery').discover(c,ship,w.instantWarp?s.positions[ship.id]:before,s.positions[ship.id]);
+  for(const carried of c.starships.filter(x=>x.ship.fieldState?.dockedIn?.shipId===ship.id))s.positions[carried.id]=clone(s.positions[ship.id]);
+  if(w.phase==='arrived')recordVisit(c,ship,j,w.id,times[ship.id]??c.elapsedMinutes);
+ }
+ return changed;
+}
 function command(c,b,{gm,characterId,combatActive}){
  const s=state(c),kind=b.kind;
  if(kind==='quote'){if(!gm&&state(c).navigation?.allowed?.galaxy===false)throw Error('The GM has not made the Galaxy Map available.');const q=quote(c,b.shipId,b.starId,b.mapId,b.fuelCounts);if(!gm&&(q.star.hidden||q.ship.controlType!=='pc'))throw Error('Destination is undiscovered.');return {quote:{...q.plan,driveName:maps.definition(q.ship.ship.sicInventory.find(i=>i.id===q.plan.sicId)?.type).name,fuelOptions:(maps.definition(q.ship.ship.sicInventory.find(i=>i.id===q.plan.sicId)?.type).warpFuelGrades||[]).map(grade=>({grade,available:q.ship.ship.warpFuel?.[grade]||0,rangeLY:transit.FUEL_PARSECS[grade]*transit.PARSEC_LY/q.plan.fuelMultiplier})),activationSeconds:transit.activationSeconds(travelRoom(c),q.ship,q.plan)}};}
@@ -55,8 +109,9 @@ function command(c,b,{gm,characterId,combatActive}){
  if(kind==='position')require('./star-discovery').discover(c,c.starships.find(x=>x.id===b.shipId),s.positions[b.shipId]);
  s.receipts=[...s.receipts,b.receipt].slice(-200);return {};
 }
-function advance(c,minutes,{shipId:onlyId,now=Date.now()}={}){if(!Number.isFinite(minutes)||minutes<0)throw Error('Invalid elapsed time.');const s=state(c);let discovered=false;if(!onlyId)require('./campaign-navigation').advance(c,minutes*60,{now});for(const [shipId,j]of Object.entries(s.journeys)){if(onlyId&&shipId!==onlyId)continue;j.clockAt=now;const ship=c.starships.find(x=>x.id===shipId),w=ship?.ship.warpState;if(!w||!['activating','traveling'].includes(w.phase)){delete s.journeys[shipId];continue;}let seconds=minutes*60;if(w.phase==='activating'){const used=Math.min(seconds,w.remaining);w.remaining-=used;seconds-=used;if(w.remaining<=1e-8){w.phase=w.instantWarp?'arrived':'traveling';if(w.instantWarp)w.traveledLY=w.targetLY;}}
+function advance(c,minutes,{shipId:onlyId,now=Date.now(),clockStartMinutes}={}){if(!Number.isFinite(minutes)||minutes<0)throw Error('Invalid elapsed time.');const s=state(c);let discovered=false;if(!onlyId)require('./campaign-navigation').advance(c,minutes*60,{now});for(const [shipId,j]of Object.entries(s.journeys)){if(onlyId&&shipId!==onlyId)continue;j.clockAt=now;const ship=c.starships.find(x=>x.id===shipId),w=ship?.ship.warpState;if(!w||!['activating','traveling'].includes(w.phase)){delete s.journeys[shipId];continue;}const arrivalAt=clockStartMinutes===undefined?undefined:clockStartMinutes+((w.phase==='activating'?w.remaining:0)+Math.max(0,w.targetLY-w.traveledLY)/transit.PARSEC_LY*w.secondsPerParsec)/60;let seconds=minutes*60;if(w.phase==='activating'){const used=Math.min(seconds,w.remaining);w.remaining-=used;seconds-=used;if(w.remaining<=1e-8){w.phase=w.instantWarp?'arrived':'traveling';if(w.instantWarp)w.traveledLY=w.targetLY;}}
  const before=s.positions[shipId]&&clone(s.positions[shipId]);if(w.phase==='traveling')transit.passTime(ship,seconds/60);const t=Math.min(1,(w.traveledLY||0)/w.targetLY);s.positions[shipId]={mapId:j.mapId,q:j.from.q+(j.to.q-j.from.q)*t,r:j.from.r+(j.to.r-j.from.r)*t};discovered=Boolean(require('./star-discovery').discover(c,ship,w.instantWarp?s.positions[shipId]:before,s.positions[shipId]).length)||discovered;for(const carried of c.starships.filter(x=>x.ship.fieldState?.dockedIn?.shipId===shipId))s.positions[carried.id]=clone(s.positions[shipId]);
+ if(w.phase==='arrived')recordVisit(c,ship,j,w.id,arrivalAt??c.elapsedMinutes);
  if(w.phase==='arrived'||w.phase==='interrupted'){const star=s.maps.find(m=>m.id===j.mapId)?.stars.find(x=>x.id===j.starId);note(c,`${ship.title}: ${w.phase==='arrived'?'arrived at '+(star?.name||'destination'):'warp interrupted; check fuel'}.`,ship);delete s.journeys[shipId];}}
  return discovered;
 }
@@ -103,4 +158,4 @@ function seedShowcase(c){
  for(const ship of c.starships||[])if(ship.controlType==='pc')state(c).positions[ship.id]={mapId:map.id,q:0,r:0};
  return true;
 }
-module.exports={travelRoom,note,state,view,command,advance,tick,travelPacket,saveSystem,quote,canPilot,seedShowcase};
+module.exports={publicWarpState,arrivalTimes,consoleDestination,syncConsoleTravel,recordVisit,travelRoom,note,state,view,command,advance,tick,travelPacket,saveSystem,quote,canPilot,seedShowcase};

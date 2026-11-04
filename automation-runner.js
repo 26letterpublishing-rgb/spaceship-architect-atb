@@ -5,7 +5,7 @@ async function exploreAttack(room,seconds,{act,publish}){
   const a=room.attackResolution;if(!room.showcase||!a)return false;
   if(a.phase==='gmDamage'){await act({action:'confirmNpcDamage',attackId:a.id,finalDamage:a.damageSummary.applied});publish();return true;}
   const attacker=room.units.find(u=>u.id===a.attackerId),defender=room.units.find(u=>u.id===a.defenderId);
-  const role=a.phase==='checks'&&!a.attackerRoll&&attacker?.team==='npc'&&policy.active(attacker)?'attacker':a.phase==='checks'&&!a.defenseRoll&&defender?.team==='npc'&&policy.active(defender)?'defender':a.phase==='damage'&&!a.damageRoll&&attacker?.team==='npc'&&policy.active(attacker)?'damage':null;
+  const role=a.phase==='checks'&&a.defenseRoll&&!a.attackerRoll&&attacker?.team==='npc'&&policy.active(attacker)?'attacker':a.phase==='checks'&&!a.defenseRoll&&defender?.team==='npc'&&policy.active(defender)?'defender':a.phase==='damage'&&!a.damageRoll&&attacker?.team==='npc'&&policy.active(attacker)?'damage':null;
   if(!role)return false;
   if(role==='damage'&&a.plan.damageFormulaSupported===false)return false;
   const unit=role==='defender'?defender:attacker,key=a.id+':'+role;
@@ -33,11 +33,34 @@ async function exploreFirstAid(room,seconds,{act,publish}){
  if(!show.animationComplete)return true;show.remaining-=Math.min(.5,Math.max(0,seconds));if(show.remaining>0)return true;
  const result=await act({action:healing?'submitFirstAidHealing':'submitFirstAidRoll',id:unit.id,resolutionId:a.id,score:show.score,rolledHealing:show.score,diceResults:show.values});if(result.ok){show.phase='complete';show.completedAt=Date.now();publish();}return true;
 }
-async function step(room,seconds,{act,publish,off}){
+// Environmental requests retain their original authoritative resolver and saved dice.
+async function environmentRoll(room,seconds,{act,oxygen,publish,off}){
+  const eligible=u=>u?.team==='npc'&&policy.active(u)&&u.currentHp>0&&!u.defeatedAt;
+  // Manual resolution can remove a request while its automatic animation is open.
+  for(const u of room.units){const show=u.automationPresentation;if(!show?.environmentCheck||show.phase==='complete')continue;
+    const pending=u.pendingShipRolls?.some(r=>r.breachCheck&&r.id===show.id)||room.starships.some(s=>s.ship?.oxygenState?.crew?.[u.id]?.request?.id===show.id);
+    if(!pending){delete u.automationPresentation;publish();}
+  }
+  let unit,request,kind;
+  for(const u of room.units){const r=u.pendingShipRolls?.find(r=>r.breachCheck);if(r&&eligible(u)){unit=u;request=r;kind='suction';break;}}
+  if(!request)for(const ship of room.starships){for(const c of Object.values(ship.ship?.oxygenState?.crew||{})){const u=room.units.find(u=>u.id===c.id);if(c.request&&eligible(u)){unit=u;request=c.request;kind='oxygen';break;}}if(request)break;}
+  if(!request)return false;
+  const spec=kind==='suction'?request.rollSpec:{sides:request.dice,bonus:request.skill,difficulty:request.difficulty};
+  if(!spec?.sides?.length)return false;
+  let show=unit.automationPresentation;
+  if(show?.id!==request.id){const values=spec.sides.map(s=>crypto.randomInt(1,s+1)),score=sensors.fusedTotal(values)+Number(spec.bonus||0);show=unit.automationPresentation={id:request.id,label:kind==='suction'?request.label:'Lack of Oxygen: Health + Endurance',sides:spec.sides,values,score,displayScore:score,difficulty:spec.difficulty,phase:'rolling',remaining:1.2,environmentCheck:kind};publish();return true;}
+  if(show.phase==='complete'||!show.animationComplete)return true;
+  show.remaining-=Math.min(.5,Math.max(0,seconds));if(show.remaining>0)return true;
+  const result=kind==='suction'?await act({action:'rollShipAction',id:unit.id,rollId:request.id,score:show.score,diceResults:show.values,exertion:0}):await oxygen({actorId:unit.id,rollId:request.id,score:show.score,diceResults:show.values});
+  if(result.ok){show.phase='complete';show.completedAt=Date.now();}else{off(unit,result.error||'Environmental check could not be resolved.');}
+  publish();return true;
+}
+async function step(room,seconds,{act,oxygen,publish,off}){
   if(room.hardPaused||room.holdPaused||!room.hasEngagedClock||room.encounterEndedAt)return;
   if(await exploreAttack(room,seconds,{act,publish}))return;
   if(await exploreFirstAid(room,seconds,{act,publish}))return;
   if(room.attackResolution||room.itemResolution||room.delayRequest)return;
+  if(await environmentRoll(room,seconds,{act,oxygen,publish,off}))return;
   const waits=room.units.filter(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length);
   if(waits.some(u=>!u.delayedAction?.automated))return;
   if(require('./ship-oxygen').pending(room.starships))return;
@@ -65,11 +88,16 @@ async function step(room,seconds,{act,publish,off}){
     return;
   }
   if(unit.defeatedAt||unit.currentHp<=0||unit.delayedAction||unit.timedAction||unit.delayTimer||unit.consoleHold||unit.shieldRestabilizing)return;
+  const attempted=new Set();let searchFailure="";
   for(const candidate of policy.candidates(room,unit)){
+    if(!policy.active(unit))return; // GM takeover wins, including between rejected actions.
+    const signature=JSON.stringify(candidate);if(attempted.has(signature))continue;attempted.add(signature);
     const result=await act({...candidate,id:unit.id,requestId:crypto.randomUUID()});
-    if(result.ok){unit.automationRepairTarget=candidate.repairTarget||null;unit.automationAction={id:crypto.randomUUID(),label:unit.delayedAction?.label||unit.timedAction?.label||candidate.kind,at:Date.now()};if(unit.delayedAction)unit.delayedAction.automated=true;unit.automationNotice='';publish();return;}
+    if(!result.ok&&candidate.automationSearchCommit)searchFailure=result.error||'Search route rejected.';
+    if(result.ok){policy.acceptedSearch(room,unit,candidate);unit.automationRepairTarget=candidate.repairTarget||null;unit.automationAction={id:crypto.randomUUID(),label:unit.delayedAction?.label||unit.timedAction?.label||candidate.kind,at:Date.now()};if(unit.delayedAction)unit.delayedAction.automated=true;unit.automationNotice='';publish();return;}
   }
-  unit.automationNotice=unit.shipAi?'Waiting for a detected enemy or an available zero-AU action.':'No available action; waiting for the next turn.';
+  if(!policy.active(unit))return;
+  unit.automationNotice=searchFailure||unit.automationSearchReason|| (unit.shipAi?'Waiting for a detected enemy or an available zero-AU action.':'No available action; waiting for the next turn.');
   await act({action:'completeTurn',id:unit.id});publish();
 }
 module.exports={step};

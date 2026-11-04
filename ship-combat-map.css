@@ -201,3 +201,6 @@ body .expanded-interior-dialog:has(.combat-ship-dashboard)>[data-inline-ship-map
 .expanded-interior-dialog>.combat-dashboard-live>span>small{font-size:12px;text-transform:uppercase}
 .expanded-interior-dialog>.combat-dashboard-live>span>strong{display:inline-flex;align-items:center;font-size:16px;color:#f7fbff}
 .expanded-interior-dialog>.combat-dashboard-live .sa-health-track{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+/* People remain visible at hatch cells without moving their actual position. */
+.combat-token,.combat-moving-token,.inline-combat-map-grid .combat-token{z-index:21}
+[data-inline-ship-map],.combat-map-panel{position:relative}

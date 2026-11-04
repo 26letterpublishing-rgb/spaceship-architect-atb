@@ -13,3 +13,16 @@ test('dice flood uses the existing pool, caps its workload and leaves ordinary r
  const flood=roller.rollPool({sides:Array(20000).fill(12),values:[7,8],presentation:'avalanche',damage:true,fusion:false});assert.equal(flood.dice.length,96);assert.equal(flood.avalanche,true);assert.equal(flood.fusion,false);assert.equal(flood.dice[0].sides,12);assert.equal(flood.dice[0].replayValue,7);assert.equal(flood.dice[0].color,0xa40d20);
  const normal=roller.rollPool({sides:[4,6,12],values:[1,2,3]});assert.equal(normal.avalanche,false);assert.equal(normal.dice.length,3);assert.equal(normal.fusion,true);assert.equal(normal.dice[2].replayValue,3);
 });
+
+test('hardware zoom progress is bounded and follows charge, pause, completion and cancellation',()=>{
+ const source=fs.readFileSync(require.resolve('../cleanser-ui.js'),'utf8');
+ const start=source.indexOf('function stationChargeVisual('),end=source.indexOf('function stationTargets(',start),context={};
+ vm.runInNewContext(source.slice(start,end),context);const visual=context.stationChargeVisual;
+ for(const [remaining,progress] of [[150,0],[120,0],[60,.5],[0,1],[-1,1]])assert.equal(visual({phase:'charging',remaining}).progress,progress);
+ const paused={phase:'charging',remaining:60};assert.equal(visual(paused).progress,visual({...paused,startedAt:Date.now()+100000}).progress);
+ assert.equal(visual({phase:'idle'}).progress,0);
+ assert.equal(visual({phase:'cooldown',remaining:0}).progress,0);
+ assert.equal(visual({},true).progress,1);
+ // Reduced motion still conveys charge progress; CSS suppresses the optional image zoom.
+ assert.equal(visual({phase:'charging',remaining:0},false,true).progress,1);
+});

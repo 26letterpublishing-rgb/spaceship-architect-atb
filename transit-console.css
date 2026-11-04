@@ -19,3 +19,30 @@ dialog.shared-console-layout.transit-console>section.transit-scene{position:rela
 .transit-fault-roll{width:min(1000px,96vw);height:min(800px,94vh);padding:0;background:#061019;border:1px solid #68d6e6}.transit-fault-roll iframe{width:100%;height:90%;border:0}.transit-fault-roll p{color:#fff}
 
 .transit-console .warp-starfield{position:absolute;inset:0;width:100%;height:100%;opacity:1;pointer-events:none;contain:strict}
+
+/* Warp's existing artwork covers its scene proportionally and continues behind
+   neighboring working panels. The shell, panel geometry and controls stay intact. */
+.transit-console[data-machine=warp]{isolation:isolate}
+.transit-console[data-machine=warp]>.warp-art-underlay{position:absolute;overflow:hidden;pointer-events:none;z-index:0}
+.transit-console[data-machine=warp]>.warp-art-underlay>.transit-machine{position:absolute;inset:auto;max-width:none;max-height:none;object-fit:fill;pointer-events:none}
+.transit-console[data-machine=warp]>header,.transit-console[data-machine=warp]>section,.transit-console[data-machine=warp]>.utility-seat{z-index:1}
+dialog.shared-console-layout.transit-console[data-machine=warp]>section.transit-scene{background:transparent;}
+.transit-console[data-machine=warp]:not([data-phase=traveling]) .warp-window{background:transparent}
+
+/* Keep the Fleet content in its existing panel, without a second capped scroller. */
+.transit-console[data-machine=warp] .shared-power [data-common-fleet]{max-height:none;overflow:visible;scrollbar-gutter:auto}
+.transit-console [data-destination-picker]{position:absolute;inset:0;z-index:5;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:8px;padding:10px;background:#020b13;text-align:left;box-sizing:border-box}
+.transit-console .warp-destination-map{min-height:0;overflow:hidden}
+.transit-console .warp-destination-map>svg{display:block;width:100%;height:100%;touch-action:none}
+.transit-console .warp-destination-actions,.transit-console [data-destination-picker] .galaxy-camera-tools{display:flex;flex-wrap:wrap;gap:6px}
+.transit-console[data-choosing-destination] .transit-scene>strong,.transit-console[data-choosing-destination] .transit-scene>output,.transit-console[data-choosing-destination] .transit-scene>progress,.transit-console[data-choosing-destination] .transit-scene>p{visibility:hidden}
+
+/* Route controls only: retain the map, journey and Self-Destruct typography. */
+.transit-console[data-machine=warp] .utility-controls{font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5}
+.transit-console[data-machine=warp] .utility-controls h3{font-family:inherit;font-size:18px}
+.transit-console[data-machine=warp] .utility-controls button,.transit-console[data-machine=warp] .utility-controls output,.transit-console[data-machine=warp] [data-fuel-plan]{font-family:inherit;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Authorization text only; preserve the separate scene countdown. */
+body .transit-console[data-machine=destruct] .utility-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body .transit-console[data-machine=destruct] .utility-controls :is(label,p,button,output,[data-dice]){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body .transit-console[data-machine=destruct] .utility-controls [data-delay]{font-family:Orbitron,Arial,sans-serif;font-size:16px}

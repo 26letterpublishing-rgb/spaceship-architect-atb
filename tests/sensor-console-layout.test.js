@@ -10,7 +10,10 @@ test('Sensors alone compacts the redundant empty-crew message after rendering',(
  assert.doesNotMatch(renderer,/No combatants aboard\./);
 });
 test('Sensors geometry preserves canonical proportional SVG and scopes native horizontal scrolling to three or more groups',()=>{
- const ring=css.slice(css.indexOf('/* Sensors ring geometry only:'));
+ const start=css.indexOf('/* Sensors ring geometry only:');
+ const end=css.indexOf('/* Console dismissal stays separate',start);
+ assert.ok(start>=0&&end>start,'Sensors ring section boundaries must exist');
+ const ring=css.slice(start,end);
  assert.match(ring,/@media\(min-width:901px\)/);assert.match(ring,/aspect-ratio:328\/390/);assert.match(ring,/flex-wrap:nowrap/);assert.match(ring,/nth-child\(3\)\)\{overflow:auto\}/);assert.match(ring,/only-child/);
  const heading=ring.match(/[^{}]*\.tactical-ring-group>h3\{[^}]*\}/)?.[0];assert.ok(heading);
  assert.match(heading,/font:11px\/13px Arial!important/);assert.match(heading,/height:26px/);assert.match(heading,/-webkit-line-clamp:2/);

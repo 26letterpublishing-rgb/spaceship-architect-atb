@@ -1,11 +1,50 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
-function markup(records,mode='gm',units=[]){
+test('destroyed enlarged interior closes through existing cleanup without updating its dashboard',()=>{
+ const mapSource=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');
+ const start=mapSource.indexOf('      const value=bridge()?.shipDashboardData?.(expandedMap.host.dataset.inlineShipMap);');
+ const end=mapSource.indexOf('    root.querySelectorAll?',start);
+ const body=mapSource.slice(start,end).replace(/\s*}\s*$/,'');
+ for(const value of [null,{record:{id:'wreck',destroyedAt:123}}]){
+  let closes=0;const c={expandedMap:{host:{dataset:{inlineShipMap:'wreck'}},dialog:{querySelector(){throw Error('stale dashboard update');}}},bridge:()=>({shipDashboardData:()=>value}),closeExpandedMap(){closes++;}};
+  vm.runInNewContext('function refresh(){'+body+'}',c);c.refresh();assert.equal(closes,1);
+ }
+});
+function markup(records,mode='gm',units=[],view='ring'){
  const context={myUnitId:'mine',automationControlsMarkup:u=>`<button data-automate='${u.id}'>Automate NPC</button>`,state:{starships:records,units:[],log:[],shipPositions:[]},mode,visualMode:'ring',escapeHtml:s=>String(s),shipScopedLogEntries:()=>[],tacticalRingSingleMarkup:(_u,id)=>`<svg data-original-ring="${id}"></svg>`,window:{SASpaceMap:{markup:()=>'<svg data-original-space></svg>'}}};
+ context.visualMode=view;context.unitCard=u=>`<article data-unit-id="${u.id}"></article>`;
+ vm.runInNewContext(source.slice(source.indexOf('function npcExertionMarkup('),source.indexOf('function npcCombatStatsMarkup(')),context);
  vm.runInNewContext(source.slice(source.indexOf('function shipCombatColumnsMarkup('),source.indexOf('function renderShipCombatColumns(')),context);
  return context.shipCombatColumnsMarkup(units);
 }
 const ships=n=>Array.from({length:n},(_,i)=>({id:'ship-'+i,title:'Ship '+i,controlType:i?'gm':'pc',ship:{}}));
+test('bar mode retains each actor exactly once in its ship lane including unequal sides',()=>{
+ for(const count of [1,2,4])for(const role of ['gm','player']){
+  const units=ships(count).flatMap((s,i)=>Array.from({length:i+1},(_,j)=>({id:`crew-${i}-${j}`,location:{starshipId:s.id}})));
+  const html=markup(ships(count),role,units,'bars');assert.equal((html.match(/class="ship-lane-bars"/g)||[]).length,count);assert.doesNotMatch(html,/data-original-ring/);
+  for(const u of units)assert.equal((html.match(new RegExp(`data-unit-id="${u.id}"`,'g'))||[]).length,1);
+  assert.equal((html.match(/data-ship-side="right"/g)||[]).length,count-1);
+ }
+});
+test('destroyed interiors disappear on update and reload without mutating wreck records or sides',()=>{
+ const records=ships(3);
+ assert.equal((markup(records,'player').match(/data-inline-ship-map=/g)||[]).length,3);
+ records[1].destroyedAt='2026-11-01T15:54:09Z';
+ for(const input of [records,JSON.parse(JSON.stringify(records))])for(const role of ['gm','player']){
+  const html=markup(input,role);
+  assert.doesNotMatch(html,/data-ship-combat-lane="ship-1"/);
+  assert.match(html,/data-ship-combat-lane="ship-2" data-ship-side="right" data-ship-row="0"/);
+  assert.equal((html.match(/data-inline-ship-map=/g)||[]).length,2);
+  assert.equal(input.length,3);assert.ok(input[1].destroyedAt);
+ }
+ records[2].destroyedAt='destroyed';assert.match(markup(records,'player'),/data-single-pc="true" data-ship-count="1"/);
+ records[0].destroyedAt='destroyed';assert.equal((markup(records).match(/data-inline-ship-map=/g)||[]).length,0);
+ assert.match(source,/SASpaceMap\.markup\(ships,state\.shipPositions\)/);
+ assert.match(source,/SASpaceMap\.update\(combatSpaceMap,state\.starships,state\.shipPositions\)/);
+});
+test('preparation checkbox label is exactly Fog of War with its existing identity',()=>{
+ assert.match(fs.readFileSync(require.resolve('../gm.html'),'utf8'),/id="prepareFog"> Fog of War<\/label>/);
+});
 for(const n of [1,2,3,6])test(`${n} visible ships retain their own summary/ring/map with one shared clock and map`,()=>{
  const html=markup(ships(n));
  assert.equal((html.match(/class="ship-combat-lane"/g)||[]).length,n);
@@ -45,12 +84,21 @@ test('inward floorplan facing follows saved side rather than array index',()=>{
  assert.equal(context.interiorRotation({controlType:'pc'}),90);assert.equal(context.interiorRotation({controlType:'gm'}),270);
 });
 
-test('surface display choice survives ship view while ships always use rings',()=>{
- const context={state:{starships:[]},surfaceVisualMode:'bars',visualMode:'bars',render:()=>{}};
+test('surface and ship display choices stay independent and persist to their own preferences',()=>{
+ const saved={};const context={state:{starships:[]},surfaceVisualMode:'bars',shipVisualMode:'ring',visualMode:'bars',safeLocalStorageSet:(k,v)=>saved[k]=v,render:()=>{}};
  vm.runInNewContext(source.slice(source.indexOf('function setVisualMode('),source.indexOf('function setRoom(')),context);
  context.setVisualMode('ring');assert.equal(context.surfaceVisualMode,'ring');assert.equal(context.visualMode,'ring');
- context.state.starships=[{id:'own'}];context.setVisualMode('bars');assert.equal(context.visualMode,'ring');assert.equal(context.surfaceVisualMode,'bars');
+ context.state.starships=[{id:'own'}];context.setVisualMode('bars');assert.equal(context.visualMode,'bars');assert.equal(context.surfaceVisualMode,'ring');assert.equal(context.shipVisualMode,'bars');
+ assert.equal(saved['sa-atb-ship-visual'],'bars');assert.equal(saved['sa-atb-surface-visual'],'ring');
  context.state.starships=[];context.setVisualMode('bars');assert.equal(context.visualMode,'bars');
+});
+
+test('shared clock mounts existing controls only for GM and restores them for player',()=>{
+ const ids=['undoLastTiming','stepTick','resetAll','clearEncounter','exitCombat'];const nodes=Object.fromEntries(ids.map(id=>[id,{id}]));const moves=[],restored=[];
+ const c={mode:'gm',activePanel:{id:'status'},readyCount:{id:'ready'},gmPanicPause:{id:'clock'},document:{getElementById:id=>nodes[id]},pairedControlOrigins:new Map(ids.map(id=>[nodes[id],{after:n=>restored.push(n.id)}])),moveCombatControl:(node,host)=>moves.push([node.id,host.id])};
+ vm.runInNewContext(source.slice(source.indexOf('function mountCombatClock('),source.indexOf('function mountPairedCombatControls(')),c);
+ const clock={id:'surface',querySelector:()=>({id:'actions'})};c.mountCombatClock(clock);assert.equal(moves.length,8);assert.deepEqual(moves.filter(x=>ids.includes(x[0])).map(x=>x[0]),ids);
+ moves.length=0;c.mode='player';c.mountCombatClock(clock);assert.deepEqual(moves.map(x=>x[0]),['status','ready']);assert.deepEqual(restored,ids);
 });
 
 
@@ -110,8 +158,8 @@ test('automation stays under stats; holding overlays its own ring with viewer-sp
   assert.match(lanes[1],/ship-au-panel[^]*ship-ring-holds[^]*Other pilot/);
   for(const lane of lanes)assert.doesNotMatch(lane.split('<div class="ship-lane-atb">')[1].split('<section class="ship-lane-log">')[0],/ship-crew-status/);
   assert.match(html,/data-resume-console="mine"/);
-  if(mode==='gm'){assert.match(html,/data-resume-console="other"/);assert.match(html,/data-automate='npc'/);}
-  else assert.doesNotMatch(html,/data-resume-console="other"|data-automate/);
+  if(mode==='gm'){assert.match(html,/data-resume-console="other"/);assert.match(html,/data-automate='npc'/);assert.match(html,/data-field="exertionCurrent"/);}
+  else assert.doesNotMatch(html,/data-resume-console="other"|data-automate|data-field="exertionCurrent"/);
  }
 });
 
@@ -141,4 +189,78 @@ test('header save status remains live, handles no saves, and rejects obsolete ca
  let resolve;c.api=()=>new Promise(r=>resolve=r);const pending=c.refreshCombatSaveStatus();c.code='replacement';label.textContent='Checking combat saves...';resolve({checkpoints:[{at:'2020-01-01'}]});await pending;assert.equal(label.textContent,'Checking combat saves...');
  c.token='';await c.refreshCombatSaveStatus();assert.equal(label.hidden,true);
  const html=fs.readFileSync(require.resolve('../gm.html'),'utf8');assert.equal((html.match(/id="combatSaveStatus"/g)||[]).length,1);assert.match(html,/<small id="combatSaveStatus"[^]*?<div id="universeClock"/);assert.doesNotMatch(html,/id="liveEncounterCode"/);assert.match(html,/id="campaignCodeHeading"/);assert.match(html,/id="restoreLastCombat"/);assert.match(html,/id="returnToEncounterSetup"/);
+});
+
+
+test('paired ring footprint reclaims unused height without offsetting the map or changing single-PC layout',()=>{
+ const css=fs.readFileSync(require.resolve('../combat-workspace.css'),'utf8');
+ assert.match(css,/\.ship-combat-columns:not\(\[data-single-pc=true\]\) \.ship-lane-atb\{container-type:inline-size\}/);
+ assert.match(css,/--paired-ring-size:min\(280px,calc\(100cqw - 114px\)\);display:block;height:calc\(var\(--paired-ring-size\) \* \.8\);transform:none/);
+ assert.match(css,/\.tactical-ring-group>\.tactical-ring-view\{transform:translateY\(calc\(var\(--paired-ring-size\) \* -\.145\)\)\}/);
+ assert.doesNotMatch(css,/\.combat-space-map\{[^}]*transform:/);
+});
+
+
+test('floorplan toolbars overlay bottom center without hiding controls or movement confirmation',()=>{
+ const css=fs.readFileSync(require.resolve('../combat-workspace.css'),'utf8');
+ assert.match(css,/\.ship-lane-map>\.inline-map-footer\{position:absolute;bottom:8px;left:50%;transform:translateX\(-50%\)/);
+ assert.match(css,/\.ship-lane-map>\.inline-map-stage\{grid-row:1\}/);
+ assert.match(css,/\.ship-lane-map \.inline-map-move-controls\{bottom:64px\}/);
+ assert.match(css,/\.ship-lane-map>\.inline-map-toolbar\{padding-block:0;border-block:0;gap:0\}/);
+ const tail=css.slice(css.indexOf('/* Each floorplan owns'),css.indexOf('/* Bars reuse'));
+ assert.doesNotMatch(tail,/display:none|overflow:hidden|font-size:/);
+});
+
+test('main combat delegates framing to the encounter-scoped shared camera without per-render refitting',()=>{
+ const start=source.indexOf('  const combatSpaceMap=unitList.querySelector'),end=source.indexOf('  const spaceHeader',start),code=source.slice(start,end),calls=[];
+ const map={},svg={},state={starships:[],shipPositions:[]};
+ vm.runInNewContext(code,{state,unitList:{querySelector:()=>map},window:{SASpaceMap:{update:()=>svg,cameraIdentity:view=>'scoped-'+view,mountCamera:(node,key)=>calls.push([node,key])}}});
+ assert.deepEqual(calls,[[svg,'scoped-combat']]);assert.doesNotMatch(code,/fitRendered|initialFit/);
+});
+
+test('GM knowledge picker relocates once below recovery while retaining its selection and callback',()=>{
+ const start=source.indexOf("  const mapHeader=unitList.querySelector('.combat-space-map');",source.indexOf('function updateShipHeaders()'));
+ const end=source.indexOf('  for (const ship of ships)',start),code='function mount(){'+source.slice(start,end)+'}';
+ const make=tag=>({tag,dataset:{},children:[],innerHTML:'',setAttribute(){},append(n){if(n.parentElement)n.parentElement.children=n.parentElement.children.filter(x=>x!==n);this.children.push(n);n.parentElement=this;},querySelector(){return this.children.find(x=>x.tag==='select');}});
+ const map=make('map'),recovery=make('recovery');let label=null,changes=0;
+ const c={mode:'gm',ships:[{id:'npc-ship',title:'NPC',controlType:'gm'}],state:{units:[]},gmKnowledgeObserverId:'npc-ship',escapeHtml:s=>s,unitList:{querySelector:()=>map},document:{querySelector:s=>s==='.paired-combat-recovery'?recovery:label,createElement:tag=>{const node=make(tag);if(tag==='label')label=node;return node;}},updateShipHeaders(){changes++;}};
+ vm.runInNewContext(code,c);c.mount();const select=label.querySelector('select'),handler=select.onchange;assert.equal(label.parentElement,recovery);assert.equal(select.value,'npc-ship');assert.equal(map.children.length,0);
+ c.mount();assert.equal(recovery.children.length,1);assert.equal(label.querySelector('select'),select);assert.equal(select.onchange,handler);select.value='';handler();assert.equal(c.gmKnowledgeObserverId,'');assert.equal(changes,1);
+ c.mode='player';label=null;recovery.children=[];c.mount();assert.equal(label,null);assert.equal(recovery.children.length,0);
+});
+test('completed sensor projection puts the revealed NPC beside its PC observer',()=>{
+ const sensors=require('../ship-sensors');const a={id:'pc',controlType:'pc',ship:{gridCells:[1],sicInventory:[],placements:[]}},b={id:'npc',controlType:'gm',ship:{gridCells:[2],sicInventory:[],placements:[]}};
+ const room={starships:[a,b],units:[],shipPositions:[],log:[]};const knowledge=sensors.knowledge(a);knowledge.contacts.npc={id:'npc',level:'detected',title:'NPC',position:{q:1,r:0}};
+ const before=markup(sensors.view(room,a.id).starships,'player');assert.match(before,/data-single-pc="true"/);assert.doesNotMatch(before,/data-ship-combat-lane="npc"/);
+ knowledge.analyses.npc={layout:b.ship};
+ for(const state of [room,JSON.parse(JSON.stringify(room))]){const after=markup(sensors.view(state,a.id).starships,'player');assert.match(after,/data-single-pc="false"/);assert.match(after,/data-ship-combat-lane="pc" data-ship-side="left" data-ship-row="0"/);assert.match(after,/data-ship-combat-lane="npc" data-ship-side="right" data-ship-row="0"/);}
+});
+
+
+test('Surface clock is nested above its participant stack, leaving arena in the first grid row',()=>{
+ const arena=fs.readFileSync(require.resolve('../combat-arena-ui.js'),'utf8'),css=fs.readFileSync(require.resolve('../combat-arena.css'),'utf8');
+ const template=arena.match(/layout.innerHTML='([^']+)'/)[1];
+ assert.equal(template,'<div class="surface-atb-column"><div class="surface-clock-group"><div class="surface-combat-clock paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="paired-combat-recovery"></div></div></div>');
+ assert.match(arena,/layout.firstElementChild.append\(list\)/);
+ assert.match(arena,/if\(mode==='gm'\)window.parent\?\.SACombatRecoveryLayout\?\.mount/);
+ assert.match(arena,/if\(layout.querySelector\('\.combat-recovery-toolbar'\)\)window.parent\?\.SACombatRecoveryLayout\?\.restore\(document\)/);
+ assert.match(css,/surface-clock-group\{align-self:center/);
+ assert.match(css,/body:is\(\.embedded-gm,\.embedded-player\).surface-combat-mode \.shell>\.topbar:not\(:has\(\.gm-top-controls:not\(\.hidden\) > \*\)\):not\(:has\(#gmMuteSound:not\(\.hidden\)\)\)/);
+ assert.match(css,/#surfaceCombatLayout>\.surface-atb-column,#surfaceCombatLayout>#surfaceArenaLive\{grid-row:auto\}/);
+ assert.doesNotMatch(css,/\.surface-combat-clock\{[^}]*grid-column:1\/-1/);
+});
+
+test('interior Fit reserves overlapping bottom controls without changing viewport or rotation',()=>{
+ const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');
+ const helper=source.slice(source.indexOf('  function reserveInteriorControls('),source.indexOf('  const cameraKey='));
+ const fit=source.slice(source.indexOf('  function fitInline('),source.indexOf('  function watchFit('));
+ for(const rotation of [0,90,180,270])for(const overlap of [true,false]){
+  const styles=new Map(),viewport={clientWidth:800,clientHeight:600,scrollLeft:30,scrollTop:60,style:{setProperty:(k,v)=>styles.set(k,v),getPropertyValue:k=>styles.get(k)},getBoundingClientRect:()=>({top:0,bottom:600})};
+  const footer={getBoundingClientRect:()=>({top:overlap?530:600,bottom:660})};
+  const grid={dataset:{displayRotation:rotation},style:{getPropertyValue:k=>k==='--inline-cols'?12:20}};
+  const host={dataset:{inlineShipMap:'s'},querySelector:s=>s==='.inline-map-viewport'?viewport:s==='.inline-map-footer'?footer:grid};
+  const sizes=new Map(),c={host,interaction:'view',selectedShipId:'',expandedMap:null,inlineZoom:sizes,manualInlineViews:new WeakSet(),setInlineSize(){},rememberInlineView(){}};
+  vm.runInNewContext(helper+fit,c);assert.equal(c.reserveInteriorControls(host),overlap?78:0);c.fitInline(host);
+  const size=sizes.get('s'),rows=rotation%180?12:20;assert.ok(size*rows+32<=600-(overlap?78:0));assert.equal(viewport.clientHeight,600);assert.equal(viewport.scrollTop,0);
+ }
 });

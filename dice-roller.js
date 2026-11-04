@@ -797,12 +797,15 @@ export class PhysicalDiceRoller {
 
   celebrate(duration = 450) {
     if (!this.active) return Promise.resolve();
+    const celebratingRoll = this.active;
     this.shell.style.setProperty("--celebration-duration", `${duration}ms`);
     this.shell.classList.add("celebrating");
     return new Promise((resolve) => {
       window.setTimeout(() => {
-        this.stop();
-        this.shell.hidden = true;
+        if (this.active === celebratingRoll) {
+          this.stop();
+          this.shell.hidden = true;
+        }
         resolve();
       }, duration);
     });

@@ -12,7 +12,12 @@ test('oxygen uses private manual checks, survives combat transitions, and releas
   const start=await post('campaign/showcase/start',{});
   const template=await fetch(`${base}/api/campaign/backup?code=${start.code}&token=${start.gmToken}`).then(r=>r.json());
   const created=await post('campaign/create',{name:'Oxygen Persistence',gmCode:'oxygen-test'},201),code=created.campaign.code,token=created.token;
-  template.campaign.characters=template.campaign.characters.filter(c=>c.id===start.players[0].id);template.campaign.encounter.units=template.campaign.encounter.units.filter(u=>u.characterId===start.players[0].id||u.id==='unit-showcase-npc-0');
+  const hostile=template.campaign.encounter.units.find(u=>u.team==='npc'&&!u.allyNpc);
+  template.campaign.characters=template.campaign.characters.filter(c=>c.id===start.players[0].id);template.campaign.encounter.units=template.campaign.encounter.units.filter(u=>u.characterId===start.players[0].id||u.id===hostile.id);
+  // This regression isolates one exposed PC. Unrelated manual allied requests
+  // must not correctly pause its timer before the assertion under test.
+  template.campaign.npcRoster=template.campaign.npcRoster.filter(n=>n.id===hostile.id);template.campaign.npcTemplates=[];
+  for(const ship of template.campaign.starships){ship.crewCharacterIds=ship.crewCharacterIds.filter(id=>id===start.players[0].id);ship.crewNpcUnitIds=ship.crewNpcUnitIds.filter(id=>id===hostile.id);}
   require('../campaign-planets').place(template.campaign,{...template.campaign.starmaps.party,hex:template.campaign.starmaps.localPositions[template.campaign.starships[0].id].surfaceHex});
   template.campaign.code=code;template.campaign.name='Oxygen Persistence';
   await post('campaign/restore',{code,token,backup:template});

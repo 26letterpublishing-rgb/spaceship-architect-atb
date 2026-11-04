@@ -14,11 +14,11 @@ test('drone repairs exactly at Slow + Quality 1 completion, remains serializable
  drones.advance(restored,1.5,()=>{throw Error('no roll at full Hull');});assert.equal(drones.entries(restored)[0].drone.phase,'docked');
  assert.equal(restored.starships[0].ship.droneState.reports.length,4);
 });
-test('drone is independently targetable, Defense 12, threshold 14, no damage to owner',()=>{
+test('drone is independently targetable, Defense 12, threshold 9, no damage to owner',()=>{
  const {room,a,b}=fixture();b.currentHullHp=b.maximumHullHp;drones.reconcile(room);const d=drones.entries(room)[0].drone;
  assert.equal(targets.find(room,d.id).defenseScore,12);assert.equal(sensors.defense(room,targets.find(room,d.id)),12);
- assert.equal(targets.hit(room,d.id,13),false);assert.ok(targets.find(room,d.id));
- assert.equal(targets.hit(room,d.id,14),true);assert.equal(targets.find(room,d.id),undefined);assert.equal(a.currentHullHp,40);
+ assert.equal(targets.hit(room,d.id,8),false);assert.ok(targets.find(room,d.id));
+ assert.equal(targets.hit(room,d.id,9),true);assert.equal(targets.find(room,d.id),undefined);assert.equal(a.currentHullHp,40);
  drones.advance(room,100,()=>{throw Error('destroyed drone rolled');});
 });
 test('same-hex repair orders are receipt-safe, then return to owner when ships separate',()=>{
@@ -51,7 +51,7 @@ test('drone lock skips accuracy, manual range penalty uses its host position, an
  locks.state(a).targets.push({targetId:drone.id,systemId:'a-lock',remaining:12});
  assert.equal(weapons.queue(room,unit,{sicId:'a-gun',targetId:drone.id,requestId:'drone-locked-shot'}).ok,true);assert.equal(unit.delayedAction.rollConfirmed,true);
  weapons.resolveInput(room,unit,()=>{throw Error('Locked shot must skip accuracy');});assert.ok(unit.delayedAction.weaponDamage);
- targets.hit(room,drone.id,14);assert.equal(weapons.cancelUnavailableDamage(room),1);assert.equal(unit.delayedAction,null);locks.refresh(room);assert.equal(locks.state(a).targets.length,0);
+ targets.hit(room,drone.id,9);assert.equal(weapons.cancelUnavailableDamage(room),1);assert.equal(unit.delayedAction,null);locks.refresh(room);assert.equal(locks.state(a).targets.length,0);
 });
 
 test('repair options include only powered, detected, damaged ships sharing the hex',()=>{
@@ -59,4 +59,17 @@ test('repair options include only powered, detected, damaged ships sharing the h
  b.escapedAt=1;assert.deepEqual(drones.repairTargets(room,a),[]);delete b.escapedAt;
  b.currentHullHp=b.maximumHullHp;assert.deepEqual(drones.repairTargets(room,a),[]);b.currentHullHp=40;
  a.ship.sicInventory.find(i=>i.id==='a-bay').disabled=true;assert.deepEqual(drones.repairTargets(room,a),[]);
+});
+
+test('all repair thresholds drop exactly five; other drone durability and repair stats stay unchanged',()=>{
+ const maps=require('../ship-map-core');
+ for(let tier=1;tier<=5;tier++){
+  const def=maps.definition('repair-drone-'+tier);assert.equal(def.threshold,9+(tier-1)*3);assert.equal(def.masking,12+(tier-1)*2);assert.equal(def.repairDie,4+(tier-1)*2);
+  const {room,a}=fixture();a.ship.sicInventory[0].type='repair-drone-'+tier;drones.reconcile(room);const d=a.ship.droneState.drones['a-bay'];assert.equal(d.threshold,def.threshold);
+  const restored=JSON.parse(JSON.stringify(room));restored.starships[0].ship.droneState.drones['a-bay'].threshold=def.threshold+5;drones.reconcile(restored);assert.equal(restored.starships[0].ship.droneState.drones['a-bay'].threshold,def.threshold);
+  assert.equal(targets.hit(restored,d.id,def.threshold-1),false);assert.equal(targets.hit(restored,d.id,def.threshold),true);assert.equal(restored.starships[0].currentHullHp,40);
+ }
+ assert.equal(maps.definition('hull-breach-repair-drone').threshold,20);
+ assert.equal(targets.salvageProxy({owner:{id:'owner'},job:{id:'v',position:{q:0,r:0}}}).maximumHullHp,25);
+ assert.equal(targets.droneProxy({id:'legacy'}).maximumHullHp,9);
 });

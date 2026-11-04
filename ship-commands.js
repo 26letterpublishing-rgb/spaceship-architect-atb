@@ -7,6 +7,7 @@ const cooperation = require('./ship-cooperation');
 const power = require('./ship-power');
 const delays = require('./delay-rules');
 const ROLL_ACTIONS = ['area', 'hex', 'analysis', 'evade', 'ram', 'skim'];
+const destroyed = ship => Boolean(ship?.destroyedAt) || (Number.isFinite(ship?.currentHullHp) && ship.currentHullHp <= 0);
 const names = { hail:'Hail Ship', team:'Team Execution', calculation:'Preemptive Calculation', evade:'Evasive Maneuvers', ram:'Ram', skim:'Skim' };
 const skill = (unit, action) => Math.max(0, Number((['area','hex','analysis'].includes(action) ? unit.sensorSkill : unit.pilotSkill) ?? (unit.team === 'npc' ? unit.mentalSkill : 0)) || 0);
 const mentalSkill = (unit,key) => Math.max(0,Number(unit[key]??(unit.team==='npc'?unit.mentalSkill:0))||0);
@@ -24,7 +25,7 @@ function report(ship, text, extra = {}) {
 function validateTrigger(room,ship,t){
   const data=cooperation.state(ship),enemy=room.starships.find(s=>s.id===t?.targetId&&s.id!==ship.id);
   if(data.armed||room.units.some(u=>u.location?.starshipId===ship.id&&[u.delayedAction?.commandOrder,u.delayedAction?.shipOrder,u.delayedAction?.sensorOrder].some(o=>o?.trigger)))return {ok:false,error:'Only one conditional order may be armed per ship.'};
-  if(!enemy||!sensors.analysis(ship,enemy.id))return {ok:false,error:'Systems Analysis of the triggering ship is required.'};
+  if(!enemy||destroyed(enemy)||!sensors.analysis(ship,enemy.id))return {ok:false,error:'Systems Analysis of the triggering ship is required.'};
   if(!['movement','distance','hex','range'].includes(t.kind))return {ok:false,error:'Choose a movement trigger.'};
   if(['distance','range'].includes(t.kind)&&(!Number.isFinite(t.distance)||t.distance<=0||t.distance>10000))return {ok:false,error:'Enter a positive trigger distance.'};
   if(t.kind==='hex'&&(!t.hex||![t.hex.q,t.hex.r].every(n=>Number.isInteger(n)&&Math.abs(n)<=10000)))return {ok:false,error:'Choose a trigger hex.'};
@@ -40,6 +41,8 @@ function armExternal(room,unit,system){
   if(!ship)return;
   if(!seat||(system==='sensor'?access.blocked||access.ship.id!==ship.id||seat.key!==order.station:seat.ship.id!==ship.id||seat.cell.sicId!==order.sicId||(order.station&&seat.key!==order.station)))return report(ship,'Conditional input interrupted: operator left the console.');
   const data=cooperation.state(ship);
+  const triggerTarget=room.starships.find(s=>s.id===order.trigger.targetId);
+  if(!triggerTarget||destroyed(triggerTarget))return report(ship,'Conditional order cancelled: triggering ship unavailable.');
   if(data.armed||!power.spend(room,ship.id,2))return report(ship,'Conditional order cancelled: another order is armed or 2 AU are unavailable.');
   data.armed={system,delayed,order,unitId:unit.id,location:{...unit.location},remaining:12,traveled:0};
   report(ship,'Conditional order armed for 12 combat seconds (2 AU spent).');
@@ -87,7 +90,7 @@ function queue(room, unit, body) {
   if (['evade','ram','skim'].includes(body.kind) && !navigation.access(room,unit,body.sicId)) return {ok:false,error:'Operational engines and thrusters are required.'};
   sensors.refresh(room);
   const target = room.starships.find(s => s.id === body.targetId && s.id !== ship.id);
-  if (['hail','ram','skim'].includes(body.kind) && (!target || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected')) return {ok:false,error:'Choose a detected ship.'};
+  if (['hail','ram','skim'].includes(body.kind) && (!target || destroyed(target) || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected')) return {ok:false,error:'Choose a detected ship.'};
   if(body.kind==='hail'&&(maps.staticShieldActive(ship)||maps.staticShieldActive(target)))return {ok:false,error:'Static Shields block audio/video communications while their Shield is active.'};
   if (['ram','skim'].includes(body.kind) && !body.trigger && !sameHex(room,ship,target)) return {ok:false,error:'Both ships must occupy the same hex.'};
   let trigger=null;
@@ -115,6 +118,8 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   if (!ship) return;
   if (!seat || seat.ship.id!==ship.id || seat.key !== order.station) return report(ship,'Command input interrupted: operator or console unavailable.');
   const data = cooperation.state(ship), target = room.starships.find(s => s.id === order.targetId);
+  if(['hail','ram','skim'].includes(order.kind)&&(!target||destroyed(target)))return report(ship,'Command cancelled: target ship unavailable.');
+  if(order.trigger){const triggerTarget=room.starships.find(s=>s.id===order.trigger.targetId);if(!triggerTarget||destroyed(triggerTarget))return report(ship,'Conditional order cancelled: triggering ship unavailable.');}
   if(order.trigger&&!triggeredOrder){
     if(data.armed||!power.spend(room,ship.id,2))return report(ship,'Conditional order cancelled: another order is armed or 2 AU are unavailable.');
     data.armed={order,unitId:unit.id,location:{...unit.location},remaining:12,traveled:0};
@@ -125,7 +130,7 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
     return report(ship,`${unit.characterName}: ${names[order.kind]} prepared for ${order.preparedAction}.`);
   }
   if (order.kind === 'hail') {
-    if (!target || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected') return report(ship,'Hail cancelled: contact lost.');
+    if (!target || destroyed(target) || sensors.knowledge(ship).contacts[target.id]?.level !== 'detected') return report(ship,'Hail cancelled: contact lost.');
     if(maps.staticShieldActive(ship)||maps.staticShieldActive(target))return report(ship,'Hail cancelled: Static Shields block audio/video communications.');
     if(distances.hexDistance(position(room,ship.id),order.disclosedPosition)>5)return report(ship,'Hail cancelled: disclosed position is now more than 5 Units from the ship.');
     const own = {id:order.receipt,shipId:target.id,title:target.title,status:'outgoing'};
@@ -192,6 +197,8 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
     const data=cooperation.state(ship),armed=data.armed;
     data.evasions=(data.evasions||[]).map(e=>({...e,remaining:Math.max(0,(e.remaining??20)-Math.max(0,seconds))})).filter(e=>e.remaining>0);
     if(!armed)continue;
+    const triggerTarget=room.starships.find(s=>s.id===armed.order.trigger.targetId),commandTarget=room.starships.find(s=>s.id===armed.order.targetId);
+    if(!triggerTarget||destroyed(triggerTarget)||(['hail','ram','skim'].includes(armed.order.kind)&&(!commandTarget||destroyed(commandTarget)))){data.armed=null;report(ship,'Conditional order cancelled: target ship unavailable.');continue;}
     const start=before?.find(p=>p.id===armed.order.trigger.targetId),end=position(room,armed.order.trigger.targetId);
     let triggered=false;
     if(start&&end&&seconds>=0){

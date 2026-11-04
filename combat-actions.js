@@ -70,6 +70,15 @@
   }
   const actionButtons = [...document.querySelectorAll("[data-combat-action]")];
   const stationCategories = window.SACombatPanel.categories;
+  function actionUnavailableReason(mine,state,isMyTurn,pendingDelay,submitting){
+    if(submitting)return 'Sending the current action. Please wait.';
+    if(mine?.consoleHold)return "It's not your turn!";
+    if(pendingDelay)return "It's not your turn!";
+    if(mine?.shieldRestabilizing)return 'Finish shield restabilization before taking another action.';
+    if(mine?.delayedAction||mine?.delayTimer)return "It's not your turn!";
+    if(!isMyTurn)return "It's not your turn!";
+    return '';
+  }
   const categoryByOperator = new Map();
 
   function stationActionCategory(label) {
@@ -202,7 +211,7 @@
     const options = [];
     if (includeLocation) options.push('<option value="__location__">Area / map location</option>');
     options.push(...(currentState?.units || [])
-      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry) && (!['fire','calledShot','melee','wrestle','throwItem'].includes(pendingKind)||window.SACombatArena.canTarget(currentState,currentUnit,entry)))
+      .filter((entry) => (includeSelf || entry.id !== currentUnit?.id) && !entry.defeatedAt && sameCombatLocation(currentUnit, entry) && (!(['melee','calledShot'].includes(pendingKind)&&actionWeapon()?.category==='melee') || window.SACombatRules.meleeTargetAllowed(currentState,currentUnit,entry,actionWeapon())) && (!['fire','calledShot','melee','wrestle','throwItem'].includes(pendingKind)||window.SACombatArena.canTarget(currentState,currentUnit,entry)))
       .map((entry) => `<option value="${esc(entry.id)}">${esc(entry.characterName)} (${entry.team === "pc" ? "PC" : entry.allyNpc ? "ALLY NPC" : "NPC"})</option>`));
     if(['fire','melee','calledShot'].includes(pendingKind))options.push(...(window.SAShipDoors?.targets(currentState,currentUnit,pendingKind==='melee')||[]).map(d=>`<option value="${esc(d.id)}">${esc(d.characterName)}</option>`));
     if(['fire','calledShot'].includes(pendingKind)&&held()?.weaponId==='hull-bore')options.push(...window.SACombatArena.wallTargets(currentState,currentUnit).map(w=>'<option value="'+esc(w.id)+'">'+esc(w.characterName)+'</option>'));
@@ -299,7 +308,7 @@
     const current = actionWeapon();
     if (!current || !window.SACombatRules) return null;
     return window.SACombatRules.attackPlan(current, {
-      distance: current?.category === "melee" ? 1 : attackDistance(),
+      distance: attackDistance(),
       charges: chargeCount(currentUnit, current),
       aimDice:current?.category === "ranged" ? currentUnit?.aim?.dice || [] : [],
       aimDie: current?.category === "ranged" ? Number(currentUnit?.aim?.aimDie) || 0 : 0,
@@ -350,10 +359,20 @@
   }
 
   window.addEventListener('sa-combat-reset',()=>{closeDialog();actionSubmitting=false;});
+  function syncKitAvailability(reset = false) {
+    const available = Boolean(configurations[pendingKind]?.kit &&
+      (currentUnit?.items || []).some(entry => entry.catalogId === 'first-aid-kit' && Number(entry.quantity) > 0));
+    const actorChanged = useKitWrap.dataset.actorId !== (currentUnit?.id || '');
+    useKitWrap.dataset.actorId = currentUnit?.id || '';
+    useKitWrap.hidden = !available;
+    useKit.disabled = !available;
+    if (reset) useKit.checked = available;
+    else if (!available || actorChanged) useKit.checked = false;
+  }
   function refreshFormAvailability() {
     // Hidden inputs retain old values; they must not block unrelated actions in native validation.
     form?.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=Boolean(control.closest('[hidden]'));});
-    useKit.disabled=useKitWrap.hidden||!(currentUnit?.items||[]).some(entry=>entry.catalogId==='first-aid-kit');
+    syncKitAvailability();
     if(!attackWrap.hidden)updateAttackPreview();
   }
   function openDialog(kind) {
@@ -393,9 +412,7 @@
       : "";
     consumeWrap.hidden = true;
     consume.checked = false;
-    useKitWrap.hidden = !config.kit;
-    useKit.checked = Boolean(config.kit && (currentUnit?.items || []).some((entry) => entry.catalogId === "first-aid-kit"));
-    useKit.disabled = Boolean(config.kit && !(currentUnit?.items || []).some((entry) => entry.catalogId === "first-aid-kit"));
+    syncKitAvailability(true);
     jetPackWrap.hidden = !config.jetPack || !(currentUnit?.items || []).some((entry) => entry.catalogId === "jet-pack" && Number(entry.charges) > 0);
     jetPack.checked = false;
     const jetItem = (currentUnit?.items || []).find((entry) => entry.catalogId === "jet-pack");
@@ -575,6 +592,12 @@
   function renderControls({ mine, state, isMyTurn, hasPendingDelayRequest }) {
     currentState = state;
     currentUnit = mine;
+    if (!dialog.classList.contains('hidden')) syncKitAvailability();
+    if(!dialog.classList.contains('hidden')&&['melee','calledShot'].includes(pendingKind)&&actionWeapon()?.category==='melee'){
+      const selected=target.value,options=targetOptions();
+      if(target.innerHTML!==options){target.innerHTML=options;target.value=selected;}
+      updateAttackPreview();
+    }
     refreshSubmitAvailability();
     if (pendingTurn && !dialog.classList.contains('hidden')) {
       const stale = !matchesTurn(pendingTurn);
@@ -610,6 +633,7 @@
         : "<span>Held Weapon</span><strong>None</strong><small>Choose one in Supplies or use Draw Weapon.</small>";
     });
     const disabled = actionSubmitting || !isMyTurn || hasPendingDelayRequest || Boolean(mine?.delayedAction || mine?.delayTimer || mine?.shieldRestabilizing);
+    const disabledReason = actionUnavailableReason(mine,state,isMyTurn,hasPendingDelayRequest,actionSubmitting);
     const consoles=state&&mine?window.SAStationAccess.consoles(state,mine):[];
     const seated=consoles.length>0;
     document.body.classList.toggle('pilot-station-active',Boolean(seated));
@@ -653,7 +677,8 @@
       for(const button of shortcuts.querySelectorAll('[data-station-order]')){
         const [label,selector,,id]=visibleEntries[Number(button.dataset.stationOrder)],access=consoles.find(a=>a.id===id);
         const reason=window.SACombatOrderUI.unavailable(state,mine,access,label,selector);
-        button.disabled=disabled||Boolean(reason);button.title=window.SACombatPanel.presentation(label).help+(disabled?' Available during your active turn.':'');
+        button.disabled=disabled||Boolean(reason);button.title=reason|| (disabled?disabledReason:window.SACombatPanel.presentation(label).help);
+        button.setAttribute('aria-description',button.title);button.parentElement.title=button.title;
       }
       const controlStatus=group.querySelector('[data-turn-control-status]');
       if(controlStatus)controlStatus.textContent=mine?.consoleHold?'Holding at 99%. Resume when ready.':actionSubmitting?'Sending actionâ€¦':disabled?'Waiting for your turn or current action to finish.':seated?'Choose a ship action above. Hold keeps you at 99%.':'Choose a character action. Hold keeps you at 99%.';
@@ -682,7 +707,7 @@
       if (kind === 'vehicle') button.hidden=Boolean(seated)||!weaponOptions({vehicle:true});
       if(kind==='move'){button.hidden=Boolean(mine?.shipAi);label=seated?'Leave Console':'Move Character';button.classList.toggle('leave-console-arrow',Boolean(seated));}
       if(kind==='wait3')label='Wait 3 sec';
-      let reason = disabled ? "Available only during your active turn." : "";
+      let reason = disabled ? disabledReason : "";
       if (kind === "charge" && (!current || current.chargeMode !== "meter" || !current.chargeSegments)) { unavailable = true; reason = "The held weapon does not use Charge."; }
       if (kind === "charge" && current?.aimRequired && !mine?.aim) { unavailable = true; reason = "Aim before charging this weapon."; }
       if (kind === "charge" && mine?.weaponCharge && current && mine.weaponCharge.inventoryId === current.inventoryId && Number(mine.weaponCharge.progress) >= 100) { unavailable = true; reason = "The held weapon is fully Charged."; }
@@ -703,7 +728,7 @@
       button.querySelector('[data-action-reason]')?.remove();
       button.disabled = Boolean(unavailable);
       const definition=window.SACombatPanel.personal[kind];
-      if(definition){if(kind!=='airlock'&&kind!=='breachRepair')label=definition[0];if(kind==='move'&&seated)label='Leave Console';if(kind==='holdConsole'&&mine?.consoleHold)label='Resume';if(kind==='carry'&&mine?.carryingId)label='Put Down';window.SACombatPanel.setLabel(button,label);button.title=(kind==='move'&&seated?'Leave the current console and return to character actions.':definition[1])+(unavailable&&reason?' '+reason:'');}else window.SACombatPanel.setLabel(button,label);
+      if(definition){if(kind!=='airlock'&&kind!=='breachRepair')label=definition[0];if(kind==='move'&&seated)label='Leave Console';if(kind==='holdConsole'&&mine?.consoleHold)label='Resume';if(kind==='carry'&&mine?.carryingId)label='Put Down';window.SACombatPanel.setLabel(button,label);button.title=unavailable&&reason?reason:(kind==='move'&&seated?'Leave the current console and return to character actions.':definition[1]);}else window.SACombatPanel.setLabel(button,label);
       // Missing equipment/actions disappear; an otherwise legal action remains visible while waiting for its turn.
       if(['charge','fire','calledShot','throwItem','drawWeapon'].includes(kind)&&unavailable&&!disabled)button.hidden=true;
       if(kind==='charge'&&(!current||current.chargeMode!=='meter'||!current.chargeSegments))button.hidden=true;

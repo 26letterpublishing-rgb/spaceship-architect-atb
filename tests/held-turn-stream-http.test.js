@@ -33,8 +33,8 @@ test('a final clock update reaches GM and PC streams when an NPC becomes ready w
   const act = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());
   let current = await act({ action: 'setHardPaused', paused: true });
-  const nova = current.units.find(u => u.characterName === 'Nova Vale');
-  const slug = current.units.find(u => u.characterName === 'Space Slug');
+  const nova = current.units.find(u => u.team === 'pc');
+  const slug = current.units.find(u => u.team === 'npc' && !u.allyNpc);
   const ship = current.starships.find(s => s.id === nova.location.starshipId);
   const bridge = ship.ship.sicInventory.find(i => require('../ship-map-core').definition(i.type).bridge);
   const cell = ship.ship.placements.find(p => p.sicId === bridge.id).cell;

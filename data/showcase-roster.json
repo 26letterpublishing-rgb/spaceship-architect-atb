@@ -1,0 +1,1212 @@
+{
+  "version": 2,
+  "description": "Approved fresh Explore roster. PCs finalized with the existing creation engine; saved campaigns are not migrated.",
+  "pcs": [
+    {
+      "id": "showcase-mara",
+      "version": 7,
+      "phase": "finalized",
+      "advancementOpen": false,
+      "importedDraft": false,
+      "identity": {
+        "playerName": "Player One",
+        "characterName": "Mara Venn",
+        "race": "Human",
+        "raceId": "human",
+        "raceKind": "preset",
+        "raceType": "",
+        "classId": "",
+        "className": "No Class",
+        "homePlanet": "Earth",
+        "homePlanetKind": "preset",
+        "sex": "",
+        "age": "",
+        "height": "",
+        "weight": "",
+        "hair": "",
+        "eyes": "",
+        "description": "Pilot and sensor operator"
+      },
+      "experience": {
+        "available": 200,
+        "spent": 0,
+        "totalGained": 200
+      },
+      "attributes": {
+        "strength": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "health": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "perception": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "dexterity": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "luck": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "charisma": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "intellect": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "willpower": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "skills": {
+        "Computer Systems": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Engineering": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Hacking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Piloting": {
+          "tenths": 35,
+          "creationDecimal": 5
+        },
+        "Sensor Systems": {
+          "tenths": 32,
+          "creationDecimal": 2
+        },
+        "Weapon Systems": {
+          "tenths": 37,
+          "creationDecimal": 7
+        },
+        "Deception": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "First Aid": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Architecture": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Arts": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Astronomy": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Athletics": {
+          "tenths": 16,
+          "creationDecimal": 6
+        },
+        "Awareness": {
+          "tenths": 37,
+          "creationDecimal": 7
+        },
+        "Escape": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Caretaking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Coordination": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Climb": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Common Knowledge": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Cooking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Demolitions": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Impersonation": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Dodge": {
+          "tenths": 19,
+          "creationDecimal": 9
+        },
+        "Driving": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Etiquette": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Forgotten Languages": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Gambling": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Lore": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Taste & Smell": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Initiative": {
+          "tenths": 26,
+          "creationDecimal": 6
+        },
+        "Intimidation": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Insight": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Jump": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Politics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Leadership": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Brute Force": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Lock-picking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Mathematics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Melee": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Navigate": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Persuasion": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Occult": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Pickpocket": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Projectile": {
+          "tenths": 36,
+          "creationDecimal": 6
+        },
+        "Psychology": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Religion": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Research": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Resist Distress": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Science": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Self-Control": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Showmanship": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Stealth": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Survival": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Swim": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Tame Animal": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Teaching": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Technology": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Vehicle Mechanics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Weapon Mechanics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Grappling": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Writing": {
+          "tenths": 0,
+          "creationDecimal": null
+        }
+      },
+      "customSkills": [],
+      "creation": {
+        "skillPurchaseOrder": [
+          {
+            "key": "base:Piloting",
+            "cost": 1
+          },
+          {
+            "key": "base:Piloting",
+            "cost": 2
+          },
+          {
+            "key": "base:Piloting",
+            "cost": 3
+          },
+          {
+            "key": "base:Sensor Systems",
+            "cost": 1
+          },
+          {
+            "key": "base:Sensor Systems",
+            "cost": 2
+          },
+          {
+            "key": "base:Sensor Systems",
+            "cost": 3
+          },
+          {
+            "key": "base:Weapon Systems",
+            "cost": 1
+          },
+          {
+            "key": "base:Weapon Systems",
+            "cost": 2
+          },
+          {
+            "key": "base:Weapon Systems",
+            "cost": 3
+          },
+          {
+            "key": "base:Awareness",
+            "cost": 1
+          },
+          {
+            "key": "base:Awareness",
+            "cost": 2
+          },
+          {
+            "key": "base:Awareness",
+            "cost": 3
+          },
+          {
+            "key": "base:Projectile",
+            "cost": 1
+          },
+          {
+            "key": "base:Projectile",
+            "cost": 2
+          },
+          {
+            "key": "base:Projectile",
+            "cost": 3
+          },
+          {
+            "key": "base:Initiative",
+            "cost": 1
+          },
+          {
+            "key": "base:Initiative",
+            "cost": 2
+          },
+          {
+            "key": "base:Dodge",
+            "cost": 1
+          },
+          {
+            "key": "base:Athletics",
+            "cost": 1
+          }
+        ],
+        "finalizationQueue": [],
+        "classGrantsApplied": true,
+        "raceGrantsApplied": true,
+        "classAttributeChoice": "",
+        "raceSkillChoices": [],
+        "raceAttributeChoice": "",
+        "racialSkillGrants": {},
+        "xithxGenderNoticeShown": false,
+        "freeAttributeUpgradeApplied": false,
+        "angilurosFreeWeaponsUsed": 0,
+        "manualInput": false,
+        "skillMethod": "manual",
+        "skillPackages": [
+          "",
+          ""
+        ],
+        "validation": {
+          "attributeSpent": 195,
+          "attributeBudget": 195,
+          "skillSpent": 35,
+          "skillBudget": 35
+        }
+      },
+      "fubs": {
+        "status": "not-activated",
+        "rolls": [],
+        "rerollUsed": false
+      },
+      "health": {
+        "current": 36,
+        "permanentBonus": 0
+      },
+      "gmAdjustments": {
+        "maximumHp": 0,
+        "exertionMax": 0,
+        "moveSpeed": 0,
+        "speed": 0,
+        "command": 0,
+        "damageReduction": 0
+      },
+      "resources": {
+        "exertionCurrent": 1,
+        "exertionMax": 1,
+        "reverence": 0,
+        "creditsBase": 300,
+        "mechanicalExperience": 0,
+        "dramaCards": 0,
+        "attributePoints": 0,
+        "skillPoints": 0
+      },
+      "presentation": {
+        "atbColor": "#35c9ff",
+        "iconRace": "human",
+        "iconVariant": 0
+      },
+      "access": {
+        "pcCode": ""
+      },
+      "campaignLink": {
+        "roomCode": "",
+        "campaignName": "Explore Features",
+        "status": "linked",
+        "requestId": "",
+        "message": ""
+      },
+      "localInbox": [],
+      "session": {
+        "number": 1,
+        "freeRerollsUsed": {},
+        "marineHealingUsed": false,
+        "psychopathAwardsUsed": 0,
+        "tacticianReverenceGiven": 0,
+        "peacekeeperDramaCardsEarned": 0
+      },
+      "crew": [
+        {
+          "name": "",
+          "title": ""
+        },
+        {
+          "name": "",
+          "title": ""
+        },
+        {
+          "name": "",
+          "title": ""
+        }
+      ],
+      "weapons": [
+        {
+          "id": "showcase-mara-weapon",
+          "weaponId": "standard-sidearm",
+          "held": true
+        }
+      ],
+      "storedWeapons": [],
+      "items": [],
+      "storedItems": [],
+      "statuses": {
+        "intoxicated": false
+      },
+      "advantagesNotes": "",
+      "notes": "",
+      "computed": {
+        "speed": 6.6,
+        "commandWindow": 76.4,
+        "maximumHp": 36,
+        "moveSpeed": 3.6,
+        "damageReduction": 0,
+        "skills": {
+          "Computer Systems": 0,
+          "Engineering": 0,
+          "Hacking": 0,
+          "Piloting": 3.5,
+          "Sensor Systems": 3.2,
+          "Weapon Systems": 3.7,
+          "Deception": 0,
+          "First Aid": 0,
+          "Architecture": 0,
+          "Arts": 0,
+          "Astronomy": 0,
+          "Athletics": 1.6,
+          "Awareness": 3.7,
+          "Escape": 0,
+          "Caretaking": 0,
+          "Coordination": 0,
+          "Climb": 0,
+          "Common Knowledge": 0,
+          "Cooking": 0,
+          "Demolitions": 0,
+          "Impersonation": 0,
+          "Dodge": 1.9,
+          "Driving": 0,
+          "Etiquette": 0,
+          "Forgotten Languages": 0,
+          "Gambling": 0,
+          "Lore": 0,
+          "Taste & Smell": 0,
+          "Initiative": 2.6,
+          "Intimidation": 0,
+          "Insight": 0,
+          "Jump": 0,
+          "Politics": 0,
+          "Leadership": 0,
+          "Brute Force": 0,
+          "Lock-picking": 0,
+          "Mathematics": 0,
+          "Melee": 0,
+          "Navigate": 0,
+          "Persuasion": 0,
+          "Occult": 0,
+          "Pickpocket": 0,
+          "Projectile": 3.6,
+          "Psychology": 0,
+          "Religion": 0,
+          "Research": 0,
+          "Resist Distress": 0,
+          "Science": 0,
+          "Self-Control": 0,
+          "Showmanship": 0,
+          "Stealth": 0,
+          "Survival": 0,
+          "Swim": 0,
+          "Tame Animal": 0,
+          "Teaching": 0,
+          "Technology": 0,
+          "Vehicle Mechanics": 0,
+          "Weapon Mechanics": 0,
+          "Grappling": 0,
+          "Writing": 0
+        },
+        "defenseScoreModifier": 0,
+        "recurringHealingInterval": 0,
+        "recurringHealingAmount": 0,
+        "recurringHealingLabel": ""
+      }
+    },
+    {
+      "id": "showcase-kip",
+      "version": 7,
+      "phase": "finalized",
+      "advancementOpen": false,
+      "importedDraft": false,
+      "identity": {
+        "playerName": "Player Two",
+        "characterName": "Kip Amber",
+        "race": "Kabuto",
+        "raceId": "kabuto",
+        "raceKind": "preset",
+        "raceType": "",
+        "classId": "",
+        "className": "No Class",
+        "homePlanet": "Earth",
+        "homePlanetKind": "preset",
+        "sex": "",
+        "age": "",
+        "height": "",
+        "weight": "",
+        "hair": "",
+        "eyes": "",
+        "description": "Engineer and first-aid support"
+      },
+      "experience": {
+        "available": 0,
+        "spent": 0,
+        "totalGained": 0
+      },
+      "attributes": {
+        "strength": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "health": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "perception": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "dexterity": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "luck": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "charisma": [
+          0,
+          0,
+          0,
+          -1
+        ],
+        "intellect": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "willpower": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "skills": {
+        "Computer Systems": {
+          "tenths": 38,
+          "creationDecimal": 8
+        },
+        "Engineering": {
+          "tenths": 35,
+          "creationDecimal": 5
+        },
+        "Hacking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Piloting": {
+          "tenths": 18,
+          "creationDecimal": 8
+        },
+        "Sensor Systems": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Weapon Systems": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Deception": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "First Aid": {
+          "tenths": 32,
+          "creationDecimal": 2
+        },
+        "Architecture": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Arts": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Astronomy": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Athletics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Awareness": {
+          "tenths": 12,
+          "creationDecimal": 2
+        },
+        "Escape": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Caretaking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Coordination": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Climb": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Common Knowledge": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Cooking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Demolitions": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Impersonation": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Dodge": {
+          "tenths": 33,
+          "creationDecimal": 3
+        },
+        "Driving": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Etiquette": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Forgotten Languages": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Gambling": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Lore": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Taste & Smell": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Initiative": {
+          "tenths": 26,
+          "creationDecimal": 6
+        },
+        "Intimidation": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Insight": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Jump": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Politics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Leadership": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Brute Force": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Lock-picking": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Mathematics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Melee": {
+          "tenths": 30,
+          "creationDecimal": 0
+        },
+        "Navigate": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Persuasion": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Occult": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Pickpocket": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Projectile": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Psychology": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Religion": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Research": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Resist Distress": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Science": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Self-Control": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Showmanship": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Stealth": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Survival": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Swim": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Tame Animal": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Teaching": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Technology": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Vehicle Mechanics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Weapon Mechanics": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Grappling": {
+          "tenths": 0,
+          "creationDecimal": null
+        },
+        "Writing": {
+          "tenths": 0,
+          "creationDecimal": null
+        }
+      },
+      "customSkills": [],
+      "creation": {
+        "skillPurchaseOrder": [
+          {
+            "key": "base:Engineering",
+            "cost": 1
+          },
+          {
+            "key": "base:Engineering",
+            "cost": 2
+          },
+          {
+            "key": "base:Engineering",
+            "cost": 3
+          },
+          {
+            "key": "base:Computer Systems",
+            "cost": 1
+          },
+          {
+            "key": "base:Computer Systems",
+            "cost": 2
+          },
+          {
+            "key": "base:Computer Systems",
+            "cost": 3
+          },
+          {
+            "key": "base:First Aid",
+            "cost": 1
+          },
+          {
+            "key": "base:First Aid",
+            "cost": 2
+          },
+          {
+            "key": "base:First Aid",
+            "cost": 3
+          },
+          {
+            "key": "base:Melee",
+            "cost": 1
+          },
+          {
+            "key": "base:Melee",
+            "cost": 2
+          },
+          {
+            "key": "base:Melee",
+            "cost": 3
+          },
+          {
+            "key": "base:Dodge",
+            "cost": 1
+          },
+          {
+            "key": "base:Dodge",
+            "cost": 2
+          },
+          {
+            "key": "base:Dodge",
+            "cost": 3
+          },
+          {
+            "key": "base:Initiative",
+            "cost": 1
+          },
+          {
+            "key": "base:Initiative",
+            "cost": 2
+          },
+          {
+            "key": "base:Awareness",
+            "cost": 1
+          },
+          {
+            "key": "base:Piloting",
+            "cost": 1
+          }
+        ],
+        "finalizationQueue": [],
+        "classGrantsApplied": true,
+        "raceGrantsApplied": true,
+        "classAttributeChoice": "",
+        "raceSkillChoices": [],
+        "raceAttributeChoice": "",
+        "racialSkillGrants": {},
+        "xithxGenderNoticeShown": false,
+        "freeAttributeUpgradeApplied": false,
+        "angilurosFreeWeaponsUsed": 0,
+        "manualInput": false,
+        "skillMethod": "manual",
+        "skillPackages": [
+          "",
+          ""
+        ],
+        "validation": {
+          "attributeSpent": 195,
+          "attributeBudget": 195,
+          "skillSpent": 35,
+          "skillBudget": 35
+        }
+      },
+      "fubs": {
+        "status": "not-activated",
+        "rolls": [],
+        "rerollUsed": false
+      },
+      "health": {
+        "current": 18,
+        "permanentBonus": 0
+      },
+      "gmAdjustments": {
+        "maximumHp": 0,
+        "exertionMax": 0,
+        "moveSpeed": 0,
+        "speed": 0,
+        "command": 0,
+        "damageReduction": 0
+      },
+      "resources": {
+        "exertionCurrent": 1,
+        "exertionMax": 1,
+        "reverence": 0,
+        "creditsBase": 265,
+        "mechanicalExperience": 0,
+        "dramaCards": 0,
+        "attributePoints": 0,
+        "skillPoints": 0
+      },
+      "presentation": {
+        "atbColor": "#f5b85b",
+        "iconRace": "kabuto",
+        "iconVariant": 1
+      },
+      "access": {
+        "pcCode": ""
+      },
+      "campaignLink": {
+        "roomCode": "",
+        "campaignName": "Explore Features",
+        "status": "linked",
+        "requestId": "",
+        "message": ""
+      },
+      "localInbox": [],
+      "session": {
+        "number": 1,
+        "freeRerollsUsed": {},
+        "marineHealingUsed": false,
+        "psychopathAwardsUsed": 0,
+        "tacticianReverenceGiven": 0,
+        "peacekeeperDramaCardsEarned": 0
+      },
+      "crew": [
+        {
+          "name": "",
+          "title": ""
+        },
+        {
+          "name": "",
+          "title": ""
+        },
+        {
+          "name": "",
+          "title": ""
+        }
+      ],
+      "weapons": [
+        {
+          "id": "showcase-kip-weapon",
+          "weaponId": "standard-sidearm",
+          "held": true
+        }
+      ],
+      "storedWeapons": [],
+      "items": [
+        {
+          "id": "showcase-kip-kit",
+          "name": "First Aid Kit",
+          "cost": 35,
+          "description": "One-use medical kit. In combat, First Aid begins a delayed treatment and improves the healing result.",
+          "special": "first-aid",
+          "catalogId": "first-aid-kit",
+          "quantity": 1,
+          "unitCost": 35,
+          "chargesMax": null,
+          "charges": null,
+          "chargeState": ""
+        }
+      ],
+      "storedItems": [],
+      "statuses": {
+        "intoxicated": false
+      },
+      "advantagesNotes": "",
+      "notes": "",
+      "computed": {
+        "speed": 6.6,
+        "commandWindow": 46.4,
+        "maximumHp": 18,
+        "moveSpeed": 4,
+        "damageReduction": 0,
+        "skills": {
+          "Computer Systems": 3.8,
+          "Engineering": 3.5,
+          "Hacking": 0,
+          "Piloting": 1.8,
+          "Sensor Systems": 0,
+          "Weapon Systems": 0,
+          "Deception": 0,
+          "First Aid": 3.2,
+          "Architecture": 0,
+          "Arts": 0,
+          "Astronomy": 0,
+          "Athletics": 0,
+          "Awareness": 1.2,
+          "Escape": 0,
+          "Caretaking": 0,
+          "Coordination": 0,
+          "Climb": 0,
+          "Common Knowledge": 0,
+          "Cooking": 0,
+          "Demolitions": 0,
+          "Impersonation": 0,
+          "Dodge": 3.3,
+          "Driving": 0,
+          "Etiquette": 0,
+          "Forgotten Languages": 0,
+          "Gambling": 0,
+          "Lore": 0,
+          "Taste & Smell": 0,
+          "Initiative": 2.6,
+          "Intimidation": 0,
+          "Insight": 0,
+          "Jump": 0,
+          "Politics": 0,
+          "Leadership": 0,
+          "Brute Force": 0,
+          "Lock-picking": 0,
+          "Mathematics": 0,
+          "Melee": 3,
+          "Navigate": 0,
+          "Persuasion": 0,
+          "Occult": 0,
+          "Pickpocket": 0,
+          "Projectile": 0,
+          "Psychology": 0,
+          "Religion": 0,
+          "Research": 0,
+          "Resist Distress": 0,
+          "Science": 0,
+          "Self-Control": 0,
+          "Showmanship": 0,
+          "Stealth": 0,
+          "Survival": 0,
+          "Swim": 0,
+          "Tame Animal": 0,
+          "Teaching": 0,
+          "Technology": 0,
+          "Vehicle Mechanics": 0,
+          "Weapon Mechanics": 0,
+          "Grappling": 0,
+          "Writing": 0
+        },
+        "defenseScoreModifier": 3,
+        "recurringHealingInterval": 0,
+        "recurringHealingAmount": 0,
+        "recurringHealingLabel": ""
+      }
+    }
+  ],
+  "npcs": [
+    {
+      "id": "showcase-clatter",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-rivet",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-voss",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-kettle",
+      "shipSide": "gm"
+    },
+    {
+      "id": "showcase-afterimage",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-basalt",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-lumen",
+      "shipSide": ""
+    },
+    {
+      "id": "showcase-morrow",
+      "shipSide": ""
+    }
+  ]
+}

@@ -9,3 +9,13 @@ body dialog.black-hole-console .sensor-coordinates{flex-shrink:0}
 body dialog.black-hole-console .sensor-controls>img{max-height:150px!important;flex-shrink:0;border:1px solid #8668a7;border-radius:4px}
 body dialog.black-hole-console .sensor-controls p{margin:0;line-height:1.4}
 body dialog.black-hole-console [data-fire]{background:#552d72;border-color:#d496ff;min-height:48px}
+@font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+body dialog.black-hole-console .sensor-controls :is(label,p,output,[data-fire]){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+body dialog.black-hole-console .black-hole-intensity{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+body dialog.black-hole-console [data-intensity]{--intensity-tone:#b345ff;grid-column:1/-1;width:100%;box-sizing:border-box;min-height:32px;padding:0;appearance:none;background:transparent;border:0;accent-color:var(--intensity-tone);cursor:pointer}
+body dialog.black-hole-console [data-intensity][data-insufficient="true"]{--intensity-tone:#ff404f}
+body dialog.black-hole-console [data-intensity]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:var(--intensity-tone)}
+body dialog.black-hole-console [data-intensity]::-webkit-slider-thumb{appearance:none;width:24px;height:24px;margin-top:-8px;border:2px solid #f5eaff;border-radius:50%;background:var(--intensity-tone)}
+body dialog.black-hole-console [data-intensity]::-moz-range-track{height:8px;border-radius:4px;background:var(--intensity-tone)}
+body dialog.black-hole-console [data-intensity]::-moz-range-thumb{width:20px;height:20px;border:2px solid #f5eaff;border-radius:50%;background:var(--intensity-tone)}
+body dialog.black-hole-console [data-intensity]:focus-visible{outline:2px solid #eee;outline-offset:3px}

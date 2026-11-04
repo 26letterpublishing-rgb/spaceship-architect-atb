@@ -6,6 +6,8 @@ test('personal effects use confirmed rolls, preserve clock pauses and survive ca
  const post=async(p,b,status=200)=>{const r=await fetch(base+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
  const demo=await post('/api/campaign/showcase/start',{}),auth={code:demo.code,token:demo.gmToken},gm=b=>post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,...b});
  const saved=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json()),initial=saved.campaign.encounter;
+ // Explicit two-enemy laboratory; fresh Explore intentionally assigns only one captain.
+ const laboratoryTarget=structuredClone(initial.units.find(u=>u.team==='npc'));laboratoryTarget.id='laboratory-target';laboratoryTarget.characterName='Laboratory Target';initial.units.push(laboratoryTarget);
  const ids=initial.units.filter(u=>u.team==='npc').slice(0,2).map(u=>u.id);assert.equal(ids.length,2);
  async function restore(configure){const c=structuredClone(saved.campaign),s=c.encounter;s.units=s.units.filter(u=>ids.includes(u.id));s.starships=[];s.shipPositions=[];s.shipDistances=[];s.arena=require('../combat-arena').normalize({width:40,height:10,floors:Array.from({length:400},(_,i)=>i)});s.fog={enabled:false};Object.assign(s,{activeId:null,activeAction:null,attackResolution:null,itemResolution:null,pausedForTurn:false,hardPaused:true,running:false,resumeAfterTurn:false,areaEffects:[]});s.units.forEach((u,i)=>Object.assign(u,{speed:1,atb:0,location:{arenaId:'surface',starshipId:'',square:41+i,mesh:4},currentHp:200,maximumHp:200,damageReduction:0,items:[],raceId:'',statuses:{},timedAction:null,delayedAction:null,weaponTimers:[],personalEffects:[],burning:null,defeatedAt:null}));configure(s,c);await post('/api/campaign/restore',{...auth,backup:{...saved,campaign:c}});}
  const actor=ids[0],target=ids[1];
@@ -91,13 +93,37 @@ test('personal effects use confirmed rolls, preserve clock pauses and survive ca
   for(const defender of [target,'second-target']){const attackId=s.attackResolution.id;assert.equal(s.attackResolution.defenderId,defender);s=await gm({action:'submitAttackRoll',id:defender,attackId,rollRole:'defender',score:100});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:10});if(defender===target)assert.equal(s.units.find(u=>u.id===actor).atb,100);}
   assert.equal(s.attackResolution,null);assert.equal(s.units.find(u=>u.id===actor).atb,0);
  });
- await t.test('Rubber bombs independently check each target in a 3x3 area and roll per-target wall damage',async()=>{
-  await restore(s=>{s.units[0].location.square=81;s.units[1].location.square=86;s.units.push({...structuredClone(s.units[1]),id:'rubber-second',location:{arenaId:'surface',starshipId:'',square:87,mesh:4}});s.activeId=actor;s.pausedForTurn=true;s.units[0].atb=100;s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'rubber',weaponId:'rubber-bouncy-bombs'},{inventoryId:'launcher',weaponId:'mine-launcher'}]);s.units[0].launcherAmmo={launcher:['rubber']};s.units[0].heldWeaponId='launcher';});
+ await t.test('3x Bomb retains saved ammo identity and resolves separate fixed-origin bursts at25/33/41 with restore and owner removal',async()=>{
+  await restore(s=>{s.units[0].location.square=81;s.units[1].location.square=86;s.activeId=actor;s.pausedForTurn=true;s.units[0].atb=100;s.units[0].thrownEffects=[];s.units[0].weapons=require('../combat-engine').normalizeWeaponRows([{inventoryId:'rubber',weaponId:'rubber-bouncy-bombs',name:'Rubber Bouncy Bombs'},{inventoryId:'launcher',weaponId:'mine-launcher'}]);s.units[0].launcherAmmo={launcher:['rubber']};s.units[0].heldWeaponId='launcher';});
   let s=await gm({action:'playerCombatAction',id:actor,kind:'fire',targetId:target});
-  let attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:100});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:1});
-  assert.equal(s.attackResolution.defenderId,'rubber-second');assert.equal(s.units.find(u=>u.id===target).currentHp,200);
-  attackId=s.attackResolution.id;s=await gm({action:'submitAttackRoll',id:'rubber-second',attackId,rollRole:'defender',score:1});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:100});assert.equal(s.attackResolution.plan.damageFormula,'1D8');assert.equal(s.attackResolution.plan.damageScale,10);
-  s=await gm({action:'submitAttackDamage',id:actor,attackId,rolledDamage:4});assert.equal(s.attackResolution.damageSummary.applied,40);s=await gm({action:'confirmNpcDamage',attackId,finalDamage:40});assert.equal(s.units.find(u=>u.id==='rubber-second').currentHp,160);assert.equal(s.units.find(u=>u.id===target).currentHp,200);assert.equal(s.attackResolution,null);
+  let attackId=s.attackResolution.id;assert.equal(s.attackResolution.tripleBomb,true);assert.equal(s.attackResolution.additionalAttack,null);
+  s=await gm({action:'submitAttackRoll',id:target,attackId,rollRole:'defender',score:1});s=await gm({action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:100});
+  assert.equal(s.attackResolution,null);let owner=s.units.find(u=>u.id===actor);assert.equal(owner.thrownEffects.length,1);assert.equal(owner.thrownEffects[0].remaining,25);assert.equal(owner.weapons.some(w=>w.inventoryId==='rubber'),false);assert.deepEqual(owner.launcherAmmo.launcher,[]);
+  await post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,action:'submitAttackRoll',id:actor,attackId,rollRole:'attacker',score:100},409);
+  const reload=async()=>{const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());await post('/api/campaign/restore',{...auth,backup});return backup;};
+  const paused=await reload();assert.equal(paused.campaign.encounter.units.find(u=>u.id===actor).thrownEffects[0].remaining,25);
+  await new Promise(r=>setTimeout(r,150));const still=await reload();assert.equal(still.campaign.encounter.units.find(u=>u.id===actor).thrownEffects[0].remaining,25,'wall time while paused cannot consume fuse');
+  for(let i=0;i<24;i++)s=await gm({action:'step'});assert.equal(s.attackResolution,null);s=await gm({action:'step'});assert.equal(s.attackResolution.plan.damageFormula,'3D8');
+  attackId=s.attackResolution.id;await reload();s=await gm({action:'submitAttackDamage',id:actor,attackId,rolledDamage:10});assert.equal(s.units.find(u=>u.id===target).currentHp,150);assert.equal(s.units.find(u=>u.id===actor).currentHp,200);
+  await post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,action:'submitAttackDamage',id:actor,attackId,rolledDamage:10},409);
+  s=await gm({action:'removeUnit',id:actor});let next=s.areaEffects.find(e=>e.kind==='detached-ordnance').thrownEffects[0];assert.equal(next.remaining,8);assert.equal(next.origin.square,86);assert.equal(next.burst,2);
+  const backup=await reload();backup.campaign.encounter.units.find(u=>u.id===target).location.square=87;await post('/api/campaign/restore',{...auth,backup});
+  for(const expected of [110,70]){for(let i=0;i<7;i++)s=await gm({action:'step'});assert.equal(s.attackResolution,null);s=await gm({action:'step'});assert.equal(s.attackResolution.personalEffect.origin.square,86);assert.equal(s.attackResolution.plan.damageFormula,'3D8');s=await gm({action:'submitAttackDamage',id:target,attackId:s.attackResolution.id,rolledDamage:10});assert.equal(s.units.find(u=>u.id===target).currentHp,expected);}
+  assert.ok(!(s.areaEffects||[]).some(e=>e.thrownEffects?.length));
+ });
+ await t.test('legacy pending Bouncy damage finishes without creating a new sequence',async()=>{
+  await restore(s=>{s.activeId=actor;s.pausedForTurn=true;s.units[0].thrownEffects=[];s.attackResolution={id:'legacy-bounce',phase:'damage',attackerId:actor,defenderId:target,attackerName:'Attacker',weaponName:'Rubber Bouncy Bombs',weaponId:'rubber-bouncy-bombs',plan:{damageFormula:'1D8',damageScale:10,damageFormulaSupported:true},attackResult:{hit:true,critical:false}};});
+  let s=await gm({action:'submitAttackDamage',id:actor,attackId:'legacy-bounce',rolledDamage:4});assert.equal(s.attackResolution.damageSummary.applied,40);s=await gm({action:'confirmNpcDamage',attackId:'legacy-bounce',finalDamage:40});assert.equal(s.units.find(u=>u.id===target).currentHp,160);assert.equal(s.units.find(u=>u.id===actor).thrownEffects.length,0);
+ });
+ await t.test('3x Bomb does not damage escaped ships or queue later bursts there',async()=>{
+  await restore(s=>{const ship=structuredClone(initial.starships[0]);ship.escapedAt='escaped';s.starships=[ship];s.units[1].location={starshipId:ship.id,square:ship.ship.gridCells[0],mesh:4};s.units[0].thrownEffects=[{id:'gone-burst',sequenceId:'gone',burst:1,weaponId:'triple-bomb-burst',origin:structuredClone(s.units[1].location),remaining:1,total:25}];});
+  const s=await gm({action:'step'});assert.equal(s.attackResolution,null);assert.equal(s.units.find(u=>u.id===target).currentHp,200);assert.equal(s.units.find(u=>u.id===actor).thrownEffects.length,0);
+ });
+ await t.test('ending combat clears remaining3xBomb bursts and a pending blast cannot reappear',async()=>{
+  await restore(s=>{s.units[0].thrownEffects=[{id:'end-burst',sequenceId:'end',burst:2,weaponId:'triple-bomb-burst',origin:structuredClone(s.units[1].location),remaining:1,total:8}];});
+  let s=await gm({action:'step'});assert.equal(s.attackResolution.personalEffect.tripleBomb,true);const attackId=s.attackResolution.id;
+  s=await gm({action:'clearEncounter',confirmCampaignName:saved.campaign.name,expectedEncounterId:s.encounterId});assert.equal(s.attackResolution,null);assert.ok(s.units.every(u=>!u.thrownEffects?.length));assert.ok(!(s.areaEffects||[]).some(e=>e.thrownEffects?.length));
+  await post('/api/action',{roomCode:demo.code,gmToken:demo.gmToken,action:'submitAttackDamage',id:actor,attackId,rolledDamage:10},409);
  });
  await t.test('GM net adjustment rejects players and persists the chosen difficulty',async()=>{
   await restore(s=>{s.units[0].net={difficulty:10};});

@@ -70,3 +70,12 @@ body .map-focus{position:fixed!important;inset:10px!important;margin:0!important
 .space-object-list{margin-top:10px;padding-top:10px;border-top:1px solid #3a5464}.space-object-editor [data-object-list]{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px;max-height:240px;overflow:auto}.space-object-editor [data-object-list]>article{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px;background:#071821;border:1px solid #304f61;border-radius:5px}.space-object-editor [data-object-list]>article>strong{width:100%;font-size:13px;color:#e5f3ff}.space-object-editor [data-object-list]>article>small{font-size:11px;color:#bdd0dd;flex:1}.space-object-editor [data-object-list] label{min-width:70px;font-size:10px}.space-object-editor [data-object-list] input{width:70px;min-height:29px;padding:4px}.space-object-editor [data-object-list] button{min-height:29px;min-width:0;padding:5px 8px;color:#ffd4da;background:#532d36;border:1px solid #915660;border-radius:4px;font:12px Arial;box-shadow:none}.space-object-editor [data-object-list] button:disabled{opacity:.5;cursor:not-allowed}
 
 .map-action-modes{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.map-action-modes button{border-radius:4px;padding:7px 10px;min-height:32px;font-size:12px;line-height:1.2}.map-action-modes button[aria-pressed=true]{background:#246847;color:#fff;border-color:#7cdea7;box-shadow:inset 0 0 0 1px #7cdea7,0 0 8px #62e49a44}.map-action-modes button[aria-pressed=false]{background:#30383e;color:#dce8ee;box-shadow:none}
+
+/* Crew route choices reuse the active green toggle style. */
+.map-action-modes>button[data-crew-route]{border-radius:999px}
+
+/* The ship planner reuses Surface's compact green destination confirmation. */
+.ship-navigation-dialog .ship-confirm-map{position:relative}
+.ship-navigation-dialog .ship-confirm-map>.ship-move-confirm{position:absolute;z-index:50;width:64px;height:64px;min-width:64px;min-height:64px;margin:0;padding:6px;border-radius:50%;white-space:normal;line-height:1.1;font-size:12px;background:#145e3c;color:#eaffee;border:2px solid #64e39a;box-shadow:0 2px 6px #0009;touch-action:manipulation;transform:none}
+.ship-navigation-dialog .ship-confirm-map>.ship-move-confirm[hidden]{display:none!important}
+.ship-navigation-dialog .ship-confirm-map>.ship-move-confirm:focus-visible{outline:3px solid #d19aff;outline-offset:2px}

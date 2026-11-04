@@ -293,3 +293,36 @@ test('real gameplay during crew persistence retains roster through a fresh serve
   assert.equal(Object.hasOwn(restoredShip.ship, 'crewNpcUnitIds'), false);
   assert.equal(restoredShip.auState.current, expectedAu);
 });
+
+test('Explore crew transactions retain one campaign reference through repeated removal and reassignment', async () => {
+  const api = new CampaignApi({ store: { get: async () => null } });
+  const post = async (route, body) => {
+    let result;
+    await api.handle({ method: 'POST' }, {}, new URL('http://test/api/campaign/' + route), async () => body,
+      (_, status, payload) => { result = { status, payload }; });
+    return result;
+  };
+  const created = await post('showcase/start', {});
+  assert.equal(created.status, 200);
+  const { code, gmToken: token } = created.payload, canonical = await api.campaign(code);
+  const ship = canonical.starships.find(s => s.controlType === 'gm'), ids = canonical.npcRoster.filter(n=>!n.allyNpc).slice(0,4).map(n=>n.id);
+  assert.equal(ids.length, 4);
+  const change = async crewNpcUnitIds => {
+    const result = await post('starship/crew', { code, token, starshipId: ship.id, crewCharacterIds: [], crewNpcUnitIds });
+    assert.equal(result.status, 200, JSON.stringify(result.payload));
+    assert.equal(await api.campaign(code), canonical);
+    assert.equal(api.campaignCache.get(code), canonical);
+    assert.deepEqual(canonical.starships.find(s => s.id === ship.id).crewNpcUnitIds, crewNpcUnitIds);
+  };
+  await change(ids); // Keep a genuine four-removal regression despite the new one-captain default.
+  for (let i = 1; i <= ids.length; i++) await change(ids.slice(i));
+  assert.equal(canonical.npcRoster.length, 8, 'removing preparation crew does not delete campaign NPCs');
+  await change(ids);
+  const pcToken = api.newSession(code, 'character', canonical.characters[0].id);
+  const denied = await post('starship/crew', { code, token: pcToken, starshipId: ship.id, crewCharacterIds: [], crewNpcUnitIds: [] });
+  assert.equal(denied.status, 403);
+  assert.deepEqual(canonical.starships.find(s => s.id === ship.id).crewNpcUnitIds, ids);
+  const regenerated = await post('showcase/start', {});
+  assert.notEqual(regenerated.payload.code, code);
+  assert.equal((await api.campaign(regenerated.payload.code)).npcRoster.length, 8);
+});

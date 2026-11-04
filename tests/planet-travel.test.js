@@ -46,3 +46,46 @@ test('hover burn strengthens with thrust, crossfades without blank frames and re
  assert.notEqual(motion.hover(1,0,0).mix,motion.hover(1,0,1).mix);
  assert.deepEqual(motion.hover(1,0,0,true),motion.hover(1,10,3,true));
 });
+
+const maps=require('../ship-map-core');
+
+function runway(ship){
+ const hover=ship.ship.sicInventory.find(i=>maps.definition(i.type).landing==='hover');hover.disabled=true;
+ // Test-only propulsion meets the existing Aerofoil minimum Move 5.
+ ship.ship.sicInventory.push({id:'runway-thruster',type:'exhaust-thruster-2',status:'installed'});
+ ship.ship.placements.push({sicId:'runway-thruster',cell:ship.ship.gridCells[0]-maps.gridColumns(ship.ship)});
+ ship.ship.sicInventory.push({id:'test-aerofoil',type:'decent-aerofoil',status:'installed'},{id:'test-wheels',type:'land-wheels',status:'installed'});
+ ship.ship.placements.push({sicId:'test-aerofoil',cell:ship.ship.gridCells[0]},{sicId:'test-wheels',mountCells:Array.from({length:maps.gridColumns(ship.ship)*maps.gridRows(ship.ship)},(_,n)=>n).filter(n=>maps.exteriorPlacement(ship.ship,'land-wheels',n,'test-wheels')).slice(0,4)});
+ return hover;
+}
+
+function landingFixture(){
+ const f=fixture();runway(f.ship);const s=f.c.starmaps,planet=require('../campaign-planets'),p=s.localPositions.pc;delete s.partyJourney;delete p.surfaceHex;
+ s.party={...f.p,shipId:f.ship.id,transport:false,awaitingLanding:true,landingOwnerId:'nova',regionId:''};
+ const ctx=planet.context(f.c,s.party);planet.surface(ctx.star,ctx.planet).hexes['100']={landingStrip:true};
+ f.send('planetLand',{...s.party,hex:'100'},false);return {...f,world:ctx.star.surfaces[ctx.planet.id]};
+}
+test('strip removal midlanding keeps ship and selection, explains recovery, and permits retry after reload',()=>{
+ const f=landingFixture(),s=f.c.starmaps,j=s.partyJourney,oldHex=s.party.hex;f.world.hexes['100'].landingStrip=false;
+ travel.tick(f.c,j.clockAt+5000,true);assert.equal(j.remaining,4);
+ const c=JSON.parse(JSON.stringify(f.c));travel.tick(c,j.clockAt+9000,false);assert.equal(c.starmaps.partyJourney,undefined);assert.equal(c.starmaps.party.awaitingLanding,true);assert.equal(c.starmaps.party.hex,oldHex);assert.equal(c.starmaps.party.landingOwnerId,'nova');assert.equal(c.starmaps.localPositions.pc.surfaceHex,undefined);assert.equal(c.starships.length,1);
+ assert.ok(c.privateNotes.some(n=>n.characterId==='nova'&&/Landing could not complete.*Landing Strip/.test(n.message)));assert.ok(c.privateNotes.some(n=>n.direction==='to-gm'&&/Landing could not complete/.test(n.message)));
+ const count=c.privateNotes.length;travel.tick(c,j.clockAt+10000,false);assert.equal(c.privateNotes.length,count,'no repeated notice');
+ const ctx=require('../campaign-planets').context(c,c.starmaps.party);ctx.star.surfaces[ctx.planet.id].hexes['100'].landingStrip=true;
+ galaxy.command(c,{kind:'planetLand',...c.starmaps.party,hex:'100',receipt:randomUUID()},{gm:false,characterId:'nova',combatActive:false});const retry=c.starmaps.partyJourney;travel.tick(c,retry.clockAt+4000,false);assert.equal(c.starmaps.localPositions.pc.surfaceHex,'100');assert.equal(c.starmaps.party.awaitingLanding,false);
+});
+test('landing equipment failure retains retry state; restored Hover permits an unmarked site',()=>{
+ const f=landingFixture();f.ship.ship.sicInventory.find(i=>i.id==='test-aerofoil').disabled=true;const j=f.c.starmaps.partyJourney;travel.tick(f.c,j.clockAt+4000,false);assert.equal(f.c.starmaps.party.awaitingLanding,true);assert.ok(f.c.privateNotes.some(n=>/Restore the ship/.test(n.message)));
+ f.ship.ship.sicInventory.find(i=>maps.definition(i.type).landing==='hover').disabled=false;
+ f.send('planetLand',{...f.c.starmaps.party,hex:'101'},false);const next=f.c.starmaps.partyJourney;travel.tick(f.c,next.clockAt+4000,false);assert.equal(f.c.starmaps.localPositions.pc.surfaceHex,'101');
+});
+
+
+test('regional strip landing persists the exact site, and erased or moved destinations cannot teleport the ship',()=>{
+ const f=landingFixture(),s=f.c.starmaps;delete s.partyJourney;delete f.world.hexes['100'].landingStrip;
+ f.send('planetRegion',{hex:'100',name:'Runway Region'});f.send('planetPaint',{regionId:'100',edits:[{hex:'82',landingStrip:true}]});
+ f.send('planetLand',{...s.party,hex:'100'},false);assert.equal(s.partyJourney.to.regionId,'100');assert.equal(s.partyJourney.to.regionHex,'82');assert.equal(s.partyJourney.total,4);
+ const c=JSON.parse(JSON.stringify(f.c)),j=c.starmaps.partyJourney;travel.tick(c,j.clockAt+4000,false);
+ assert.equal(c.starmaps.localPositions.pc.regionId,'100');assert.equal(c.starmaps.localPositions.pc.regionHex,'82');assert.equal(c.starmaps.party.regionHex,'82');assert.equal(boarding.atShip(c,c.starships[0]),true);
+ const old=s.partyJourney;f.send('planetPaint',{regionId:'100',edits:[{hex:'82',landingStrip:false}]});f.send('planetPaint',{regionId:'100',edits:[{hex:'83',landingStrip:true}]});travel.tick(f.c,old.clockAt+4000,false);assert.equal(s.party.awaitingLanding,true);assert.equal(s.localPositions.pc.surfaceHex,undefined);
+});

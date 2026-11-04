@@ -342,7 +342,12 @@ body.paired-combat-layout .paired-ship-summary .crew-automation-controls{display
 body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-crew-status{grid-column:1/-1;grid-row:2}
 body.paired-combat-layout.paired-combat-layout.paired-combat-layout [data-single-pc=true] .paired-ship-summary>.ship-au-panel{grid-row:3}
 body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:440px!important}
-body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb>.tactical-ring-group{transform:translateY(-14.5%)}
+/* Reserve the projected ring and its controls, not the untransformed SVG square.
+   Keep the existing visual offset on the unchanged inner view; normal grid flow
+   now places the map below the larger of this footprint and the live clock. */
+body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb{container-type:inline-size}
+body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb>.tactical-ring-group{--paired-ring-size:min(280px,calc(100cqw - 114px));display:block;height:calc(var(--paired-ring-size) * .8);transform:none}
+body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) .ship-lane-atb>.tactical-ring-group>.tactical-ring-view{transform:translateY(calc(var(--paired-ring-size) * -.145))}
 
 /* Existing space-map actions stay reachable at the viewport's bottom center. */
 body.paired-combat-layout .combat-space-map>.space-map>header{top:auto;bottom:12px;left:50%;right:auto;transform:translateX(-50%);display:flex;gap:5px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:3}
@@ -357,7 +362,7 @@ body.paired-combat-layout .paired-ship-summary>.ship-summary-stats{flex:0 0 auto
 
 /* Held-character controls sit above their own ring without reserving a row. */
 body.paired-combat-layout .ship-lane-atb{position:relative}
-body.paired-combat-layout .ship-ring-holds{position:absolute;top:0;left:calc((100% - 114px)/2);transform:translateX(-50%);z-index:4;max-width:calc(100% - 114px);width:max-content;max-height:44px;overflow:auto;display:flex;flex-direction:column;gap:2px;text-align:center;background:#081925ed;border-radius:5px}
+body.paired-combat-layout .ship-ring-holds{position:absolute;top:0;left:calc((100% - 114px)/2);transform:translateX(-50%);z-index:4;max-width:calc(100% - 114px);width:max-content;max-height:44px;overflow:auto;display:flex;flex-direction:column;gap:2px;text-align:center;background:transparent;border-radius:0}
 body.paired-combat-layout [data-ship-side=right]>.ship-lane-atb .ship-ring-holds{left:calc((100% + 114px)/2)}
 body.paired-combat-layout .ship-ring-holds:empty{display:none}
 body.paired-combat-layout .ship-ring-holds .ship-hold-control{font-size:11px;line-height:1.2;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:3px;padding:2px 4px}
@@ -373,3 +378,45 @@ body.paired-combat-layout.paired-combat-layout.paired-combat-layout .paired-cloc
 body.paired-combat-layout.paired-combat-layout.paired-combat-layout #gmPanicPause.first-combat-engagement{min-height:44px;padding:4px 8px}
 body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:300px!important}
 @media(max-width:1440px){body.paired-combat-layout.paired-combat-layout.paired-combat-layout .combat-space-map .space-map{height:240px!important}}
+
+/* GM knowledge perspective remains beside recovery controls, below their toolbar. */
+.paired-combat-recovery>[data-knowledge-picker]{display:grid;gap:4px;margin-top:8px;font-size:12px}
+
+/* Tall side summaries must not distribute their extra height above the map. */
+body.paired-combat-layout.paired-combat-layout.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]){grid-template-rows:max-content max-content minmax(min-content,1fr)}
+
+/* Keep embedded PC room actions available without the spare heading-height stack. */
+body.embedded-player.paired-combat-layout #initiativePanel>.section-head:has(#playerTopControls:not(.hidden)){min-height:0;height:auto;margin:0;padding:0 0 3px;gap:4px;align-items:center}
+body.embedded-player.paired-combat-layout #playerTopControls{gap:6px;margin:0;align-items:center}
+body.embedded-player.paired-combat-layout #playerTopControls button{min-height:26px;padding:3px 10px;font-size:12px}
+body.embedded-player.paired-combat-layout #playerTopControls .player-room-code{min-height:0;padding:2px 6px;line-height:1.1}
+
+/* Each floorplan owns its bottom-center controls; no separate top strip. */
+body.paired-combat-layout.paired-combat-layout .ship-lane-map{position:relative;grid-template-rows:clamp(360px,42vw,600px)}
+body.paired-combat-layout.paired-combat-layout .ship-lane-map>.inline-map-stage{grid-row:1}
+body.paired-combat-layout.paired-combat-layout .ship-lane-map>.inline-map-footer{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);z-index:5;justify-content:center;padding:3px 6px;column-gap:0}
+body.paired-combat-layout.paired-combat-layout .ship-lane-map>.inline-map-toolbar{padding-block:0;border-block:0;gap:0}
+body.paired-combat-layout.paired-combat-layout .ship-lane-map .inline-map-move-controls{bottom:64px}
+/* Bars reuse the ring's allocated height, rather than pushing maps down. */
+body.paired-combat-layout .ship-lane-atb{container-type:inline-size}
+body.paired-combat-layout .ship-lane-bars{display:block;height:calc(min(280px,100cqw - 114px) * .8);min-height:0;overflow:auto;scrollbar-gutter:auto}
+body.paired-combat-layout .ship-combat-columns:not([data-single-pc=true]) [data-ship-row="0"] .ship-lane-bars{height:max(calc(min(280px,100cqw - 114px) * .8),var(--clock-content-height,0px))}
+body.paired-combat-layout [data-single-pc=true] .ship-lane-bars{height:min(280px,calc(100cqw - 114px))}
+body.paired-combat-layout .ship-lane-bars .unit-card{min-width:0;padding:6px;margin:0 0 4px}
+body.paired-combat-layout .ship-lane-bars .unit-name{font-size:14px}
+body.paired-combat-layout .ship-lane-bars .unit-top{display:grid;grid-template-columns:minmax(0,1fr) 48px!important;gap:3px;align-items:start}
+body.paired-combat-layout .ship-lane-bars .unit-owner{font-size:11px}
+body.paired-combat-layout .ship-lane-bars .unit-readout{min-width:40px;margin-left:auto;margin-top:38px;line-height:1.1}
+body.paired-combat-layout .ship-lane-bars .unit-readout strong{font-size:18px}
+body.paired-combat-layout .ship-lane-bars .unit-actions{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+body.paired-combat-layout .ship-lane-bars .unit-actions button{width:auto;min-width:0;min-height:25px;padding:3px 5px;font-size:11px}
+body.paired-combat-layout .ship-lane-bars .command-edit{min-width:0;width:48px;flex:0 0 48px;font-size:10px;gap:2px;line-height:1.1}
+body.paired-combat-layout .ship-lane-bars input{width:48px;min-height:24px;padding:2px;font-size:12px}
+body.paired-combat-layout .ship-lane-bars .compact-speed{width:48px}
+body.paired-combat-layout .ship-lane-bars .meter{height:16px;min-height:16px;margin-top:3px}
+body.paired-combat-layout .ship-lane-bars .held-weapon-readout{padding:2px 4px;margin:2px 0;font-size:11px}
+body.paired-combat-layout .ship-lane-bars .command-bar{height:14px;margin-top:2px;font-size:10px}
+body.paired-combat-layout:not(.ring-view-mode) .ship-ring-holds{display:none}
+
+/* Fit inside the visible map area above its measured bottom control overlay. */
+body.paired-combat-layout .ship-lane-map .inline-map-viewport{box-sizing:border-box;padding-bottom:var(--interior-bottom-inset,0px)}

@@ -1,13 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const maps=require('../ship-map-core'),power=require('../ship-power'),drones=require('../ship-drones'),sensors=require('../ship-sensors'),targets=require('../ship-targets'),delays=require('../delay-rules');
 const fixture=require('./helpers/crew-room-fixture.cjs');
-test('all Repair Drone grades use printed dice, defenses and thresholds, shared timing, serializable rolls and no overflow healing',()=>{
+test('all Repair Drone grades use current dice, defenses and thresholds, shared timing, serializable rolls and no overflow healing',()=>{
  for(let tier=1;tier<=5;tier++){
   const f=fixture(),type='repair-drone-'+tier,d=maps.definition(type);
   f.ship.ship.sicInventory.push({id:'bay',type});f.ship.ship.placements.push({sicId:'bay',cell:35});
   f.ship.currentHullHp=100;f.ship.maximumHullHp=200;drones.reconcile(f.room);
   const drone=f.ship.ship.droneState.drones.bay,interval=100/delays.calculate(delays.repairDroneSettings(tier)).rate;
-  assert.equal(d.price,450+tier*300);assert.equal(d.repairDie,2+tier*2);assert.equal(d.masking,10+tier*2);assert.equal(d.threshold,11+tier*3);
+  assert.equal(d.price,450+tier*300);assert.equal(d.repairDie,2+tier*2);assert.equal(d.masking,10+tier*2);assert.equal(d.threshold,6+tier*3);
   drones.advance(f.room,interval-.01,()=>{throw Error('Early repair');});
   const restored=JSON.parse(JSON.stringify(f.room));let calls=0;
   drones.advance(restored,.01,sides=>{calls++;assert.equal(sides,d.repairDie);return sides;});
@@ -53,5 +53,5 @@ test('Backup Generator keeps its three EN while impaired, stops when disabled or
 test('detected upgraded drones retain correct public grade and Defense without exposing owner interiors',()=>{
  const f=fixture();f.ship.ship.sicInventory.push({id:'bay',type:'repair-drone-5'});f.ship.ship.placements.push({sicId:'bay',cell:35});f.ship.currentHullHp=100;drones.reconcile(f.room);
  const drone=f.ship.ship.droneState.drones.bay;sensors.refresh(f.room);const visible=sensors.view(f.room,f.ship.id).starships.find(s=>s.id===drone.id);
- assert.equal(visible.droneTier,5);assert.equal(visible.defenseScore,20);assert.equal(visible.maximumHullHp,26);assert.equal(visible.droneSprite,'repair-drone-5-sprite.webp');assert.deepEqual(visible.ship.sicInventory,[]);
+ assert.equal(visible.droneTier,5);assert.equal(visible.defenseScore,20);assert.equal(visible.maximumHullHp,21);assert.equal(visible.droneSprite,'repair-drone-5-sprite.webp');assert.deepEqual(visible.ship.sicInventory,[]);
 });

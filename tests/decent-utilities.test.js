@@ -1,12 +1,21 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const maps=require('../ship-map-core'),power=require('../ship-power'),stations=require('../station-access'),utilities=require('../ship-utilities'),engine=require('../combat-engine');
 const {CampaignApi}=require('../campaign-api');
-test('every local page script is available through the public asset allowlist',()=>{
+test('every local page script is available through the static allowlist or verified dynamic endpoint',async()=>{
   const fs=require('node:fs'),path=require('node:path'),{resolvePublicAsset}=require('../public-assets'),root=path.resolve(__dirname,'..');
+  let dynamicReferences=0;
   for(const file of fs.readdirSync(root).filter(f=>f.endsWith('.html')))for(const match of fs.readFileSync(path.join(root,file),'utf8').matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/g)){
     const url=new URL(match[1],'http://localhost/');if(url.origin!=='http://localhost')continue;
+    if(url.pathname==='/runtime-config.js'){dynamicReferences++;continue;}
     assert.ok(resolvePublicAsset(root,url.pathname),`${file} must be able to load ${url.pathname}`);
   }
+  assert(dynamicReferences>0);
+  const {spawn}=require('node:child_process'),data=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'sa-runtime-config-'));
+  const child=spawn(process.execPath,['server.js'],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:data,NODE_ENV:'development',SA_APP_MODE:'',SA_DEBUG_TOOLS:'',SA_RELEASE_PUBLIC_DIR:''},stdio:['ignore','pipe','pipe']});
+  try{
+    const base=await new Promise((resolve,reject)=>{let errors='';child.stderr.on('data',c=>errors+=c);const timer=setTimeout(()=>{child.kill();reject(Error('Runtime config server timeout '+errors));},15000);child.once('exit',()=>{clearTimeout(timer);reject(Error('Runtime config server exited '+errors));});child.stdout.on('data',c=>{const address=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(address){clearTimeout(timer);resolve(address);}});});
+    for(const method of ['GET','HEAD']){const response=await fetch(base+'/runtime-config.js',{method});assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/javascript/);assert.equal(response.headers.get('cache-control'),'no-store');const text=await response.text();if(method==='GET'){const context={window:{}};require('node:vm').runInNewContext(text,context);assert.equal(context.window.SARuntimeConfig.debugTools,true);}else assert.equal(text,'');}
+  }finally{if(child.exitCode===null)await new Promise(resolve=>{child.once('exit',resolve);child.kill();});}
 });
 const hull=()=>maps.rectangleCells({},105,4,4);
 function hover(){return {gridCells:hull(),sicInventory:[{id:'hover',type:'decent-hover'}],placements:[{sicId:'hover',cell:85,mountCells:[85,109,188,164]}]};}
@@ -30,7 +39,7 @@ test('Aerofoil checks hull mirrors, not internal equipment or construction-zone 
   const ship={gridCells:hull(),sicInventory:[{id:'wings',type:'decent-aerofoil'},{id:'nut',type:'nutritional-supplement'}],placements:[{sicId:'wings',cell:105},{sicId:'nut',cell:108}]};
   assert.match(maps.exteriorError(ship),/Land Wheels/);ship.sicInventory.push({id:'wheels',type:'land-wheels'});ship.placements.push({sicId:'wheels',cell:85,mountCells:[85,109,188,164]});
   assert.deepEqual(maps.hullSymmetry(ship),{horizontal:true,vertical:true,symmetric:true});
-  assert.equal(maps.exteriorError(ship),'');assert.equal(power.demand({ship}),6);assert.equal(maps.buildLayout(ship).footprint.size,5);
+  assert.equal(maps.exteriorError(ship),'');assert.equal(power.demand({ship}),3);assert.equal(maps.buildLayout(ship).footprint.size,5);
   ship.gridCells=ship.gridCells.filter(n=>n!==105);assert.equal(maps.hullSymmetry(ship).symmetric,false);assert.match(maps.exteriorError(ship),/symmetrical/);
   ship.gridCells=hull().filter(n=>![105,108].includes(n));assert.equal(maps.hullSymmetry(ship).vertical,true);
   ship.gridCells=hull().filter(n=>![105,165].includes(n));assert.equal(maps.hullSymmetry(ship).horizontal,true);

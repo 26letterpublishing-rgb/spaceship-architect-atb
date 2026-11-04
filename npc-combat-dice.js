@@ -53,8 +53,9 @@ function roll({ sides, title, subtitle, fusion, flat = 0, skill = 0 }) {
 }
 
 window.SANpcDice = {
-  rollCheck({ sides, skill, title }) {
-    return roll({ sides, skill, title, subtitle: `${sides.map((die) => `D${die}`).join(" + ")} | top two + ${Number(skill || 0).toFixed(1)}`, fusion: true });
+  rollCheck({ sides, skill, title, exertion = 0 }) {
+    sides=[...sides,...Array(exertion).fill(12)];
+    return roll({ sides, skill, flat:exertion, title, subtitle: `${sides.map((die) => `D${die}`).join(" + ")} | top two + ${Number(skill || 0).toFixed(1)}${exertion ? ` + ${exertion} Exertion` : ""}`, fusion: true });
   },
   rollDamage({ sides, flat, title }) {
     return roll({ sides, flat, title, subtitle: "Add every die. No fusion.", fusion: false });

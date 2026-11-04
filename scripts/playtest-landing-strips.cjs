@@ -1,0 +1,53 @@
+'use strict';
+// Owned production server; synchronous packet replay separates rendering from network latency.
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict'),{spawn}=require('node:child_process');
+const {chromium}=require('C:/Users/zombi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(__dirname,'..'),phase='landing-strip',out=process.env.SA_LANDING_OUT||fs.mkdtempSync(path.join(os.tmpdir(),'sa-landing-strip-'));
+fs.mkdirSync(out,{recursive:true});
+(async()=>{let child,browser;const result={phase,rows:[],errors:[],viewport:{width:1920,height:1080},zoom:1,deviceScaleFactor:1};try{
+ const data=fs.mkdtempSync(path.join(os.tmpdir(),'sa-surface-data-'));
+ const boot="const net=require('net'),listen=net.Server.prototype.listen;net.Server.prototype.listen=function(...a){if(typeof a[0]==='object')a[0]={...a[0],host:'127.0.0.1'};else a[1]='127.0.0.1';return listen.apply(this,a)};require('./server.js')";
+ child=spawn(process.execPath,['-e',boot],{cwd:root,windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:data},stdio:['ignore','pipe','pipe']});
+ fs.writeFileSync(path.join(out,'owned-process.json'),JSON.stringify({pid:child.pid,data,parentPid:process.pid}));
+ const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('startup timeout')),15000);child.stdout.on('data',b=>{const m=String(b).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/);if(m){clearTimeout(timer);resolve(m[1]);}});});result.base=base;
+ browser=await chromium.launch({channel:'chrome',headless:true,args:['--mute-audio']});result.browser=browser.version();
+ const page=await browser.newPage({viewport:result.viewport,deviceScaleFactor:1});page.on('pageerror',e=>result.errors.push(e.message));
+
+ const post=async(route,body)=>{const r=await fetch(base+'/api/campaign/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),j=await r.json();assert.ok(r.ok,JSON.stringify(j));return j;};
+ const show=await post('showcase/start',{});
+ await page.goto(base+'/');await page.evaluate(s=>sessionStorage.setItem('sa-gm-token-'+s.code,s.gmToken),show);await page.goto(base+'/gm.html?campaign='+show.code);await page.locator('[data-tab=campaign]').click();await page.waitForFunction(()=>window.SACampaignNavigationUI?.context()?.data?.maps?.length);
+ const ids=await page.evaluate(()=>{const c=SACampaignNavigationUI.context(),m=c.data.maps[0],s=m.stars.find(s=>s.system?.some(p=>p.kind==='planet')),p=s.system.find(p=>p.kind==='planet');return {mapId:m.id,starId:s.id,planetId:p.id};});
+ const command=(kind,extra={})=>post('v03/starmap',{code:show.code,token:show.gmToken,receipt:require('crypto').randomUUID(),...ids,kind,...extra});
+ await command('planetHex',{hex:'100',label:'Owned Runway QA',description:'Retained public description',gmNotes:'PRIVATE STRIP QA',terrain:'desert',city:true});await command('planetStart',{hex:'100'});
+ const open=async()=>{await page.evaluate(ids=>{const c=SACampaignNavigationUI.context(),m=c.data.maps.find(m=>m.id===ids.mapId),s=m.stars.find(s=>s.id===ids.starId),p=s.system.find(p=>p.id===ids.planetId);SACampaignNavigationUI.openPlanet(c,m,s,p);},ids);await page.getByRole('button',{name:'Edit Locations',exact:true}).click();await page.locator('[data-hex="100"]').press('Enter');};
+ const focus=async(hex,regional=false)=>{await page.evaluate(({hex,regional})=>SAPlanetSurfaces.focusLocation(regional?{regionHex:hex}:{hex}),{hex,regional});};
+ const paint=async(label,hex,regional=false)=>{await page.getByRole('button',{name:'Paint Terrain',exact:true}).click();await page.getByRole('button',{name:label,exact:true}).click();await focus(hex,regional);await page.locator('[data-hex="'+hex+'"]').click();};
+ const marked=hex=>page.locator('[data-hex="'+hex+'"] [data-landing-strip]');
+ await open();await page.getByRole('button',{name:'Edit Location Details',exact:true}).click();assert.equal(await page.locator('input[name=landingStrip]').count(),0);await page.locator('dialog[open]').last().getByRole('button',{name:'Save',exact:true}).click();
+ await paint('Landing Strip','100');await marked('100').waitFor();
+ for(const width of [1920,1366]){await page.setViewportSize({width,height:width===1920?1080:768});await focus('100');await page.screenshot({path:path.join(out,'landing-strip-editor-'+width+'.png')});}
+ await page.getByRole('button',{name:'Zoom out surface map',exact:true}).click();await page.getByRole('button',{name:'Zoom out surface map',exact:true}).click();assert.equal(await marked('100').locator('rect').count(),1);assert.equal(await marked('101').count(),0);await page.screenshot({path:path.join(out,'runway-small-hex.png')});await page.getByRole('button',{name:'Zoom in surface map',exact:true}).click();await focus('100');
+ await paint('Erase Landing Strip','100');await marked('100').waitFor({state:'detached'});await page.getByRole('button',{name:'Undo Stroke',exact:true}).click();await marked('100').waitFor();
+ await page.reload();await page.locator('[data-tab=campaign]').click();await page.waitForFunction(()=>window.SACampaignNavigationUI?.context()?.data?.maps?.length);await open();await marked('100').waitFor();result.reload=true;
+ const state=await fetch(base+'/api/campaign/state?code='+show.code+'&token='+show.gmToken).then(r=>r.json());const hex=state.starmaps.maps.find(m=>m.id===ids.mapId).stars.find(s=>s.id===ids.starId).surfaces[ids.planetId].hexes['100'];assert.equal(hex.landingStrip,true);assert.equal(hex.terrain,'desert');assert.equal(hex.city,true);assert.equal(hex.description,'Retained public description');result.dataPreserved=true;
+ const pc=await browser.newPage({viewport:{width:1366,height:768}});pc.on('pageerror',e=>result.errors.push(e.message));await pc.goto(base+'/');await pc.evaluate(s=>sessionStorage.setItem('sa-character-token-'+s.code+'-'+s.players[0].id,s.players[0].token),show);await pc.goto(base+'/character.html?campaign='+show.code+'&character='+show.players[0].id+'&showcase=1');await pc.locator('[data-character-tab=roster]').click();await pc.locator('[data-hex="100"]').press('Enter');await pc.locator('.planet-location-copy').getByText('Landing Strip',{exact:true}).waitFor();assert.equal(await pc.getByRole('button',{name:'Edit Location Details',exact:true}).count(),0);assert.equal(await pc.getByRole('checkbox',{name:'Landing Strip',exact:true}).count(),0);assert.ok(!(await pc.locator('body').innerText()).includes('PRIVATE STRIP QA'));await pc.screenshot({path:path.join(out,'landing-strip-pc-1366.png')});result.pcReadOnly=true;
+ const rejected=await fetch(base+'/api/campaign/v03/starmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:show.code,token:show.players[0].token,kind:'planetHex',...ids,hex:'100',landingStrip:false,receipt:require('crypto').randomUUID()})});assert.ok(!rejected.ok);result.unauthorizedStatus=rejected.status;
+ await paint('Erase Landing Strip','100');await marked('100').waitFor({state:'detached'});result.removal=true;
+ await command('planetRegion',{hex:'100',name:'Runway Region'});await page.reload();await page.locator('[data-tab=campaign]').click();await page.waitForFunction(()=>window.SACampaignNavigationUI?.context()?.data?.maps?.length);await open();await page.getByRole('button',{name:/Enlarge Region.*Runway Region/}).click();
+ await paint('Landing Strip','82',true);await marked('82').waitFor();await page.screenshot({path:path.join(out,'landing-strip-region.png')});
+ await paint('Landing Strip','83',true);await page.locator('[data-galaxy-status]').getByText(/Only one Landing Strip/).waitFor();assert.equal(await marked('83').count(),0);await marked('82').waitFor();
+ await page.locator('[data-nav-level=surface]').click();await marked('100').waitFor();await focus('100');await page.screenshot({path:path.join(out,'landing-strip-parent.png')});
+ await paint('Erase Landing Strip','100');await marked('100').waitFor({state:'detached'});await page.getByRole('button',{name:'Undo Stroke',exact:true}).click();await marked('100').waitFor();
+ const latest=await fetch(base+'/api/campaign/state?code='+show.code+'&token='+show.gmToken).then(r=>r.json()),world=latest.starmaps.maps.find(m=>m.id===ids.mapId).stars.find(s=>s.id===ids.starId).surfaces[ids.planetId];assert.equal(world.hexes['100'].landingStrip,false);assert.equal(world.regions['100'].hexes['82'].landingStrip,true);assert.ok(!world.regions['100'].hexes['83']?.landingStrip);result.regionParentUndo=true;
+ await pc.reload();await pc.locator('[data-character-tab=roster]').click();await pc.locator('[data-hex="100"] [data-landing-strip]').waitFor();result.pcInheritedMarker=true;
+ const campaignState=()=>fetch(base+'/api/campaign/state?code='+show.code+'&token='+show.gmToken).then(r=>r.json());
+ const until=async(check,label)=>{const end=Date.now()+45000;while(Date.now()<end){const current=await campaignState();if(check(current))return current;await new Promise(r=>setTimeout(r,250));}throw Error('Timed out: '+label);};
+ const vessel=(await campaignState()).starships.find(v=>v.controlType==='pc');assert.ok(vessel);
+ await command('systemPosition',{shipId:vessel.id,phase:'orbit',forceParty:true});await command('descend',{shipId:vessel.id});await until(c=>c.starmaps.party?.awaitingLanding,'descent');
+ await page.reload();await page.locator('[data-tab=campaign]').click();await page.waitForFunction(()=>window.SACampaignNavigationUI?.context()?.data?.maps?.length);await open();await page.getByRole('button',{name:'Land Here',exact:true}).click();
+ let landed=await until(c=>c.starmaps.localPositions[vessel.id]?.regionHex==='82','regional landing');assert.equal(landed.starmaps.party.regionId,'100');assert.equal(landed.starmaps.party.regionHex,'82');result.exactRegionalLanding=true;
+ await page.reload();await page.locator('[data-tab=campaign]').click();await page.waitForFunction(()=>window.SACampaignNavigationUI?.context()?.data?.maps?.length);landed=await campaignState();assert.equal(landed.starmaps.localPositions[vessel.id].regionHex,'82');
+ await command('leavePlanet',{shipId:vessel.id});await until(c=>c.starmaps.localPositions[vessel.id]?.phase==='orbit','regional departure');result.regionalDeparture=true;
+ assert.deepEqual(result.errors,[]);result.completed=true;
+ }catch(error){result.failure=error.stack;throw error;}finally{await browser?.close();if(child?.exitCode===null){child.kill();await new Promise(r=>child.once('exit',r));}fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(result,null,2));console.log(out);}
+})().catch(e=>{console.error(e);process.exitCode=1;});

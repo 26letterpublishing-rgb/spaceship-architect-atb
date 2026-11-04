@@ -3,6 +3,40 @@
   const flavors=['Vanilla','Chocolate','Strawberry','Banana','Peach','Pineapple','Mint','Lemon','Blueberry','Cherry','Caramel','Coconut','Coffee','Hazelnut','Apple','Cinnamon','Pumpkin','Maple','Tomato','Cheddar','Mushroom','Chili'];
   const colors=['#eddc91','#7a433c','#ef8298','#e1ce53','#f3a379','#e7dd67','#7ed2a5','#ddd67b','#a7a2dd','#d36285','#cfad7d','#e9e7dc','#946755','#b69377','#a5c766','#ce978b','#e2a56a','#cb985d','#dd766b','#e4bd56','#aaa98a','#ae6657'];
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const environmentalLines=[
+    'Excess dust in hallway 8 detected',
+    'Possible insect detected in bathroom garbage can',
+    'Gravity levels compensated by 0.005% due to spatial warp',
+    'Everything is fine.',
+    'Air filter requests a less dusty assignment.',
+    'Corridor humidity adjusted for optimal dramatic entrances.',
+    'Unidentified sock detected near ventilation intake.',
+    'Atmospheric freshness remains within acceptable spaceship limits.'
+  ];
+  function environmentalReport(report,operational){
+    const stop=()=>clearInterval(timer);
+    const timer=setInterval(()=>{
+      if(!report.isConnected){stop();return;}
+      if(report.ownerDocument.hidden||!operational())return;
+      const scroller=report.parentElement,atBottom=scroller.scrollTop+scroller.clientHeight>=scroller.scrollHeight-4;
+      const line=report.ownerDocument.createElement('div');line.textContent=environmentalLines[Math.floor(Math.random()*environmentalLines.length)];report.append(line);
+      while(report.children.length>30)report.firstElementChild.remove();
+      if(atBottom)scroller.scrollTop=scroller.scrollHeight;
+    },10000);return stop;
+  }
+  const nutritionSequences=[
+    ['110010101000110011001','Processing.......','Obtaining ideal flavors...','Compressing ingredients.....','Adding flavor crystals.....','Applying {texture}.....','11010100010010010101001','Your {flavor} is complete.','WARNING: OUT OF TOXIC ANTIBODIES. PLEASE REFRAIN FROM CONSUMPTION.','Admin Override: Reverse previous warning.','WARNING: FOOD IS SAFE TO EAT. ENJOY.'],
+    ['001101001011000101101','Booting culinary subroutines...','Interviewing flavor crystals...','Rejecting crystal with poor references...','Recalibrating the snack manifold...','Applying {texture}.....','Negotiating with the spoon union...','Your {flavor} is complete.','NOTICE: Spoon has declined to participate.','Admin Override: Cup promoted to management.','MEAL APPROVED. PLEASE DO NOT APPLAUD THE DISPENSER.'],
+    ['101100100100011010010','Locating ingredients in this dimension...','Ingredients found in adjacent dimension.','Filing interdimensional customs declaration...','Removing suspiciously confident raisins...','Applying {texture}.....','Checking flavor containment seals...','Your {flavor} is complete.','WARNING: Flavor may exceed expectations.','Admin Override: Expectations reduced to factory settings.','ENJOY YOUR PERFECTLY ORDINARY SPACE LUNCH.'],
+    ['010010110100010011010','Consulting ancient recipe archive...','Recipe recovered: add water, probably.','Polishing nutritional molecules...','Installing dessert compatibility patch...','Applying {texture}.....','Running emergency taste simulation...','Your {flavor} is complete.','NOTICE: Simulated chef requests shore leave.','Admin Override: Request forwarded to the toaster.','THANK YOU FOR CHOOSING THE ONLY AVAILABLE DISPENSER.']
+  ];
+  function nutritionReport(report,flavor,texture,ready,choice=Math.floor(Math.random()*nutritionSequences.length)){
+    let index=0,stopped=false;report.textContent='';
+    const lines=nutritionSequences[choice].map(text=>text.replace('{flavor}',flavor).replace('{texture}',texture));
+    const stop=()=>{stopped=true;clearInterval(timer);};
+    const step=()=>{if(stopped||!report.isConnected){stop();return;}if(index===7&&!ready())return;const line=report.ownerDocument.createElement('div');line.textContent=lines[index++];report.append(line);report.scrollTop=report.scrollHeight;if(index===lines.length)stop();};
+    const timer=setInterval(step,400);step();return stop;
+  }
   function stopSound(){if(audio){audio.close().catch(()=>{});audio=null;}}
   function dispenseSound(){
     stopSound();if(!window.SACombatBridge.soundEnabled())return;
@@ -16,8 +50,8 @@
       }
     }catch{stopSound();}
   }
-  async function styles(doc){
-    for(const name of ['console-common.css','utility-console.css']){
+  async function styles(doc,extra=[]){
+    for(const name of ['console-common.css','utility-console.css',...extra]){
       const href=new URL(name,location.href).href;
       if([...doc.styleSheets].some(s=>s.href===href))continue;
       await new Promise((resolve,reject)=>{const link=doc.createElement('link');link.rel='stylesheet';link.href=href;link.onload=resolve;link.onerror=()=>{link.remove();reject(Error('Console artwork could not load. Try opening the console again.'));};doc.head.append(link);});
@@ -78,7 +112,7 @@
     const b=window.SACombatBridge;
     const sourceFrame=window.frameElement;
     let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}
-    try{await styles(doc);}catch(error){opening=false;window.alert(error.message);b.requestRender();return;}
+    try{await styles(doc,selected?.definition.utility==='nutrition'?['nutrition-report.css']:[]);}catch(error){opening=false;window.alert(error.message);b.requestRender();return;}
     opening=false;
     if(sourceFrame&&!sourceFrame.isConnected)return;
     const initial=window.SAStationAccess.access(b.state(),b.state()?.units?.find(u=>u.id===unit.id),sicId);
@@ -90,16 +124,26 @@
       <section class="lock-controls utility-controls"><h3>${life?'Environmental Systems':'Flavor Mixer'}</h3>${life?`<label class="utility-switch"><span>Artificial Gravity</span><input data-utility-control data-gravity type="checkbox" role="switch"></label><label class="utility-switch"><span>Oxygen</span><input data-utility-control data-oxygen type="checkbox" role="switch"></label><p data-gravity-note></p>`:`<label>Base<select data-utility-control data-flavor="base">${flavors.map((f,i)=>`<option value="${i}">${f}</option>`).join('')}</select></label><label>Blend<select data-utility-control data-flavor="blend"><option value="">None</option>${flavors.map((f,i)=>`<option value="${i}">${f}</option>`).join('')}</select></label><label>Texture<select data-utility-control data-texture><option>Silky</option><option>Extra thick</option><option>Questionably chunky</option></select></label><button type="button" data-utility-control data-dispense>Dispense Paste</button>`}<output data-status role="status" aria-live="polite"></output><button type="button" data-utility-control data-retry hidden>Retry Command</button></section>
       <section class="lock-reports utility-report"><h3>${life?'Environmental Status':'Meal Ticket'}</h3><p data-report>${life?'Life Support connected.':'No meal dispensed.'}</p></section><div class="utility-seat"><button type="button" data-hold>Hold</button><button type="button" data-leave>Leave Console</button></div>`;
     doc.body.append(dialog);dialog.showModal();
+    let sceneObserver=null,stopReport=()=>{},mealReady=false;
     if(!life){
+      const oldReport=dialog.querySelector('[data-report]'),report=doc.createElement('div');report.dataset.report='';report.setAttribute('role','log');report.setAttribute('aria-live','polite');report.setAttribute('aria-label','Meal preparation log');report.tabIndex=0;report.textContent=oldReport.textContent;oldReport.parentElement.classList.add('nut-terminal-report');oldReport.replaceWith(report);
       const dispenser=dialog.querySelector('.nut-dispenser');dispenser.removeAttribute('aria-hidden');
+      const viewport=doc.createElement('div');viewport.className='nut-scene-viewport';dispenser.before(viewport);viewport.append(dispenser);
+      const fitScene=()=>{const width=viewport.clientWidth,height=viewport.clientHeight;if(!width||!height)return;const scale=Math.max(width/16,height/9);dispenser.style.width=16*scale+'px';dispenser.style.height=9*scale+'px';};
+      sceneObserver=new doc.defaultView.ResizeObserver(fitScene);sceneObserver.observe(viewport);fitScene();
       const blob=doc.createElement('button');blob.type='button';blob.className='nut-blob';blob.dataset.utilityControl='';blob.hidden=true;blob.setAttribute('aria-label','Eat paste');blob.title='Eat paste';
       dispenser.append(blob);
-      blob.onclick=()=>{blob.hidden=true;eatingSound();dialog.querySelector('[data-status]').textContent=blob.dataset.flavor||'Meal dispensed';dialog.querySelector('[data-report]').textContent='Tastes like chicken';};
+      blob.onclick=()=>{stopReport();blob.hidden=true;eatingSound();dialog.querySelector('[data-status]').textContent=blob.dataset.flavor||'Meal dispensed';dialog.querySelector('[data-report]').textContent='Tastes like chicken';};
     }
     let busy=false,pending=null,pasteTimer=null,lastGravity=null;
     const status=dialog.querySelector('[data-status]'),retry=dialog.querySelector('[data-retry]');
     const close=()=>dialog.close();
     const current=()=>{const state=b.state(),person=state?.units.find(u=>u.id===unit.id);return {state,person,access:window.SAStationAccess.access(state,person,sicId)};};
+    if(life){
+      const report=doc.createElement('div');report.dataset.environmentLog='';report.setAttribute('role','log');report.setAttribute('aria-label','Environmental diagnostic messages');report.setAttribute('aria-live','polite');
+      const region=dialog.querySelector('.utility-report');region.tabIndex=0;region.append(report);
+      stopReport=environmentalReport(report,()=>{const a=current().access;return Boolean(a&&!a.offline&&!a.blocked&&!a.item.impaired&&a.item.status!=='impaired');});
+    }
     function redraw(){
       const {state,person,access}=current();if(!access){close();return;}
       const ready=state.practice||state.activeId===person.id&&!person.consoleHold&&!person.delayedAction&&!person.timedAction&&!state.rollPaused;
@@ -147,11 +191,12 @@
       const {access}=current();if(busy||!access)return;busy=true;
       const impaired=access.item.impaired||access.item.status==='impaired',base=impaired?[...sicId].reduce((n,c)=>n+c.charCodeAt(0),0)%flavors.length:Number(dialog.querySelector('[data-flavor="base"]').value),blend=impaired?'':dialog.querySelector('[data-flavor="blend"]').value;
       const text=flavors[base]+(blend!==''?` + ${flavors[Number(blend)]}`:'')+' / '+(impaired?'House paste':dialog.querySelector('[data-texture]').value);
+      stopReport();mealReady=false;stopReport=nutritionReport(dialog.querySelector('[data-report]'),flavors[base]+(blend!==''?` + ${flavors[Number(blend)]}`:''),impaired?'House paste':dialog.querySelector('[data-texture]').value,()=>mealReady);
       dialog.querySelector('.nut-blob').dataset.flavor=text;
       dialog.dataset.texture=impaired?'chunky':({'Silky':'silky','Extra thick':'thick','Questionably chunky':'chunky'})[dialog.querySelector('[data-texture]').value];
       dialog.querySelector('.nut-blob').hidden=true;
       dialog.style.setProperty('--paste-color',colors[base]);dialog.dataset.dispensing='true';dialog.querySelector('[data-mixture]').textContent=text;status.textContent='Dispensing...';dispenseSound();redraw();
-      pasteTimer=setTimeout(()=>{if(!dialog.isConnected)return;dialog.dataset.dispensing='false';dialog.dataset.served='true';busy=false;status.textContent='Meal ready.';dialog.querySelector('.nut-blob').hidden=false;dialog.querySelector('[data-report]').textContent=`${text}. Bon appetit, crew.`;stopSound();redraw();},1800);
+      pasteTimer=setTimeout(()=>{if(!dialog.isConnected)return;mealReady=true;dialog.dataset.dispensing='false';dialog.dataset.served='true';busy=false;status.textContent='Meal ready.';dialog.querySelector('.nut-blob').hidden=false;stopSound();redraw();},1800);
     });
     dialog.querySelector('[data-close]').onclick=()=>{window.SAShipNavigationUI.remember(unit);close();};
     dialog.querySelector('[data-sound]').onclick=()=>{b.toggleSound();if(!b.soundEnabled())stopSound();window.SAConsoleCommon.updateSound(dialog);};
@@ -161,7 +206,7 @@
     window.SAShipNavigationUI.mountSelector(dialog.querySelector('[data-selector]'),unit,sicId,close);
     redraw();const timer=setInterval(redraw,250);
     const hideSound=()=>{if(doc.hidden)stopSound();};doc.addEventListener('visibilitychange',hideSound);
-    const teardown=()=>{clearInterval(timer);clearTimeout(pasteTimer);stopSound();doc.removeEventListener('visibilitychange',hideSound);dialog.remove();if(view===dialog)view=null;window.removeEventListener('pagehide',close);b.requestRender();};
+    const teardown=()=>{clearInterval(timer);clearTimeout(pasteTimer);stopReport();sceneObserver?.disconnect();stopSound();doc.removeEventListener('visibilitychange',hideSound);dialog.remove();if(view===dialog)view=null;window.removeEventListener('pagehide',close);b.requestRender();};
     dialog.addEventListener('close',teardown,{once:true});window.addEventListener('pagehide',close,{once:true});
   }
   window.SAUtilityConsoleUI={open,isOpen:()=>Boolean(view||opening||window.SAIllusionDroidConsole?.isOpen()||window.SACleanserConsole?.isOpen()||window.SATransitConsoleUI?.isOpen()||window.SACrewRoomConsole?.isOpen()||window.SAFieldUtilityConsole?.isOpen())};

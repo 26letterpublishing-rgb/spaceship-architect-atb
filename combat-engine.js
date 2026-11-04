@@ -43,7 +43,7 @@ function normalizeCombatLocation(value) {
   const mesh = Number.isInteger(Number(source.mesh)) ? Math.max(0, Math.min(8, Number(source.mesh))) : 4;
   return {
     ...(source.arenaId==='surface'?{arenaId:'surface'}:{}),
-    environment: source.arenaId==='surface'?'surface':source.escapePodId ? 'escape-pod' : starshipId ? "starship" : "exterior",
+    environment: source.arenaId==='surface'?'surface':source.escapePodId ? 'escape-pod' : starshipId ? "starship" : source.environment==='boarding' ? 'boarding' : "exterior",
     ...(source.escapePodId ? {escapePodId:safeText(source.escapePodId,'',120)} : {}),
     starshipId,
     ...(source.planetId?{planetId:safeText(source.planetId,'',120)}:{}),
@@ -147,6 +147,7 @@ function applyNpcSimplifiedStats(unit, source = {}) {
   unit.scienceSkill = unit.mentalSkill;
   unit.dodgeSkill = unit.physicalSkill;
   unit.weaponMechanics = unit.mentalSkill;
+  require('./npc-statistics').exertion(unit, source);
   return unit;
 }
 
@@ -557,7 +558,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
     return { ok: false, error: "That combat action is not currently available." };
   }
   if(unit.delayedAction || unit.delayTimer)return {ok:false,error:'Finish the current delay first.'};
-  if(require('./station-access').consoles(room,unit).length && !['moveStarship','move'].includes(kind))return {ok:false,error:'Leave the station to use standard combat actions.'};
+  if(require('./station-access').consoles(room,unit).length && !['moveStarship','move','getUp'].includes(kind))return {ok:false,error:'Leave the station to use standard combat actions.'};
 
   const weapon = heldWeapon(unit);
   if(kind==='armExplosive'){
@@ -601,7 +602,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   if(requestedTarget&&!requestedTarget.doorTarget&&['fire','calledShot','melee','wrestle','throwItem'].includes(kind)){
     if(!arena.canTarget(room,unit,requestedTarget))return {ok:false,error:'A wall or closed door blocks line of sight to that target.'};
     if(unit.team==='pc'&&!arena.isVisible(room,requestedTarget))return {ok:false,error:'That target is hidden by fog of war.'};
-    if(['melee','wrestle'].includes(kind)&&(arena.distance(room,unit,requestedTarget)??1)>Math.max(1.5,weapon?.category==='melee' ? parseFloat(weapon.range)||1 : 1))return {ok:false,error:'Move within melee reach of this target first.'};
+    if((kind==='melee'||kind==='calledShot'&&weapon?.category==='melee')&&!combatRules.meleeTargetAllowed(room,unit,requestedTarget,weapon?.category==='melee'?weapon:null))return {ok:false,error:'Move to an adjacent square (not diagonal), or within the weapon’s explicit reach, first.'};
+    if(kind==='wrestle'&&(arena.distance(room,unit,requestedTarget)??1)>Math.max(1.5,weapon?.category==='melee' ? parseFloat(weapon.range)||1 : 1))return {ok:false,error:'Move within melee reach of this target first.'};
   }
   if(kind==='carry'){
     try{const text=require('./crew-carry').command(room,unit,body.targetId);helpers.pushLog(room,text,{starshipId:unit.location?.starshipId});return {ok:true};}
@@ -996,7 +998,8 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
   if(requestedTarget&&!requestedTarget.doorTarget&&['melee','wrestle','throwItem'].includes(kind)){
     if(!arena.canTarget(room,unit,requestedTarget))return {ok:false,error:'A wall or closed door blocks line of sight to that target.'};
     if(unit.team==='pc'&&!arena.isVisible(room,requestedTarget))return {ok:false,error:'That target is hidden by fog of war.'};
-    if(['melee','wrestle'].includes(kind)&&(arena.distance(room,unit,requestedTarget)??1)>Math.max(1.5,weapon?.category==='melee' ? parseFloat(weapon.range)||1 : 1))return {ok:false,error:'Move within melee reach of this target first.'};
+    if((kind==='melee'||kind==='calledShot'&&weapon?.category==='melee')&&!combatRules.meleeTargetAllowed(room,unit,requestedTarget,weapon?.category==='melee'?weapon:null))return {ok:false,error:'Move to an adjacent square (not diagonal), or within the weapon’s explicit reach, first.'};
+    if(kind==='wrestle'&&(arena.distance(room,unit,requestedTarget)??1)>Math.max(1.5,weapon?.category==='melee' ? parseFloat(weapon.range)||1 : 1))return {ok:false,error:'Move within melee reach of this target first.'};
   }
   const rangedChargeCount = completedCharges(unit);
   const printedMovementLimit = Number(weapon?.maxCharge);
@@ -1015,6 +1018,7 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       return { ok: false, error: kind === "fire" ? "Fire Gun requires a held ranged weapon." : "Called Shot requires a held ranged or melee weapon." };
     }
     if (!requestedTarget) return { ok: false, error: "Choose a valid target." };
+    if(weapon.weaponId==='rubber-bouncy-bombs'&&(unit.thrownEffects||[]).length>=5)return {ok:false,error:'Resolve an existing explosive first.'};
     if(weapon.weaponId==='hull-bore'){
       if(!requestedTarget.wallTarget)return {ok:false,error:'Choose a wall for the Hull Bore.'};
       const travel=3*requestedTarget.distance,seconds=travel+18;
@@ -1052,18 +1056,10 @@ function resolvePlayerCombatAction(room, unit, body, helpers) {
       secondPlan.damageFormula=combatRules.formatDiceFormula({dice:parts[1],flat:parsed.flat/2});secondPlan.attackModifier-=2;
       additionalAttack={attackerId:unit.id,defenderId:second.id,weaponId:weapon.weaponId,inventoryId:weapon.inventoryId,weaponName:weapon.name+' (second target)',attackType:'ranged',distance:secondDistance,plan:secondPlan,chargeCount,aimDice,aimDie,calledShot:false};
     }
-    if(weapon.weaponId==='rubber-bouncy-bombs'){
-      const center=arena.position(requestedTarget),grid=arena.grid(room,center),index=grid?.index(center);
-      const targets=room.units.filter(other=>{
-        if(other.id===requestedTarget.id||other.defeatedAt||!arena.canTarget(room,{location:requestedTarget.location},other))return false;
-        const p=arena.position(other),g=arena.grid(room,p);if(!grid||!g||p.starshipId!==center.starshipId||p.arenaId!==center.arenaId)return false;
-        const n=g.index(p);return Math.abs(n%g.width-index%grid.width)<=1&&Math.abs(Math.floor(n/g.width)-Math.floor(index/grid.width))<=1;
-      });
-      for(const other of targets.reverse())additionalAttack={attackerId:unit.id,defenderId:other.id,weaponId:weapon.weaponId,inventoryId:weapon.inventoryId,weaponName:weapon.name,attackType:'ranged',distance:arena.distance(room,unit,other)??distance,plan:{...plan},chargeCount,aimDice:[],aimDie:0,calledShot:false,additionalAttack,recoverySeconds:weapon.recoverySeconds||6};
-    }
     return {
       ok: true,
       beginAttack: {
+        tripleBomb: weapon.weaponId==='rubber-bouncy-bombs',
         additionalAttack,
         attackerId: unit.id,
         defenderId: requestedTarget.id,

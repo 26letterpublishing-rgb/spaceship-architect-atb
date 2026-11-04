@@ -81,7 +81,7 @@ test('journey review reports actual impaired and instant drive activation durati
   cmd(c,{kind:'exit',shipId:ship.id});drive.impairmentPoints=0;drive.type='ew-ftl-drive';
   assert.equal(cmd(c,{kind:'quote',mapId:m.id,starId:star.id,shipId:ship.id}).quote.activationSeconds,120);
 });
-test('descent consumes one turn, blocks duplicate starts, and completes after sixty active seconds',()=>{const descent=require('../ship-descent'),{room,a,p}=fixture();a.ship.sicInventory.push({id:'hover',type:'decent-hover'});a.ship.placements.push({sicId:'hover',cell:22,mountCells:[22,23,24,25]});room.spaceObjects=[{id:'object-planet-test',kind:'planet',name:'Home',q:0,r:0}];const body={sicId:'bridge-a',kind:'descend',targetId:'object-planet-test',requestId:'descend-once'};const result=descent.queue(room,p,body);assert.equal(result.ok,true,result.error);assert.equal(p.atb,0);assert.equal(descent.queue(room,p,body).duplicate,true);assert.deepEqual(descent.advance(room,59),[]);assert.equal(descent.advance(room,1)[0].kind,'planetLanded');assert.deepEqual(descent.advance(room,60),[]);assert.equal(a.ship.descentState.awaitingGm,true);});
+test('combat descent is rejected without spending a turn',()=>{const descent=require('../ship-descent'),{room,a,p}=fixture(),before=structuredClone(room);const result=descent.queue(room,p,{kind:'descend',requestId:'descend-once'});assert.equal(result.ok,false);assert.match(result.error,/cannot escape combat/);assert.deepEqual(room,before);});
 
 test('real-time warp is server-owned, pauses for combat, and resumes without catching up paused time',()=>{
  const {c,m,star}=setup();cmd(c,{kind:'travel',mapId:m.id,starId:star.id,shipId:'a'});const w=c.starships[0].ship.warpState,j=c.starmaps.journeys.a;let now=j.clockAt;
@@ -145,4 +145,68 @@ test('zero fuel still permits a travel quote but cannot start warp',()=>{
  const {c,m,star}=setup(),args={mapId:m.id,starId:star.id,shipId:'a',fuelCounts:{}};
  assert.equal(cmd(c,{kind:'quote',...args}).quote.coveredLY,0);
  assert.throws(()=>cmd(c,{kind:'travel',...args,acceptPartial:true}),/at least one/);
+});
+
+
+test('Console destination derives range and enforces map, visibility and local departure constraints',()=>{
+ const {c,m,star}=setup(),ship=c.starships[0],dest={mapId:m.id,q:2,r:0};
+ assert.equal(galaxy.consoleDestination(c,ship,dest).distanceLY,6.52);
+ assert.equal(galaxy.consoleDestination(c,ship,dest).starId,star.id);
+ star.hidden=true;assert.equal(galaxy.consoleDestination(c,ship,dest).starId,null);
+ assert.throws(()=>galaxy.consoleDestination(c,ship,{...dest,q:Infinity}));
+ assert.throws(()=>galaxy.consoleDestination(c,ship,{...dest,mapId:'other'}));
+ assert.throws(()=>galaxy.consoleDestination(c,ship,{...dest,q:0}));
+ assert.throws(()=>galaxy.consoleDestination(c,ship,{...dest,origin:{mapId:m.id,q:1,r:0}}));
+ c.starmaps.localPositions={a:{phase:'surface'}};assert.throws(()=>galaxy.consoleDestination(c,ship,dest),/Leave the planet/);
+ delete c.starmaps.localPositions.a;c.starmaps.navigation={allowed:{galaxy:false}};assert.throws(()=>galaxy.consoleDestination(c,ship,dest),/not available/);
+});
+
+test('Console Warp projects its sole authoritative journey, survives reload, and records one actual star visit',()=>{
+ const {c,m,star}=setup(),ship=c.starships[0];
+ const f=fixture(6);f.room.starships[0]=ship;seat(f.room,f.p,ship,'warp-a');
+ const destination={mapId:m.id,q:2,r:0,origin:{...c.starmaps.positions.a}};
+ const body={kind:'warpStart',shipId:'a',sicId:'warp-a',distanceLY:999,requestId:'destination-start',destination};
+ const options={resolveDestination:(s,d)=>galaxy.consoleDestination(c,s,d,{gm:true})};
+ assert.equal(transit.command(f.room,f.p,body,options).ok,true);
+ assert.equal(ship.ship.warpState.targetLY,6.52);
+ assert.equal(transit.command(f.room,f.p,body,options).duplicate,true);
+ assert.equal(transit.command(f.room,f.p,{...body,destination:{...destination,q:3}},options).ok,false);
+ galaxy.syncConsoleTravel(c);assert.deepEqual(c.starmaps.positions.a,destination.origin);
+ transit.advance(f.room,ship.ship.warpState.total+10);galaxy.syncConsoleTravel(c);
+ assert.ok(c.starmaps.positions.a.q>0&&c.starmaps.positions.a.q<2);
+ assert.deepEqual(c.starmaps.journeys,{}); // never creates a second clock
+ const loaded=JSON.parse(JSON.stringify(c)),room={...f.room,starships:loaded.starships};
+ transit.advance(room,10000);galaxy.syncConsoleTravel(loaded);
+ assert.equal(loaded.starmaps.positions.a.q,2);
+ assert.equal(loaded.starmaps.warpVisits.a.length,1);
+ assert.equal(loaded.starmaps.warpVisits.a[0].name,star.name);
+ assert.equal(typeof loaded.starmaps.warpVisits.a[0].elapsedSeconds,'number');
+ const fuel=structuredClone(loaded.starships[0].ship.warpFuel);galaxy.syncConsoleTravel(loaded);transit.advance(room,10000);galaxy.syncConsoleTravel(loaded);
+ assert.deepEqual(loaded.starships[0].ship.warpFuel,fuel);assert.equal(loaded.starmaps.warpVisits.a.length,1);
+ loaded.starmaps.positions.a.q=8;galaxy.syncConsoleTravel(loaded);assert.equal(loaded.starmaps.positions.a.q,8,'terminal synchronization cannot undo later placement');
+});
+
+test('Console cancellation preserves local location and early exit preserves fractional sector position',()=>{
+ const {c,m}=setup(),ship=c.starships[0],f=fixture(6);f.room.starships[0]=ship;seat(f.room,f.p,ship,'warp-a');
+ const options={resolveDestination:(s,d)=>galaxy.consoleDestination(c,s,d,{gm:true})};
+ c.starmaps.localPositions={a:{phase:'orbit',starId:'original'}};
+ const start=requestId=>transit.command(f.room,f.p,{kind:'warpStart',shipId:'a',sicId:'warp-a',requestId,destination:{mapId:m.id,q:2,r:0}},options);
+ assert.equal(start('first-start').ok,true);
+ assert.equal(transit.command(f.room,f.p,{kind:'warpCancel',shipId:'a',sicId:'warp-a',requestId:'first-cancel'}).ok,true);
+ galaxy.syncConsoleTravel(c);assert.equal(c.starmaps.localPositions.a.phase,'orbit');assert.equal(c.starmaps.warpVisits,undefined);
+ assert.equal(start('second-start').ok,true);transit.advance(f.room,ship.ship.warpState.total+10);galaxy.syncConsoleTravel(c);
+ const position=structuredClone(c.starmaps.positions.a);
+ assert.equal(transit.command(f.room,f.p,{kind:'warpExit',shipId:'a',sicId:'warp-a',requestId:'second-exit'}).ok,true);
+ galaxy.syncConsoleTravel(c);assert.deepEqual(c.starmaps.positions.a,position);assert.equal(c.starmaps.warpVisits,undefined);assert.equal(c.starmaps.localPositions.a,undefined);
+});
+
+test('Warp projections filter hidden and restricted destinations/history without mutating travel',()=>{
+ const {c,m}=setup();const star=m.stars[0];star.hidden=true;
+ const w={phase:'traveling',campaignDestination:{mapId:m.id,starId:star.id,name:star.name,to:{q:star.q,r:star.r}},traveledLY:1};const original=structuredClone(w);
+ c.starmaps.warpVisits={a:[{mapId:m.id,starId:star.id,name:star.name}]};
+ c.starmaps.journeys={a:{mapId:m.id,starId:star.id,from:{q:0,r:0},to:{q:star.q,r:star.r}}};
+ assert.equal(galaxy.publicWarpState(w,c).campaignDestination.starId,undefined);assert.equal(galaxy.view(c,false,'pc1').warpVisits.a.length,0);assert.equal(galaxy.view(c,false,'pc1').journeys.a.starId,undefined);assert.deepEqual(w,original);
+ star.hidden=false;assert.equal(galaxy.publicWarpState(w,c).campaignDestination.starId,star.id);assert.equal(galaxy.view(c,false,'pc1').warpVisits.a.length,1);
+ c.starmaps.navigation.allowed.galaxy=false;c.starmaps.navigation.mapId='different';assert.equal(galaxy.publicWarpState(w,c).campaignDestination,undefined);assert.equal(galaxy.view(c,false,'pc1').warpVisits.a.length,0);
+ assert.equal(galaxy.publicWarpState(w,null).campaignDestination.starId,undefined);assert.deepEqual(w,original);
 });

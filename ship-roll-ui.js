@@ -1,6 +1,6 @@
 (function(){
   let dialog=null,notice=null,lastLog='',result='',until=0,forced='',cleanupDialog=null;
-  const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.[0];
+  const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.find(r=>!(r.breachCheck&&u.team==='npc'&&u.automationMode&&u.automationMode!=='off'&&!u.automationSuspended));
   const host=()=>{let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;};
   let warmed=null;
   function prepareDice(doc){

@@ -17,7 +17,7 @@ test('Reset and Undo notify all clients and reject pre-reset actions', { timeout
     const response = await fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json(); assert.equal(response.status, status, JSON.stringify(result)); return result;
   };
-  const room = await post('/api/campaign/showcase/start', {}), player = room.players.find(p => p.name === 'Nova Vale');
+  const room = await post('/api/campaign/showcase/start', {}), player = room.players[0];
   const gm = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const pc = (body, status) => post('/api/action', { roomCode: room.code, characterId: player.id, characterToken: player.token, ...body }, status);
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());

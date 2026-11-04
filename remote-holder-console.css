@@ -1,0 +1,15 @@
+/* Dedicated Controller marker: Receiver, Relay and Triangulator retain their layouts. */
+body dialog.remote-holder-console .utility-controls :is(h3,p,label,select,button){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+body dialog.remote-holder-console .utility-controls h3{font-size:18px}
+body dialog.remote-holder-console .utility-controls :is(h3,p,label){overflow-wrap:anywhere}
+body dialog.remote-holder-console .utility-controls select{white-space:nowrap}
+dialog.remote-holder-console .remote-holder-column{grid-column:3;grid-row:2/4;min-height:0;min-width:0;display:grid;grid-template-rows:calc((100% - 222px)*.8) minmax(0,1fr);gap:12px}
+dialog.remote-holder-console.shared-console-layout .remote-holder-column>.lock-controls{grid-column:auto!important;grid-row:auto!important;align-self:stretch;overflow:auto}
+dialog.remote-holder-console .remote-holder-zone{min-height:0;display:grid;place-items:center;background:#071015;border:1px solid #56858a;border-radius:4px;overflow:hidden}
+dialog.remote-holder-console .remote-holder-action{position:relative;display:block;width:100%;aspect-ratio:3/2;max-height:100%;padding:0;border:0;border-radius:0;background-color:#101716;background-image:url(remote-holder-docked.png),url(remote-holder-empty.png);background-position:center;background-size:100% 100%;background-repeat:no-repeat;color:#e4ffef;cursor:pointer;font-size:16px;box-shadow:none}
+dialog.remote-holder-console .remote-holder-action[data-empty=true]{background-image:url(remote-holder-empty.png)}
+dialog.remote-holder-console .remote-holder-action:disabled{opacity:1;cursor:not-allowed}
+dialog.remote-holder-console .remote-holder-action:disabled span{color:#c3c9c6}
+dialog.remote-holder-console .remote-holder-action:focus-visible{outline:3px solid #92fff0;outline-offset:-4px}
+dialog.remote-holder-console .remote-holder-action span{position:absolute;bottom:5%;left:4%;right:4%;min-height:12%;display:grid;place-items:center;text-shadow:0 1px 3px #000}
+@media(max-width:900px){dialog.remote-holder-console .remote-holder-column{display:flex;flex-direction:column;flex-shrink:0;order:3}dialog.remote-holder-console .remote-holder-zone{min-height:180px}}

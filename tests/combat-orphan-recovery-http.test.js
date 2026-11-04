@@ -37,8 +37,8 @@ test('combat removal and simultaneous completions retain a reachable resolution 
   await gm({ action: 'setHardPaused', paused: true });
   const saved = await fetch(`${base}/api/campaign/backup?code=${room.code}&token=${room.gmToken}`).then(r => r.json());
   const original = structuredClone(saved.campaign.encounter);
-  const novaId = original.units.find(u => u.characterName === 'Nova Vale').id;
-  const slugId = original.units.find(u => u.characterName === 'Space Slug').id;
+  const novaId = original.units.find(u => u.team === 'pc').id;
+  const slugId = original.units.find(u => u.team === 'npc' && !u.allyNpc).id;
   const player = room.players.find(p => p.id === original.units.find(u => u.id === novaId).characterId);
   const pc = body => post('/api/action', { roomCode: room.code, characterId: player.id, characterToken: player.token, ...body });
   const compact = s => ({ running: s.running, hardPaused: s.hardPaused, pausedForTurn: s.pausedForTurn,

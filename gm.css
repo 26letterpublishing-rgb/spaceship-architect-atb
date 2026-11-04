@@ -200,7 +200,7 @@ label{display:grid;gap:5px;color:var(--muted);font-size:.65rem;text-transform:up
 .gm-starship-card h3{margin:0;color:#f5fbff;overflow-wrap:anywhere}.gm-starship-card small{color:var(--muted)}
 .gm-starship-card header .roster-ship-icon{width:48px;height:48px;object-fit:contain}
 .gm-starship-summary{display:flex;flex-wrap:wrap;align-items:end;gap:6px 10px}
-.gm-starship-summary>dl{flex:1 1 200px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0}
+.gm-starship-summary>dl{flex:1 1 250px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0}
 .gm-starship-summary>label{flex:1 1 230px;min-width:0;font-size:11px}
 .gm-starship-card dl div{min-width:0;padding:5px;border:1px solid #294157}
 .gm-starship-card dt{color:#8098ac;font-size:11px;text-transform:uppercase}

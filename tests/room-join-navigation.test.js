@@ -61,13 +61,23 @@ test('portable imports are not blocked by a different saved campaign session', a
   assert.equal(b.requests.at(-1).body.token, 'target-token');
 });
 const characterSource=fs.readFileSync(require.resolve('../character.js'),'utf8');
-function finalizationBrowser({linked=false}={}){
-  const calls={passwords:0,creates:0,opened:[]};let resolvePassword;
+function finalizationBrowser({linked=false,imported=false,importFailure=false}={}){
+  const calls={passwords:0,creates:0,opened:[],imports:[]};let resolvePassword;
   const password=new Promise(resolve=>{resolvePassword=resolve;});
   const context={PAGE_PARAMS:new URLSearchParams('roomCreate=ROOM'),character:{phase:'finalized'},localStorage:{getItem:()=> 'player-token'},notice:()=>{},campaignRequest:async()=>({roomOpen:true,...(linked?{ownCharacterId:'new-character'}:{})}),window:{SARoomV03:{roomKey:()=> 'room-key',input:()=>{calls.passwords++;return password;},api:async()=>{calls.creates++;return {campaign:{ownCharacterId:'new-character'}};},openCharacter:async(state,token)=>{calls.opened.push({state,token});}}}};
+  if(imported)context.character.creation={roomImportApproval:true};
+  context.window.SARoomV03.importIntoRoom=async(...args)=>{calls.imports.push(args);if(importFailure)throw Error('offline');};
   vm.createContext(context);vm.runInContext(characterSource.slice(characterSource.indexOf('let roomCreationPending='),characterSource.indexOf('async function initializeCharacterApp()'))+';this.finish=finishRoomCreation;',context);
   return {calls,finish:context.finish,resolvePassword};
 }
+test('file-origin room character uses existing approval route, never native create or preapproval password',async()=>{
+ const b=finalizationBrowser({imported:true});await b.finish();assert.equal(b.calls.passwords,0);assert.equal(b.calls.creates,0);assert.equal(b.calls.opened.length,0);assert.equal(b.calls.imports.length,1);assert.equal(b.calls.imports[0][0],'ROOM');assert.equal(b.calls.imports[0][1],'character');
+ const marker=characterSource.indexOf('imported.creation.roomImportApproval = true;');assert.ok(marker>characterSource.indexOf('dom.importCharacter.addEventListener("change"'));assert.ok(marker<characterSource.indexOf('library.push(imported)',marker));
+ assert.match(characterSource,/creation: \{ \.\.\.base.creation, \.\.\.\(source.creation \|\| \{\}\) \}/);
+});
+test('failed import approval can retry without falling back to native autoapproval',async()=>{
+ const b=finalizationBrowser({imported:true,importFailure:true});await b.finish();await b.finish();assert.equal(b.calls.imports.length,2);assert.equal(b.calls.creates,0);assert.equal(b.calls.passwords,0);
+});
 test('room finalization ignores repeated clicks while choosing one password and enters the campaign directly',async()=>{
   const b=finalizationBrowser();const first=b.finish();await Promise.resolve();await b.finish();
   assert.equal(b.calls.passwords,1);b.resolvePassword('test-only');await first;
@@ -90,4 +100,16 @@ test('rejected entry does not play acceptance and releases the menu for retry',a
  const b=await browser({rejected:true}),events=[];
  b.window.SAHomeFeedback={activate:async()=>events.push('press'),accepted:async()=>events.push('accepted'),release:()=>events.push('release')};
  await b.join();await b.join();assert.deepEqual(events,['press','release','press','release']);assert.equal(b.location.href,'');assert.equal(b.host.querySelector('[role=status]').textContent,'Room unavailable');
+});
+
+
+test('prejoin offers character entry only while retaining approval and main-menu ship access',()=>{
+ const html=fs.readFileSync(require.resolve('../room.html'),'utf8');
+ const source=fs.readFileSync(require.resolve('../room-v03.js'),'utf8');
+ const lobby=source.slice(source.indexOf('async function lobby()'),source.indexOf('function showReference('));
+ assert.doesNotMatch(html,/roomRoster|roomSpectator|Campaign Characters|PC fleet/);
+ assert.doesNotMatch(lobby,/Create Starship|Load Starship|roomRoster|roomSpectator/);
+ for(const label of ['Create Character','Choose Saved Character','Load Character','Leave Campaign','Set Password and Play'])assert.ok(lobby.includes(label));
+ assert.match(lobby,/if\(state.ownCharacterId\)\{void openCharacter\(state,token\);return;\}/);
+ assert.match(html,/Main Menu/);assert.match(source.slice(0,source.indexOf('async function lobby()')),/starship.html/);
 });

@@ -87,3 +87,11 @@ test("player health indicators and log totals hide exact numbers while GM retain
   assert.equal(health.logText(log, true), log);
   assert.doesNotMatch(health.logText("GM set Thug to 17/31 HP.", false), /17|31/);
 });
+test('starship preparation ignores unassigned crew without mutating preparation or campaign records',()=>{
+ const saved=structuredClone(campaign);saved.characters.push({id:'pc-b',approved:true});saved.starships.push({...structuredClone(ship),id:'not-selected'});
+ const body=structuredClone(setup);body.units.push({team:'npc',preparationUnitId:'unassigned-npc',location:{}},{team:'pc',characterId:'pc-b',location:{starshipId:'not-selected'}});const before=structuredClone(body),old=structuredClone(saved);
+ const result=validatePreparation(body,saved,s=>structuredClone(s));assert.equal(result.units.length,1);assert.equal(result.units[0].characterId,'pc-a');assert.deepEqual(body,before);assert.deepEqual(saved,old);
+ const surface={...body,mode:'surface',starships:[],units:body.units.map(u=>({...u,location:{}}))};assert.equal(validatePreparation(surface,saved,s=>structuredClone(s)).units.length,3);
+ assert.throws(()=>validatePreparation({...body,units:[body.units[1]]},saved,s=>structuredClone(s)),/Assign at least one/);
+ assert.throws(()=>validatePreparation({...body,units:[...body.units,{team:'pc',characterId:'unapproved',location:{}}]},saved,s=>structuredClone(s)),/approved/);
+});

@@ -21,10 +21,14 @@ async function main() {
     const response = await fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await response.json(); assert.ok(response.ok, JSON.stringify(data)); return data;
   };
-  const room = await post('/api/campaign/showcase/start', {}), player = room.players.find(p => p.name === 'Nova Vale');
+  const room = await post('/api/campaign/showcase/start', {}), player = room.players[0];
   await require('../tests/helpers/combat-demo.cjs')(base, room);
   const act = body => post('/api/action', { roomCode: room.code, gmToken: room.gmToken, ...body });
   const state = () => fetch(`${base}/api/state?room=${room.code}&token=${room.gmToken}`).then(r => r.json());
+  const laboratory = await state();
+  await act({ action: 'prepareEncounter', confirmCampaignName: 'Explore Features', expectedEncounterId: laboratory.encounterId,
+    preparationId: crypto.randomUUID(), mode: 'starship', starships: laboratory.starships, shipPositions: laboratory.shipPositions,
+    units: laboratory.units.map(unit => ({ ...unit, preparationUnitId: unit.id })) });
   const initial = await act({ action: 'setHardPaused', paused: true });
   const nova = initial.units.find(u => u.characterId === player.id), slug = initial.units.find(u => u.team === 'npc');
   const ship = initial.starships.find(s => s.id === nova.location.starshipId), target = initial.starships.find(s => s.id !== ship.id);
@@ -36,6 +40,9 @@ async function main() {
   await act({ action: 'setCombatLocation', id: nova.id, location: { starshipId: ship.id, square, mesh: 0 } });
   await act({ action: 'setSpeed', id: nova.id, speed: 1 });
   await act({ action: 'setSpeed', id: slug.id, speed: .1 });
+  await act({ action: 'setHardPaused', paused: false });
+  await act({ action: 'setRunning', running: true });
+  await act({ action: 'setHardPaused', paused: true });
   browser = await chromium.launch({ channel: process.env.SA_BROWSER_CHANNEL || 'chrome', headless: true });
   const gmContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const pcContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -53,7 +60,6 @@ async function main() {
   await gm.addInitScript(({ code, token }) => sessionStorage.setItem(`sa-gm-token-${code}`, token), { code: room.code, token: room.gmToken });
   await gm.goto(`${base}/gm.html?campaign=${room.code}&showcase=1`);
   await gm.getByRole('button', { name: 'Combat', exact: true }).click();
-  await gm.getByRole('button', { name: 'Resume Encounter', exact: true }).click();
   const gc = gm.frameLocator('#atbFrame');
   await gc.locator('body').waitFor();
   pc = await pcContext.newPage(); monitor(pc);
@@ -76,13 +82,27 @@ async function main() {
     await dice.getByRole('button', { name: 'Confirm and Submit', exact: true }).click();
   }
   async function ready() {
+    await act({ action: 'setRunning', running: false });
+    await act({ action: 'setHardPaused', paused: false });
+    // This manual laboratory may earn a turn before its next boosted shot is
+    // affordable. Pass that turn normally and tick real recharge, never refill AU.
+    for (let ticks = 0; ticks < 100; ticks++) {
+      const current = await state();
+      if (current.starships.find(s => s.id === ship.id).auState.available >= 8) break;
+      if (current.activeId) await act({ action: 'completeTurn', id: current.activeId });
+      await act({ action: 'step' });
+    }
+    const charged = await state();
+    assert.ok(charged.starships.find(s => s.id === ship.id).auState.available >= 8,
+      JSON.stringify({ activeId: charged.activeId, pausedForTurn: charged.pausedForTurn, rollPaused: charged.rollPaused,
+        hardPaused: charged.hardPaused, power: charged.starships.find(s => s.id === ship.id).auState, log: charged.log.slice(-4) }));
     await act({ action: 'setHardPaused', paused: true });
     const s = await state(); assert.equal(s.units.find(u => u.id === nova.id).delayedAction, null);
     await act({ action: 'nudge', id: nova.id, amount: 100 - s.units.find(u => u.id === nova.id).atb });
   }
   async function fire() {
     await ready();
-    await pcCombat().getByRole('button', { name: 'Fire Ripple Cannon 1', exact: true }).click();
+    await pcCombat().getByRole('button', { name: 'Ripple Cannon 1', exact: true }).click();
     const consoleView = pc.locator(`dialog[data-operator-id="${nova.id}"]`).filter({ has: pc.locator('[data-fire]') });
     await consoleView.locator('[data-boosts]').fill('2');
     await consoleView.locator('[data-fire]').click();

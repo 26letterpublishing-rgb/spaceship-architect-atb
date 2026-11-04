@@ -1,8 +1,15 @@
 const path = require("path");
+const debugManifest = require('./debug-tools-manifest.json');
+const debugFiles = new Set(debugManifest.runtimeFiles.map(file=>file.toLowerCase()));
+const debugDirectories=(debugManifest.runtimeDirectories||[]).map(dir=>dir.toLowerCase()+'/');
+function debugToolsEnabled(env=process.env){
+  if(String(env.NODE_ENV||'').trim().toLowerCase()==='production'||String(env.SA_APP_MODE||'').trim().toLowerCase()==='release')return false;
+  return !['0','false','off'].includes(String(env.SA_DEBUG_TOOLS||'').trim().toLowerCase());
+}
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
- 'console-viewer.js','tactical-ring-renderer.js',
+ 'console-viewer.js','console-layout-editor.js','console-layout-store.js','console-layout-catalog.js','console-preview-actions.js','tactical-ring-renderer.js',
  'audio-controls.js','home-screen.js','home-feedback.js','npc-icon-picker.js',
  'universe-clock.js','universe-ui.js','universe-ui.css','module-conditions.js','module-author-ui.js',
   'character-lifecycle-ui.js', 'character-lifecycle-ui.css', 'dialog-chrome.js', 'dialog-chrome.css',
@@ -13,7 +20,7 @@ const browserScripts = new Set([
   "token-art.js", "point-spend.js", "story-files.js", "weapon-catalog.js", "weapon-groups.js", "catalog-search.js",
   "reputation-ui.js", "reputation-choice.js", "planet-camera.js", "skill-packages.js", "audio-mix.js", "identity-presets.js",
   "explore-session.js", "drama-notices.js", "ship-walking.js",
-  "landing-approval-ui.js", "campaign-starmaps-ui.js", "shop-ui.js", "shop-weapons.js", "sic-market-ui.js", "card-fit.js", "card-inspector.js", "shop-gm-ui.js", "campaign-navigation-ui.js", "planet-terrain.js", "galaxy-twinkle-star-v1.png", "planet-motion.js", "planet-surfaces-ui.js",
+  "landing-approval-ui.js", "campaign-starmaps-ui.js", "campaign-map-chart.js", "shop-ui.js", "shop-weapons.js", "sic-market-ui.js", "card-fit.js", "card-inspector.js", "shop-gm-ui.js", "campaign-navigation-ui.js", "planet-terrain.js", "galaxy-twinkle-star-v1.png", "planet-motion.js", "planet-surfaces-ui.js",
   "illusion-droid-console.js","relay-console.js","sensor-snapshot-view.js","breach-drone-view.js","breach-drone-console.js","vacuum-ui.js","extraction-console.js",
   "crew-logs-ui.js","interior-pan.js","black-hole-gun-console.js","black-hole-gun-console.css",
   'ship-fabrication.js','science-console.js','ship-devastation.js','ship-doors.js','transporter-console.js','intruder-alert.js','crew-deployment.js','quick-prompts.js', 'character-statistics.js', 'ship-floorplan-snapshot.js', 'campaign-recovery.js', 'room-v03.js', 'sic-categories.js', 'sic-card-factory.js',
@@ -39,19 +46,21 @@ const browserScripts = new Set([
   "npc-combat-dice.js", "race-lore-data.js", "ship-map-core.js", "ship-combat-map.js",
   "showcase.js", "starship.js", "weapon-data.js", "ship-power.js", "ship-navigation.js", "ship-navigation-ui.js", "character-storage.js", "ship-distances.js", "space-map.js", "live-dom.js", "crew-overview.js", "health-display.js",
 ]);
-const publicData = new Set(["data/weapons.json", "data/npc-templates.json"]);
+const publicData = new Set(["data/weapons.json", "data/npc-templates.json", "console-layout-snapshots.json"]);
 const vendorScripts = new Set(["vendor/three.module.min.js", "vendor/three.core.min.js", "vendor/cannon-es.js"]);
 const mediaExtensions = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico", ".mp4", ".m4a", ".mp3", ".wav", ".ogg"]);
 
-function resolvePublicAsset(root, pathname) {
+function resolvePublicAsset(root, pathname, { debugTools=debugToolsEnabled() }={}) {
   let file;
   try { file = decodeURIComponent(pathname); } catch { return null; }
   if (!file.startsWith("/") || file.includes("\\") || file.includes("\0")) return null;
   file = file === "/" ? "index.html" : file.slice(1);
   if (file.split("/").some((part) => !part || part.startsWith("."))) return null;
+  // Must precede generic root HTML/CSS admission, including Windows case aliases.
+  if(!debugTools&&(debugFiles.has(file.toLowerCase())||debugDirectories.some(dir=>file.toLowerCase().startsWith(dir))))return null;
   const extension = path.extname(file).toLowerCase();
   const rootFile = !file.includes("/");
-  const allowed = publicData.has(file) || vendorScripts.has(file)
+  const allowed = publicData.has(file) || vendorScripts.has(file) || /^alma-snapshots\/[a-z0-9-]+\.json$/.test(file)
     || (rootFile && (browserScripts.has(file) || [".html", ".css"].includes(extension) || mediaExtensions.has(extension)))
     || (/^fonts\/[^/]+$/.test(file) && [".woff", ".woff2", ".ttf", ".otf"].includes(extension));
   if (!allowed) return null;
@@ -60,4 +69,4 @@ function resolvePublicAsset(root, pathname) {
   return path.dirname(absolute) === root || absolute.startsWith(root + path.sep) ? absolute : null;
 }
 
-module.exports = { resolvePublicAsset };
+module.exports = { resolvePublicAsset, debugToolsEnabled };

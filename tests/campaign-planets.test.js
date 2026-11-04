@@ -86,3 +86,44 @@ test('new regions uniformly inherit the parent terrain override and retain that 
 });
 
 test('NPC map markers coexist with cities, move independently, enforce GM access and survive saves',()=>{const f=fixture();send(f,'planetHex',{hex:'310',city:true,label:'City'});send(f,'planetNpcMarker',{operation:'add',hex:'310',iconRace:'npc-crab',name:'Crab'});send(f,'planetNpcMarker',{operation:'add',hex:'310',iconRace:'human',iconVariant:1,name:'Visitor'});let world=f.star.surfaces[f.planet.id],markers=world.hexes['310'].npcMarkers;assert.equal(markers.length,2);assert(world.hexes['310'].city);assert.throws(()=>send(f,'planetNpcMarker',{operation:'add',hex:'310',iconRace:'npc-crab'},false),/Only the GM/);assert.throws(()=>send(f,'planetNpcMarker',{operation:'add',hex:'310',iconRace:'not-art'}),/available/);const id=markers[0].id;send(f,'planetNpcMarker',{operation:'move',hex:'310',toHex:'311',markerId:id});assert.equal(world.hexes['310'].npcMarkers.length,1);assert(world.hexes['310'].city);assert.equal(world.hexes['311'].npcMarkers[0].id,id);assert.throws(()=>send(f,'planetNpcMarker',{operation:'remove',hex:'310',markerId:id}),/moved/);const clean=planets.normalizeWorld(JSON.parse(JSON.stringify(world)),f.planet.id,'large');assert.equal(clean.hexes['311'].npcMarkers[0].iconRace,'npc-crab');const resized=require('../planet-grid-migration').planResize(clean,'small');assert(Object.values(resized.world.hexes).some(h=>h.npcMarkers?.some(m=>m.id===id)));send(f,'planetRegion',{hex:'310',name:'Town'});send(f,'planetNpcMarker',{operation:'add',regionId:'310',hex:'82',iconRace:'npc-giant-rat',name:'Rat'});send(f,'planetStart',{regionId:'310',hex:'82'});assert(galaxy.view(f.c,false).maps[0].stars[0].surfaces[f.planet.id].regions['310'].hexes['82'].npcMarkers.length===1);});
+
+
+test('landing strips are GM-authored planet features preserved through edits, save and public projection',()=>{
+ const f=fixture();send(f,'planetHex',{hex:'310',label:'Runway',terrain:'desert',gmNotes:'Secret'});
+ send(f,'planetPaint',{edits:[{hex:'310',landingStrip:true,expectedLandingStrip:false}]});
+ send(f,'planetHex',{hex:'310',description:'Public'});let h=f.star.surfaces[f.planet.id].hexes['310'];assert.equal(h.landingStrip,true);assert.equal(h.terrain,'desert');
+ const saved=planets.normalizeWorld(JSON.parse(JSON.stringify(f.star.surfaces[f.planet.id])),f.planet.id);assert.equal(saved.hexes['310'].landingStrip,true);
+ f.star.surfaces[f.planet.id]=saved;const visible=galaxy.view(f.c,false).maps[0].stars[0].surfaces[f.planet.id].hexes['310'];assert.equal(visible.landingStrip,true);assert.equal(visible.gmNotes,undefined);assert.equal(visible.description,'Public');
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'310',landingStrip:false}]},false),/Only the GM/);
+ for(const landingStrip of ['true',1,null,{}])assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'310',landingStrip}]}),/brush/);
+ assert.throws(()=>send(f,'planetHex',{hex:'310',landingStrip:false}),/map brush/);
+ assert.equal(saved.hexes['310'].landingStrip,true);send(f,'planetPaint',{edits:[{hex:'310',landingStrip:false,expectedLandingStrip:true}]});assert.equal(saved.hexes['310'].landingStrip,false);assert.equal(saved.hexes['310'].label,'Runway');
+ assert.equal(!!planets.normalizeWorld({gridVersion:2,hexes:{'1':{label:'Old map'}}},'old').hexes['1'].landingStrip,false);
+ send(f,'planetRegion',{hex:'310',name:'Region'});send(f,'planetPaint',{regionId:'310',edits:[{hex:'82',landingStrip:true}]});assert.deepEqual(planets.landingSite(saved,'310'),{hex:'310',regionId:'310',regionHex:'82'});
+ assert.equal(saved.hexes['310'].landingStrip,false,'parent marker is derived, not copied');
+ const projected=galaxy.view(f.c,false).maps[0].stars[0].surfaces[f.planet.id];assert.equal(projected.hexes['310'].landingStrip,true);assert.equal(projected.regions['310'].hexes,undefined);assert.equal(saved.hexes['310'].landingStrip,false,'public marker must not mutate authored identity');
+ assert.throws(()=>send(f,'planetPaint',{regionId:'310',edits:[{hex:'83',landingStrip:true}]}),/Only one/);
+ assert.throws(()=>send(f,'planetPaint',{edits:[{hex:'310',landingStrip:true}]}),/already represents/);
+ const normalized=planets.normalizeWorld(JSON.parse(JSON.stringify(saved)),f.planet.id);assert.equal(normalized.regions['310'].hexes['82'].landingStrip,true);
+ send(f,'planetPaint',{edits:[{hex:'310',landingStrip:false,landingRegionHex:'82',expectedLandingStrip:true}]});assert.equal(planets.landingSite(saved,'310'),null);
+ send(f,'planetPaint',{edits:[{hex:'310',landingStrip:true,landingRegionHex:'82',expectedLandingStrip:false}]});assert.equal(planets.landingSite(saved,'310').regionHex,'82');
+ send(f,'planetPaint',{regionId:'310',edits:[{hex:'82',landingStrip:false}]});send(f,'planetPaint',{edits:[{hex:'310',landingStrip:true}]});assert.throws(()=>send(f,'planetPaint',{regionId:'310',edits:[{hex:'82',landingStrip:true}]}),/already has/);
+ const before=JSON.stringify(saved);assert.throws(()=>send(f,'planetPaint',{regionId:'310',edits:[{hex:'82',landingStrip:true},{hex:'83',landingStrip:true}]}),/Landing Strip/);assert.equal(JSON.stringify(saved),before);
+
+});
+
+function runway(ship){
+ const hover=ship.ship.sicInventory.find(i=>maps.definition(i.type).landing==='hover');hover.disabled=true;
+ // Test-only propulsion meets the existing Aerofoil minimum Move 5.
+ ship.ship.sicInventory.push({id:'runway-thruster',type:'exhaust-thruster-2',status:'installed'});
+ ship.ship.placements.push({sicId:'runway-thruster',cell:ship.ship.gridCells[0]-maps.gridColumns(ship.ship)});
+ ship.ship.sicInventory.push({id:'test-aerofoil',type:'decent-aerofoil',status:'installed'},{id:'test-wheels',type:'land-wheels',status:'installed'});
+ ship.ship.placements.push({sicId:'test-aerofoil',cell:ship.ship.gridCells[0]},{sicId:'test-wheels',mountCells:Array.from({length:maps.gridColumns(ship.ship)*maps.gridRows(ship.ship)},(_,n)=>n).filter(n=>maps.exteriorPlacement(ship.ship,'land-wheels',n,'test-wheels')).slice(0,4)});
+ return hover;
+}
+
+test('runway Land Here checks destination before starting and preserves initiator permissions',()=>{
+ const f=fixture();runway(f.ship);send(f,'planetPaint',{edits:[{hex:'100',landingStrip:true}]});send(f,'systemPosition',{phase:'orbit'});send(f,'descend',{},false,'orion');require('../campaign-navigation').advance(f.c,20);
+ const before=JSON.stringify(f.c.starmaps.party);assert.throws(()=>send(f,'planetLand',{hex:'101'},false,'orion'),/requires a Landing Strip/);assert.equal(f.c.starmaps.partyJourney,undefined);assert.equal(JSON.stringify(f.c.starmaps.party),before);
+ assert.throws(()=>send(f,'planetLand',{hex:'100'},false,'nova'),/began descent/);send(f,'planetLand',{hex:'100'},false,'orion');assert.equal(f.c.starmaps.partyJourney.to.hex,'100');
+});

@@ -21,5 +21,25 @@
   if(!state.memorials?.length){const p=document.createElement('p');p.textContent='No confirmed character deaths.';section.append(p);}
   for(const entry of state.memorials||[]){const card=document.createElement('article');card.className='memorial-card';const icon=document.createElement('span');icon.innerHTML=window.SATokenArt?.figure(entry.raceId,entry.presentation?.iconVariant)||'';const text=document.createElement('p');text.textContent=entry.name+' - '+entry.playerName+' | '+entry.race+' | '+entry.className+' | Session '+entry.session+' | Campaign day '+(Math.floor(entry.elapsedMinutes/1440)+1);card.append(icon,text);section.append(card);}
  }
- window.SACharacterLifecycle={collectContacts,update};
+ let deathBanner=null,deathTimer=null,deathSnapshot=null,deathKey='';
+ const deathSeen=new Set();
+ function clearDeathDisplay(){clearTimeout(deathTimer);deathTimer=null;deathBanner?.remove();deathBanner=null;}
+ function zeroHp(snapshot){
+  deathSnapshot=snapshot;
+  const key=snapshot?.eligible&&snapshot.code&&snapshot.id?'sa-zero-hp:'+snapshot.code+':'+snapshot.id:'';
+  if(key!==deathKey){clearDeathDisplay();deathKey=key;}
+  if(!key||!Number.isFinite(snapshot.hp)){clearDeathDisplay();return;}
+  if(snapshot.hp>0){clearDeathDisplay();deathSeen.delete(key);try{sessionStorage.removeItem(key);}catch{}return;}
+  if(window.frameElement?.hidden){clearDeathDisplay();return;}
+  let seen=deathSeen.has(key);try{seen=seen||sessionStorage.getItem(key)==='shown';}catch{}
+  if(seen)return;
+  deathSeen.add(key);try{sessionStorage.setItem(key,'shown');}catch{}
+  clearDeathDisplay();const banner=document.createElement('div');banner.className='combat-victory-banner combat-zero-hp-banner';banner.setAttribute('role','status');banner.setAttribute('popover','manual');
+  const skull=document.createElement('img');skull.src='transparent-skull.png';skull.alt='';const title=document.createElement('strong');title.textContent='YOU ARE DEAD';banner.append(skull,title);document.body.append(banner);deathBanner=banner;
+  if(banner.showPopover)banner.showPopover();
+  deathTimer=setTimeout(clearDeathDisplay,6000);
+ }
+ window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='sa-explore-visibility')return;if(!event.data.active)clearDeathDisplay();else if(deathSnapshot)zeroHp(deathSnapshot);});
+ window.addEventListener('pagehide',clearDeathDisplay);
+ window.SACharacterLifecycle={collectContacts,update,zeroHp};
 }());

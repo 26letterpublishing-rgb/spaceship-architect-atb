@@ -266,3 +266,55 @@ test('area reports include scenery within pulse range, exclude collected and dis
 });
 
 test('one-hex visual detection expires, but a successful scan retains legitimate sensor contact',()=>{const {room,a,b,unit}=fixture(3);b.sensorScenarioMasking=50;room.shipPositions[1].q=1;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.visualOnly,true);room.shipPositions[1].q=2;sensors.refresh(room);assert.notEqual(a.sensorState.contacts.b?.level,'detected');room.shipPositions[1].q=1;sensors.refresh(room);assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'area',requestId:'visual-scan-test'}).ok,true);const roll=()=>6;roll.submittedScore=99;sensors.resolveInput(room,unit,roll);room.shipPositions[1].q=3;sensors.refresh(room);assert.equal(a.sensorState.contacts.b.level,'detected');assert.ok(!a.sensorState.contacts.b.visualOnly);});
+test('Analysis projects only the authorized interior side and retains private records',()=>{
+ for(const side of ['gm','pc']){
+  const {room,a,b,unit}=fixture();a.controlType='pc';b.controlType=side;b.sensorScenarioMasking=1;sensors.refresh(room);
+  assert.equal(sensors.view(room,a.id).starships.find(s=>s.id===b.id).controlType,undefined);
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'analysis',targetId:b.id,requestId:'analysis-layout-side-'+side}).ok,true);sensors.resolveInput(room,unit,()=>6);sensors.resolveReport(room,unit,unit.queuedEffects[0]);
+  for(let pass=0;pass<2;pass++){const projected=sensors.view(room,a.id),enemy=projected.starships.find(s=>s.id===b.id);assert.equal(enemy.controlType,side);assert.equal(enemy.contactOnly,false);assert.equal(enemy.ship.affiliation,undefined);assert.ok(!projected.units.some(u=>u.id==='enemy'));}
+  room.starships=room.starships.filter(s=>s.id!==b.id);assert.equal(sensors.view(room,a.id).starships.find(s=>s.id===b.id).controlType,undefined);
+ }
+});
+
+function deployedDrone(ship,targetId=ship.id){
+ const d={id:'repair-'+ship.id,ownerId:ship.id,targetId,phase:'repairing',tier:1,threshold:9,masking:12};
+ ship.ship.droneState={drones:{bay:d}};return d;
+}
+test('repair and Vulture contacts follow current launching ship visibility per observer through reload',()=>{
+ const {room,a,b}=fixture();const d=deployedDrone(b,'a');
+ b.ship.extractionState={jobs:{v:{id:'v',type:'vulture-drone',phase:'traveling',position:{q:0,r:0},targetId:'a'}}};
+ sensors.refresh(room);assert.equal(a.sensorState.contacts[b.id].level,'unknown');assert.equal(a.sensorState.contacts[d.id],undefined);assert.equal(a.sensorState.contacts['salvage-v'],undefined);assert.ok(!a.sensorState.reports.some(r=>r.targetId===d.id||r.targetId==='salvage-v'));
+ sensors.advance(room,12,()=>0);assert.equal(a.sensorState.contacts[d.id],undefined);
+ assert.equal(b.sensorState.contacts[d.id].level,'detected','owner retains telemetry');
+ b.sensorScenarioMasking=1;sensors.refresh(room);
+ assert.equal(a.sensorState.contacts[d.id].level,'detected');assert.equal(a.sensorState.contacts['salvage-v'].level,'detected');assert.equal(a.lockState,undefined);
+ const visible=sensors.view(room,a.id);assert.equal(visible.starships.find(s=>s.id===d.id).droneOwnerId,undefined,'enemy parent identity is not added to payload');
+ room.shipPositions[1].q=100;sensors.refresh(room);assert.equal(a.sensorState.contacts[b.id].level,'last-known');assert.equal(a.sensorState.contacts[d.id],undefined);assert.equal(a.sensorState.contacts['salvage-v'],undefined);
+ const restored=JSON.parse(JSON.stringify(room));sensors.refresh(restored);assert.ok(!sensors.view(restored,a.id).starships.some(s=>s.id===d.id));
+ room.shipPositions[1].q=10;sensors.refresh(room);assert.equal(a.sensorState.contacts[d.id].level,'detected');
+ b.escapedAt='gone';sensors.refresh(room);assert.equal(a.sensorState.contacts[d.id],undefined);
+});
+test('direct scans, pulse scans and stale view data cannot reveal a drone with a hidden launching ship',()=>{
+ const {room,a,b,unit}=fixture();b.sensorScenarioMasking=100;const d=deployedDrone(b,'a');
+ sensors.refresh(room);assert.equal(a.sensorState.contacts[b.id],undefined);
+ sensors.detect(room,a,require('../ship-targets').find(room,d.id));assert.equal(a.sensorState.contacts[d.id],undefined);
+ for(const kind of ['area','hex']){
+  assert.equal(sensors.queue(room,unit,{sicId:'sn',kind,hex:kind==='hex'?{q:0,r:0}:undefined,requestId:'hidden-drone-'+kind}).ok,true);
+  const roll=()=>1;roll.submittedScore=1;sensors.resolveInput(room,unit,roll);sensors.refresh(room);assert.equal(a.sensorState.contacts[d.id],undefined);
+ }
+ a.sensorState.contacts[d.id]={id:d.id,isDrone:true,level:'detected',position:{q:0,r:0},title:'stale'};
+ const view=sensors.view(room,a.id);assert.ok(!view.starships.some(s=>s.id===d.id));assert.equal(view.starships[0].sensorState.contacts[d.id],undefined);
+ assert.ok(!sensors.scanChecks(room,{shipId:a.id,kind:'area'}).some(c=>c.targetId===d.id));
+});
+test('shared sensor data projects drones only with the shared current parent contact; bodies and probes retain their rules',()=>{
+ const {room,a,b,unit}=fixture();const d=deployedDrone(b);b.sensorScenarioMasking=1;
+ const c=structuredClone(a);c.id='c';c.title='Recipient';c.sensorScenarioMasking=1;room.starships.push(c);room.shipPositions.push({id:'c',q:1,r:0});
+ sensors.refresh(room);assert.equal(sensors.queue(room,unit,{sicId:'sn',kind:'share',targetIds:['c'],requestId:'share-drone-current'}).ok,true);sensors.resolveInput(room,unit,()=>1);
+ assert.equal(c.sensorState.contacts[b.id].level,'detected');assert.equal(c.sensorState.contacts[d.id].level,'detected');assert.equal(c.lockState,undefined);
+ c.sensorState.contacts[b.id].level='last-known';assert.ok(!sensors.view(room,c.id).starships.some(s=>s.id===d.id));
+ // Drifting characters use isDrone internally, but are not deployed drones.
+ room.units.push({id:'adrift',characterName:'Drifter',currentHp:3,vacuum:{id:'body',sourceShipId:'b',position:{q:0,r:0}}});
+ sensors.refresh(room);assert.equal(a.sensorState.contacts.body.level,'detected');assert.equal(a.sensorState.contacts.body.isFloatingBody,true);
+ b.ship.probeState={probes:{p:{id:'probe',ownerId:'b',phase:'holding',position:{q:0,r:0},threshold:17,masking:0}}};
+ b.escapedAt='gone';sensors.refresh(room);assert.equal(a.sensorState.contacts.probe.level,'detected');assert.equal(a.sensorState.contacts.probe.probeThreshold,17);
+});

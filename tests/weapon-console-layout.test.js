@@ -1,4 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+test('Phazon control typography uses existing sci-fi font without changing other weapon families',()=>{
+ const css=fs.readFileSync('weapon-console-ui.css','utf8');
+ assert.match(css,/body dialog\.phazon-torpedo-console \.weapon-controls :is\(h3,label,select,p\)\{font-family:Orbitron,sans-serif;font-size:15px;line-height:1\.5\}/);
+ assert.match(css,/url\('fonts\/Orbitron-VariableFont_wght\.ttf'\)/);
+});
 test('Beam/Rapid ring layout is explicitly family-scoped and preserves processor allocation',()=>{
  const all=fs.readFileSync('console-common.css','utf8'),css=all.split('/* Beam/Rapid only:')[1].split('/* End Beam/Rapid ring layout. */')[0].split('*/').slice(1).join('*/');
  for(const s of [...css.matchAll(/([^{}]+)\{/g)].map(m=>m[1].trim()).filter(s=>!s.startsWith('@')))assert.ok(s.startsWith('dialog.weapon-console:is([data-weapon-family="beam-laser"],[data-weapon-family="rapid-laser"]).shared-console-layout[data-console-owner]:not(.combat-order-dialog)'),s);

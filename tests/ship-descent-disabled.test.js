@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),descent=require('../ship-descent');
+test('saved pending descent cancels once without relocation, refund, damage or escape events',()=>{
+ const room={units:[{id:'crew',atb:0,currentHp:20}],shipPositions:[{id:'ship',q:3,r:2}],starships:[{id:'ship',currentHullHp:30,ship:{descentState:{phase:'descending',remaining:.01,receipt:'saved',planetId:'planet'},warpState:{phase:'idle'}}}]};
+ const before=structuredClone(room);assert.deepEqual(descent.advance(room,60),[]);assert.equal(room.starships[0].ship.descentState.phase,'interrupted');assert.equal(room.starships[0].ship.descentState.awaitingGm,false);assert.equal(room.starships[0].escapedAt,undefined);assert.deepEqual(room.units,before.units);assert.deepEqual(room.shipPositions,before.shipPositions);assert.equal(room.starships[0].currentHullHp,30);const after=structuredClone(room);assert.deepEqual(descent.advance(room,60),[]);assert.deepEqual(room,after);
+});
+test('existing completed landing records are not rewritten or replayed',()=>{const room={starships:[{ship:{descentState:{phase:'landed',awaitingGm:true}}}]},before=structuredClone(room);assert.deepEqual(descent.advance(room,60),[]);assert.deepEqual(room,before);});
