@@ -1,5 +1,23 @@
 // Shared card construction for the builder and campaign Shop.
-window.SASicCards={populate(document){
+window.SASicCards={
+applyArt(card,data){
+ const old=card?.querySelector('.sic-poker-art');if(!old||!data)return;
+ const a=data.cardArtAtlas;
+ const rect=a?.rect;
+ const validRect=Array.isArray(rect)&&rect.length===4&&rect.every(Number.isFinite)&&rect[0]>=0&&rect[1]>=0&&rect[2]>0&&rect[3]>0&&Number.isFinite(a.sourceWidth)&&Number.isFinite(a.sourceHeight)&&a.sourceWidth>0&&a.sourceHeight>0&&rect[0]+rect[2]<=a.sourceWidth&&rect[1]+rect[3]<=a.sourceHeight;
+ const valid=a&&/^[a-z0-9-]+\.png$/.test(a.src)&&(rect?validRect:(Number.isInteger(a.columns)&&a.columns>0&&Number.isInteger(a.rows)&&a.rows>0&&Number.isInteger(a.index)&&a.index>=0&&a.index<a.columns*a.rows&&Number.isFinite(a.cellWidth)&&a.cellWidth>0&&Number.isFinite(a.cellHeight)&&a.cellHeight>0));
+ if(!valid){if(old.tagName==='IMG'&&data.cardArt){old.src=data.cardArt;old.alt=data.name+' equipment';}return;}
+ if(old.classList.contains('sic-atlas-panel'))return;
+ const doc=card.ownerDocument,panel=doc.createElement('span'),crop=doc.createElement('span'),img=doc.createElement('img');
+ panel.className='sic-poker-art sic-atlas-panel';panel.setAttribute('role','img');panel.setAttribute('aria-label',data.name+' equipment');
+ old.className='sic-atlas-fallback';old.alt='';old.src=data.cardArt;old.loading='lazy';
+ crop.className='sic-atlas-crop';img.className='sic-atlas-source';img.alt='';img.loading='lazy';img.decoding='async';img.src=a.src;
+ const [x,y,w,h]=rect||[(a.index%a.columns)*a.cellWidth,Math.floor(a.index/a.columns)*a.cellHeight,a.cellWidth,a.cellHeight];
+ const width=rect?a.sourceWidth:a.columns*a.cellWidth,height=rect?a.sourceHeight:a.rows*a.cellHeight;
+ panel.style.setProperty('--atlas-ratio',w/h);panel.style.setProperty('--atlas-inverse',h/w);
+ img.style.width=(width/w*100)+'%';img.style.height=(height/h*100)+'%';img.style.left=(-100*x/w)+'%';img.style.top=(-100*y/h)+'%';
+ old.replaceWith(panel);crop.append(img);panel.append(old,crop);
+},populate(document){
 const SIC_CATALOG = {
   "en-engine-1": { name: "Power Engine 1", shortLabel: "EN 1", category: "engine", width: 1, height: 1, enOutput: 5, energyCost: 0, clearance: 1, ...window.SAShipMap.definition("en-engine-1"), floorplan: window.SAShipMap.definition("en-engine-1").image },
   "en-engine-2": { name: "Power Engine 2", shortLabel: "EN 2", category: "engine", width: 2, height: 2, enOutput: 13, energyCost: 0, clearance: 2, ...window.SAShipMap.definition("en-engine-2"), floorplan: window.SAShipMap.definition("en-engine-2").image },
@@ -194,8 +212,13 @@ for(const type of ['life-support','nutritional-supplement']) {
 for (const card of document.querySelectorAll('[data-sic-card^="ionic-pulse-thruster-"]')) card.querySelector(".sic-poker-art").src = `${card.dataset.sicCard}-card.png`;
 // Apply catalog art before any shop, owned-card or inspector template is cloned.
 for(const card of document.querySelectorAll('[data-sic-card]')) {
-  const data=SIC_CATALOG[card.dataset.sicCard],art=card.querySelector('.sic-poker-art');
-  if(data?.cardArt&&art){art.src=data.cardArt;art.alt=`${data.name} equipment`;}
+  const data=SIC_CATALOG[card.dataset.sicCard];
+  window.SASicCards.applyArt(card,data);
 }
 return SIC_CATALOG;
 }};
+
+// Capture load failures on clones as well as initial templates; no per-card observers.
+for(const kind of ['load','error'])document.addEventListener(kind,event=>{
+ if(event.target?.classList?.contains('sic-atlas-source'))event.target.closest('.sic-atlas-panel')?.classList.toggle('sic-atlas-failed',kind==='error');
+},true);

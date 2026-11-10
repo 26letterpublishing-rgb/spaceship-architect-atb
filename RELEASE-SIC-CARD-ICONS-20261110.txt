@@ -1,0 +1,39 @@
+SIC card icon uniqueness — November 10, 2026
+
+Completed existing-asset mappings (65 cards, ten families):
+Missile Launcher 1–5; Antenna 1–4; Warp Drive Zero, 1–5 and X;
+Repair Drone 1–5; Beam Laser 1–8; Ripple Cannon 1–8;
+Ion Pulse Cannon 1–5; CPU Security System 1–8;
+Hacking Module 1–5; Darkveil 1–10.
+
+No artwork was generated or modified. Approved Rapid Laser art, installed
+sprites/floorplans and mechanics remain unchanged. The shared card renderer
+clips unchanged original atlas images proportionally. Native lazy loading,
+shared URL caching and previous family-art fallbacks are retained. PNG sources
+are larger than the former shared WebP images; remote latency was not measured.
+Fallbacks may show shared family art when loading fails or container queries
+are unsupported.
+
+Individual audit: all 237 rendered catalog entries (215 SIC definitions plus
+22 related/ammunition cards) were inspected in ten labeled contact sheets.
+Every image decoded. All primary image/region identities are distinct. No
+missing or clearly unsuitable images were found.
+PENDING NEW ARTWORK: NONE IDENTIFIED.
+This technical visual review does not substitute for Jason's subjective approval.
+
+Verification: 585 primary browser cases across the ten changed families,
+builder/GM/PC cards and inspectors at 1920x1080, 1366x768 and 1280x720.
+Atlas families additionally passed zoom/Fit, failed-image fallback, missing Shop
+template fallback, accessible-name and single-atlas-request checks. Source
+hashes and personal data were preserved. No purchases or live combat were
+newly exercised by the card browser checks.
+Final current-checkout full suite: 2,257/2,257 passed (58.2 seconds).
+Syntax and scoped whitespace checks passed. Historical intermittent Bar test
+timeouts did not reproduce in this run; not claimed exhaustively resolved.
+
+Publication scope: 17 icon mapping/renderer/test/release files only. Earlier
+local ALMA, roll-transparency, music, gameplay and personal/QA files remain
+uncommitted and preserved. Tests ran on the current checkout; this scope does
+not publish those other local features. No manual deployment or server restart.
+The existing Render blueprint on main remains unchanged by this commit.
+Help: no workflows, control names or mechanics changed; no Help edit required.

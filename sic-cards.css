@@ -195,3 +195,11 @@
 
 .sic-display-card.sic-ammunition-card>.sic-poker-art{grid-column:1/-1!important;border-left:0!important}
 .sic-display-card.sic-ammunition-card>.sic-poker-rules{grid-row:3/5!important}
+
+/* Unaltered card atlas, proportionally clipped to one existing tier cell. */
+.sic-display-card .sic-atlas-panel{display:grid!important;place-items:center;container-type:size;overflow:hidden}
+.sic-atlas-crop{position:relative;overflow:hidden;width:min(100cqw,calc(100cqh * var(--atlas-ratio)));height:min(100cqh,calc(100cqw * var(--atlas-inverse)))}
+.sic-atlas-source{position:absolute;max-width:none!important;object-fit:fill}
+.sic-atlas-fallback{display:none;width:100%;height:100%;object-fit:contain}
+.sic-atlas-failed .sic-atlas-crop{display:none}.sic-atlas-failed .sic-atlas-fallback{display:block}
+@supports not (width:1cqw){.sic-atlas-panel .sic-atlas-crop{display:none}.sic-atlas-panel .sic-atlas-fallback{display:block}}

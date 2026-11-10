@@ -466,6 +466,17 @@
   }
   // Jason-approved tier illustrations; map and Console assets remain independent.
   for(let tier=1;tier<=5;tier++)catalog[`rapid-laser-${tier}`].cardArt=`sic-rapid-laser-${tier}-approved.png`;
+  // Reuse the verified original tier equipment on cards; placement assets stay unchanged.
+  for(let tier=1;tier<=5;tier++)catalog[`missile-launcher-${tier}`].cardArt=`sic-art-missile-launcher-${tier}.webp`;
+  for(let tier=1;tier<=4;tier++)catalog[`antenna-${tier}`].cardArt=`antenna-${tier}.webp`;
+  for(const tier of ['zero',1,2,3,4,5,'x'])catalog[`warp-drive-${tier}`].cardArt=`sic-art-warp-drive-${tier}.webp`;
+  for(let tier=1;tier<=5;tier++)catalog[`repair-drone-${tier}`].cardArt=`repair-drone-${tier}-sprite.webp`;
+  for(let tier=1;tier<=8;tier++)catalog[`beam-laser-${tier}`].cardArtAtlas={src:'beam-laser-tier-atlas.png',columns:4,rows:2,index:tier-1,cellWidth:384,cellHeight:512};
+  for(let tier=1;tier<=8;tier++)catalog[`ripple-cannon-${tier}`].cardArtAtlas={src:'ripple-cannon-tier-atlas.png',columns:4,rows:2,index:tier-1,cellWidth:384,cellHeight:512};
+  [[0,0,400,724],[400,0,380,724],[780,0,455,724],[1235,0,425,724],[1660,0,512,724]].forEach((rect,index)=>{catalog[`ion-pulse-cannon-${index+1}`].cardArtAtlas={src:'ion-pulse-cannon-tier-atlas.png',sourceWidth:2172,sourceHeight:724,rect};});
+  for(let tier=1;tier<=8;tier++)catalog[`cpu-security-${tier}`].cardArtAtlas={src:'cpu-security-tier-atlas.png',columns:4,rows:2,index:tier-1,cellWidth:443.5,cellHeight:443.5};
+  for(let tier=1;tier<=5;tier++)catalog[`hacking-module-${tier}`].cardArtAtlas={src:'hacking-module-tier-atlas.png',sourceWidth:1983,sourceHeight:793,rect:[(tier-1)*396.6,120,396.6,520]};
+  for(let tier=1;tier<=10;tier++)catalog[`darkveil-${tier}`].cardArtAtlas={src:'darkveil-tier-atlas.png',columns:5,rows:2,index:tier-1,cellWidth:396.6,cellHeight:396.5};
   function installedItems(record) {
     const ship=record.ship||record,ids=new Set((ship.placements||[]).map(p=>p.sicId));
     return (ship.sicInventory||[]).filter(i=>ids.has(i.id));
