@@ -1,3 +1,4 @@
+const rollDisplay = require('./roll-display');
 const showcaseSummaryCache=new WeakMap();
 const crypto = require("crypto");
 const SHOPS=require('./campaign-shops');
@@ -631,7 +632,7 @@ function normalizeCampaign(raw) {
     senderName: String(note?.senderName || "").slice(0,80),
     direction: note?.direction === "to-gm" ? "to-gm" : "to-character",
     persistent: Boolean(note?.persistent),
-    kind: ["informant-contacts", "death-review", "surface-travel", "system", "award", "damage", "roll-request", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
+    kind: ["informant-contacts", "death-review", "surface-travel", "system", "award", "damage", "roll-request", "prompt-result", "session-end", "science-choice", "item-transaction", "item-activity", "recharge", "reverence-gift-request", "reverence-spent", "exertion-spent", "rest-request", "angiluros-craft-request"].includes(note?.kind) ? note.kind : "message",
     choices: Array.isArray(note?.choices) ? note.choices.map(String).slice(0, 8) : [],
     rollRequestId: String(note?.rollRequestId || ""),
     awardId: String(note?.awardId || ""),
@@ -784,6 +785,17 @@ function publicCharacter(record, { gm = false, own = false, notes = [] } = {}) {
 function writeEvent(response, event, data) {
   response.write(`event: ${event}\n`);
   response.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+// A bounded character-client report, not a replacement for the accepted roll outcome.
+function campaignRollCalculation(value,score,mode){
+  if(value===undefined||value===null)return undefined;
+  if(!value||value.version!==1||value.mode!==mode||!Number.isFinite(value.score)||value.score!==score||!Array.isArray(value.lines)||!value.lines.length||value.lines.length>80||value.lines.some(line=>typeof line!=='string'||line.length>600)||value.lines.join('\n').length>16000)throw Error('Invalid roll calculation report.');
+  return {version:1,mode,score,lines:[...value.lines]};
+}
+function campaignRollCalculationText(result){
+  const value=result?.calculation;
+  return value?.version===1 ? rollDisplay.campaign(value) : '';
 }
 
 class CampaignApi {
@@ -1192,7 +1204,7 @@ class CampaignApi {
           return visible;
         }),
       carryOptions:ownId?(()=>{const room=transitRoom(campaign),unit=room.units.find(u=>u.characterId===ownId);return unit&&unit.currentHp>0?{shipId:unit.location?.starshipId,carryingId:unit.carryingId,patients:require('./crew-carry').candidates(room,unit).map(p=>({id:p.id,name:p.characterName}))}:null;})():null,
-      rollRequests: clone(requests.slice(-50)).map(request=>{if(!gm)for(const result of Object.values(request.results||{}))delete result.reputation;return request;}),
+      rollRequests: clone(requests.slice(-50)).map(request=>{if(!gm)for(const [id,result] of Object.entries(request.results||{})){delete result.reputation;delete result.gmNotification;if(id!==ownId)delete result.calculation;}return request;}),
     };
   }
 
@@ -1222,6 +1234,16 @@ class CampaignApi {
       const updatedAt = new Date().toISOString();
       const revision = (Number(campaign.revision) || 1) + 1;
       const next = { ...clone(campaign), encounter: clone(encounter), npcRoster, updatedAt, revision };
+      // Combat damage also needs the existing GM review, without auto-confirming death.
+      // Prepare it on the durable draft; a failed write must not publish its note or flag.
+      const deathReviews=[];
+      next.privateNotes ||= [];
+      for(const record of next.characters||[]){
+        if(record.approved&&record.character.phase==='finalized'&&Number(record.character.health?.current)<=0&&!record.deathReviewPending&&!record.memorial){
+          require('./character-lifecycle').deathReview(next,record);
+          deathReviews.push({characterId:record.id,note:next.privateNotes.at(-1)});
+        }
+      }
       // Gameplay may have captured this snapshot while a preceding crew commit
       // was pending. Campaign rosters are authoritative; keep runtime data intact.
       for (const snapshotShip of next.encounter.starships || []) {
@@ -1255,7 +1277,15 @@ class CampaignApi {
       if (!campaign.showcase) await this.store.save(next);
       // Publish to the cache only after durable storage succeeds.
       Object.assign(campaign, { starmaps:next.starmaps, spaceObjects:next.spaceObjects, encounter: next.encounter, ...(ending||transitChanged?{starships:next.starships}:{}), npcRoster, updatedAt, revision });
-      if(transitChanged&&Date.now()-(this.lastShipBroadcast?.get(code)||0)>=2000){(this.lastShipBroadcast||=new Map()).set(code,Date.now());await this.broadcast(code,campaign);}
+      if(deathReviews.length){
+        campaign.privateNotes ||= [];
+        for(const {characterId,note} of deathReviews){
+          if(!campaign.privateNotes.some(n=>n.id===note.id))campaign.privateNotes.push(note);
+          const record=campaign.characters.find(c=>c.id===characterId);
+          if(record)record.deathReviewPending=true; // Do not replace live HP or other character fields.
+        }
+      }
+      if(deathReviews.length||transitChanged&&Date.now()-(this.lastShipBroadcast?.get(code)||0)>=2000){(this.lastShipBroadcast||=new Map()).set(code,Date.now());await this.broadcast(code,campaign);}
       if(locationsChanged)for(const client of this.clients.get(code)||[]){
         const gm=this.session(client.token,code)?.role==='gm';
         const ships=campaign.starships.filter(ship=>gm||ship.controlType==='pc');
@@ -3954,12 +3984,16 @@ class CampaignApi {
         sendJson(res, 403, { error: "This roll request is not available to that character." });
         return true;
       }
+      let calculation;
+      try{calculation=campaignRollCalculation(body.calculation,Number(body.score)||0,body.mode==='manual'?'manual':'automatic');}
+      catch(error){sendJson(res,400,{error:error.message});return true;}
       if (request.results[characterId]) {
         const previous = request.results[characterId];
         const same = previous.score === (Number(body.score) || 0)
           && previous.mode === (body.mode === "manual" ? "manual" : "automatic")
           && previous.outcome === String(body.outcome || "").slice(0, 40)
-          && JSON.stringify(previous.diceResults) === JSON.stringify(Array.isArray(body.diceResults) ? body.diceResults.map(Number) : []);
+          && JSON.stringify(previous.diceResults) === JSON.stringify(Array.isArray(body.diceResults) ? body.diceResults.map(Number) : [])
+          && (calculation===undefined||JSON.stringify(previous.calculation)===JSON.stringify(calculation));
         if (same) { sendJson(res, 200, { recorded: true, alreadyRecorded: true }); return true; }
         sendJson(res, 409, { error: "This character has already answered that roll request." });
         return true;
@@ -3972,6 +4006,7 @@ class CampaignApi {
         diceResults: Array.isArray(body.diceResults) ? body.diceResults.map(Number) : [],
         outcome: String(body.outcome || "").slice(0, 40),
         respondedAt: new Date().toISOString(),
+        ...(calculation?{calculation}:{}),
       };
       if(String(request.attribute).toLowerCase()==='charisma')request.results[characterId].reputation=REPUTATION.snapshot(campaign,characterId,submittedScore,request.id+':'+characterId);
       campaign.privateNotes = campaign.privateNotes.filter((note) => !(note.rollRequestId === request.id && note.characterId === characterId));
@@ -3985,6 +4020,22 @@ class CampaignApi {
       await this.save(campaign);
       sendJson(res, 200, { recorded: true, succeeded, delivery });
       return true;
+    }
+
+    if(path==='/api/campaign/roll/notification'&&req.method==='POST'){
+      if(!this.gmSession(token,code)){sendJson(res,403,{error:'GM authorization is required.'});return true;}
+      const request=campaign.rollRequests.find(r=>r.id===body.requestId),result=request?.results?.[String(body.characterId||'')];
+      const action=String(body.action||'');
+      if(!result||result.cancelled||!['view','dismiss','expire'].includes(action)){sendJson(res,400,{error:'A completed result and valid notification action are required.'});return true;}
+      if(result.gmNotification){sendJson(res,200,{recorded:true,alreadyRecorded:true,status:result.gmNotification.action});return true;}
+      const at=new Date().toISOString();result.gmNotification={action,at};
+      if(action==='expire'){
+        const person=campaign.characters.find(c=>c.id===String(body.characterId));
+        const noteId=uid('note');result.gmNotification.noteId=noteId;
+        campaign.privateNotes.push({id:noteId,characterId:'',characterName:safeCharacterName(person),direction:'to-gm',kind:'prompt-result',createdAt:at,readAt:null,
+          message:`${safeCharacterName(person)} — ${request.attribute} + ${request.skill}: ${result.score} — ${result.outcome||'Result'}. Difficulty: ${request.difficulty??'None'}.\n${campaignRollCalculationText(result)}`});
+      }
+      await this.save(campaign);sendJson(res,200,{recorded:true,status:action});return true;
     }
 
     if (path === "/api/campaign/roll/close" && req.method === "POST") {

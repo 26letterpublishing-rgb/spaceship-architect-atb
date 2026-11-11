@@ -17,6 +17,9 @@
 .weapon-console .weapon-power-choices button{min-width:0;white-space:normal;line-height:1.35;padding:9px 6px}
 .weapon-console .weapon-power-choices button[aria-pressed="true"]{background:#164f3b;border-color:#79efba;color:#fff;box-shadow:inset 0 0 0 1px #79efba}
 @font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
+.weapon-console .weapon-component-choice[hidden]{display:none}
+.weapon-console .weapon-component-choice{margin:6px 3px 12px}
+@media(prefers-reduced-motion:reduce){.weapon-console .weapon-component-choice .workflow-target-pulse{animation:none!important}}
 body dialog.weapon-console[data-weapon-family="beam-laser"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
 body dialog.weapon-console[data-weapon-family="beam-laser"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
 body dialog.weapon-console[data-weapon-family="beam-laser"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
@@ -24,3 +27,19 @@ body dialog.weapon-console[data-weapon-family="ripple-cannon"] .weapon-controls 
 body dialog.weapon-console[data-weapon-family="ripple-cannon"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
 body dialog.weapon-console[data-weapon-family="ripple-cannon"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
 body dialog.phazon-torpedo-console .weapon-controls :is(h3,label,select,p){font-family:Orbitron,sans-serif;font-size:15px;line-height:1.5}
+
+body dialog.weapon-console[data-weapon-family="ion-pulse-cannon"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.weapon-console[data-weapon-family="ion-pulse-cannon"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.weapon-console[data-weapon-family="ion-pulse-cannon"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
+
+body dialog.weapon-console[data-weapon-family="ballistic-rail-cannon"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.weapon-console[data-weapon-family="ballistic-rail-cannon"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.weapon-console[data-weapon-family="ballistic-rail-cannon"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
+
+body dialog.weapon-console[data-weapon-family="ballistic-rail-repeater"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.weapon-console[data-weapon-family="ballistic-rail-repeater"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.weapon-console[data-weapon-family="ballistic-rail-repeater"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
+
+body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
+body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}

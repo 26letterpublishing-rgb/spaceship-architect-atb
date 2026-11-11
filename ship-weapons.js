@@ -69,7 +69,17 @@
     // Defense rather than recomputing Masking from an empty or analyzed snapshot.
     const targetDefense = target && (target.contactOnly || target.analyzedContact) && Number.isFinite(target.defenseScore) ? target.defenseScore : target ? sensors.defense(room,target) : null;
     const known = Number.isFinite(targetDefense) ? targetDefense+range*(definition.rangeDefensePerUnit||0) : null;
-    return {sides, bonus, skill:'Weapon Systems', attributeKey:'dexterity', difficulty:Number.isFinite(known) ? known : null,
+    const signed=n=>(n>=0?'+':'')+Number(n.toFixed(6)),pool=values=>values.map(n=>'D'+n).join('+')||'unavailable';
+    const sources=[`Dexterity ${pool(unit.dexterityDice||[])}`];
+    if(unit.classId==='gunner'&&unit.intellectDice?.length)sources.push(`Gunner +D${Math.max(...unit.intellectDice)}`);
+    if(unit.raceId==='tamalori')sources.push('Tamalori ×2 dice');
+    if(unit.raceId==='krax-gny-vtek'&&unit.maximumHp-unit.currentHp>=5)sources.push('Krax injury: first 3 dice');
+    if(unit.shipAi)sources.push('Ship AI override: 4D6');
+    sources.push(`Weapon Systems ${signed(skill(unit))}`,`Hull Size Modifier ${signed(ship?maps.propulsion(ship).hsm:0)}`,`range ${signed(rangeModifier)}`);
+    if(definition.rangeDefensePerUnit)sources.push(`range Defense ${signed(range*definition.rangeDefensePerUnit)}`);
+    const input=settings(unit,definition.tier),quality=delays.calculate({...input,factors:{Quality:input.factors.Quality}}),ingenuity=delays.calculate({...input,factors:{Ingenuity:input.factors.Ingenuity}});
+    const calculation={version:1,kind:'weapon-attack',sides:[...sides],sources,summary:[`${definition.name||order.weaponName||'Weapon'}: ${sources.join('; ')}.`,`ATB: ${definition.name||'SIC'} Quality ${signed(quality.flat)}${quality.percent?` / +${Math.round(quality.percent*100)}%`:''}; Weapon Systems Ingenuity ${signed(ingenuity.flat)}${ingenuity.percent?` / +${Math.round(ingenuity.percent*100)}%`:''}; ${input.rate}/s.`],lines:[],gmLines:[]};
+    return {sides, bonus, calculation, skill:'Weapon Systems', attributeKey:'dexterity', difficulty:Number.isFinite(known) ? known : null,
       difficultyLabel:Number.isFinite(known) ? `Meet or exceed Defense ${known}` : 'Unknown defense', range};
   }
   function queue(room, unit, body) {
@@ -147,8 +157,20 @@
     }
     if(access.definition.devastation){const dev=require('./ship-devastation'),why=dev.reason(room,ship,access.item);if(why){post({text:'Devastation shot cancelled: '+why});return;}}
     const spec = pending.rollSpec || rollSpec(room,unit,order);
-    const total = locked ? 0 : Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(attackRoll)) + spec.bonus;
+    const rolled=[];
+    const total = locked ? 0 : Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(s=>{const value=attackRoll(s);rolled.push(value);return value;})) + spec.bonus;
+    const calculation=JSON.parse(JSON.stringify(spec.calculation||{version:1,kind:'weapon-attack',summary:['Older weapon source details unavailable.',''],lines:[],gmLines:[]}));
+    calculation.sides=locked?[]:[...spec.sides,...Array(attackRoll.exertion||pending.submittedRoll?.exertion||0).fill(12)];
+    calculation.values=locked?[]:rolled.length?rolled:[...(attackRoll.submittedValues||pending.submittedRoll?.values||[])];
+    calculation.summary[0]+=locked?' Locked hit: no attack dice.':` ${calculation.values.length?'Dice '+calculation.values.join(','):'Manual/client dice unavailable'}; result ${total}${Number.isFinite(attackRoll.submittedScore)?' (submitted)':''}.`;
+    if(locked)calculation.summary[0]=`${order.weaponName||'Weapon'}: locked hit; no attack dice or roll modifiers applied.`;
+    if(order.burst?.shot>1)calculation.summary[1]='Follow-up burst shot: no additional input delay.';
+    if(pending.rollTiming)calculation.summary[1]+=` Input ${pending.rollTiming.seconds}s.`;
+    if(attackRoll.exertion||pending.submittedRoll?.exertion)calculation.summary[0]+=` Exertion +${attackRoll.exertion||pending.submittedRoll.exertion}D12.`;
+    pending.calculation=calculation;
     const defense = sensors.defense(room,target)+(order.range??spec.range)*(access.definition.rangeDefensePerUnit||0);
+    calculation.gmSummary=`GM: Defense ${defense}.`;
+    calculation.gmLines=[`Defense ${defense}; range defense addition ${(order.range??spec.range)*(access.definition.rangeDefensePerUnit||0)}.`];
     locks.refresh(room);
     if(locked&&!weaponLock(room,unit,ship,target.id,order.captured)){post({text:'Shot cancelled: controlled target lock was lost during input. Committed AU was consumed.'});return;}
     if(access.definition.devastation)require('./ship-devastation').fire(ship,access.id);
@@ -164,6 +186,14 @@
     const dieSides=shot.dieSides||order.dieSides||4;
     const report = post({text:`${shotName(order)}: ${reflection?'REFLECTED':hit ? 'HIT' : 'MISSED'} ${target.title}.${reflection?' Return trip uses twice the distance.':''}${hit ? ` ${blockedByShields?'No effect: shields protect the hull; this weapon cannot damage shields.':count?`Roll ${count}D${dieSides} damage.`:rail?'No damage dice remain.':'No damage dice remain after conserving AU.'}` : ''}`,hit,damage:0,blockedByShields,total:locked?null:total,defense,targetId:target.id,shot:true,operatorId:unit.id,awaitingDamage:Boolean(count)});
     if(count)unit.delayedAction={id:pending.id+'-damage',kind:'action',rollController:pending.rollController,automated:pending.automated,label:`${shotName(order)} damage: ${count}D${dieSides}${shot.bonus?` + ${shot.bonus}`:''}`,remaining:0,total:100,rate:1,resolving:true,awaitingRoll:true,rollBeforeDelay:false,consumeTurn:false,weaponDamage:{...order,dieSides,count,damageBonus:shot.bonus,noShieldDamage,shieldPiercing:Boolean(access.definition.shieldPiercing),ignoreReduction:Boolean(access.definition.ignoreReduction),extraImpairment:access.definition.ionDisruptor?1:0,attackId:pending.id,total:locked?null:total,defense},rollSpec:{sides:Array(count).fill(dieSides),bonus:shot.bonus,skill:'Damage',damage:true,difficulty:null,difficultyLabel:'Add all damage dice and the displayed bonus. No fusion.'}};
+    if(count){
+      const details=[`${shotName(order)}: ${count}D${dieSides}${shot.bonus?' +'+shot.bonus:''}`];
+      if(shot.impaired){const intact=profile(access.definition,{...access.item,impaired:false,status:undefined,impairmentPoints:0},(order.range??spec.range)*(reflection?2:1),order),delta=shot.count-intact.count;details.push(`impaired ${order.weaponName||'weapon'}${delta?`: capacity ${delta} dice`:shot.dieSides!==intact.dieSides?`: D${shot.dieSides} instead of D${intact.dieSides}`:''}`);}
+      if(order.sacrifice)details.push(`conserve AU −${order.sacrifice} dice`);
+      if(order.boosts)details.push(`AU boosts ${order.boosts}`);
+      if(shot.family==='ripple-cannon'&&shot.loss)details.push(`range −${shot.loss} dice`);
+      unit.delayedAction.rollSpec.calculation={version:1,kind:'weapon-damage',summary:[details.join('; ')+'.','Sum damage dice; no fusion.'],lines:[],gmLines:[]};
+    }
     const incoming = {id:report.id,at:report.at,shot:true,hit,targetId:target.id,text:blockedByShields?'Incoming weapon hit: no effect on shields or hull.':rail?(hit?'Incoming rail cannon hit.':'Incoming rail cannon missed.'):(hit?'Incoming laser hit.':'Incoming laser missed.')};
     state(target).reports = [incoming,...state(target).reports].slice(0,30);
     sensors.knowledge(target).reports = [incoming,...sensors.knowledge(target).reports].slice(0,30);
@@ -175,6 +205,8 @@
     if(!ship||!target||target.currentHullHp<=0||target.escapedAt){unit.delayedAction=null;return;}
     const bonus=order.damageBonus||0,damage=values.length?values.reduce((a,b)=>a+b,0)+bonus:manualScore;
     if(!Number.isInteger(damage)||damage<order.count+bonus||damage>order.count*(order.dieSides||4)+bonus)throw Error('Enter the total of the indicated damage dice and bonus.');
+    pending.calculation=JSON.parse(JSON.stringify(pending.rollSpec?.calculation||{version:1,kind:'weapon-damage',summary:[`${order.weaponName||'Weapon'}: ${order.count}D${order.dieSides||4} +${bonus}.`,'Older damage sources unavailable.'],lines:[],gmLines:[]}));
+    pending.calculation.values=[...values];pending.calculation.summary[1]=`${values.length?'Dice '+values.join(','):'Manual dice unavailable'}; damage ${damage}${values.length?'':' (submitted)'}.`;
     // Shields may have recovered while the operator was confirming damage.
     const blockedByShields=(order.noShieldDamage||ballistic(order))&&shieldProtected(room,target);
     const beforeHull=target.currentHullHp,beforeShield=target.currentShieldHp||0,sourceHull=ship.currentHullHp,sourceShield=ship.currentShieldHp||0;

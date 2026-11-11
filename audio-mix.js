@@ -2,7 +2,7 @@
 (function(root){
   if(root.SAAudioMix)return;
   const busesToMute=new Set(),activeClips=new Set(),mediaTracks=new Map();
-  const preferenceKey='sa-audio-levels-v1',defaults={master:100,game:100,interface:30};
+  const preferenceKey='sa-audio-levels-v1',defaults={master:100,game:100,interface:30,music:100};
   const storage=()=>root.SABrowserStorage?.local||root.localStorage;
   function preferences(){let saved={};try{saved=JSON.parse(storage()?.getItem(preferenceKey)||'{}')||{};}catch{}
     return Object.fromEntries(Object.entries(defaults).map(([key,value])=>[key,Number.isFinite(saved[key])?Math.max(0,Math.min(100,saved[key])):value]));}
@@ -175,6 +175,6 @@
       activeClips.add(handle);osc.start(at);osc.stop(at+.44);return handle;
     }catch{} // Autoplay denial or a closed context must never affect a scan.
   }
-  root.SAAudioMix={destination,profiles,success,navigation,context,unlock,clip,refreshMute,preferences,setPreferences,isMuted,setMuted,level,trackMedia,releaseMedia,buttonSound,stopButtonSound,turnDing,previewVolume,consoleTick,sensorPing};
+  root.SAAudioMix={musicOutput:c=>output(c,'music'),destination,profiles,success,navigation,context,unlock,clip,refreshMute,preferences,setPreferences,isMuted,setMuted,level,trackMedia,releaseMedia,buttonSound,stopButtonSound,turnDing,previewVolume,consoleTick,sensorPing};
   root.SABrowserStorage?.ready?.then(()=>{refreshMute();notify();});
 })(globalThis);

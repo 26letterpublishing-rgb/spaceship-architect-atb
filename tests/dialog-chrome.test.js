@@ -21,7 +21,7 @@ function fixture(native=false){
  const run=()=>vm.runInNewContext(fs.readFileSync(require.resolve('../dialog-chrome.js'),'utf8'),{window,document:{documentElement:root,createElement:t=>new Element(t),querySelectorAll:s=>root.querySelectorAll(s)},Event,CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}},MutationObserver:class{constructor(fn){observer=fn;}observe(){}}});
  const flush=(target=dialog)=>observer([{type:'childList',target,addedNodes:[]}]);
  const x=()=>dialog.querySelectorAll('button').find(b=>b.classList.contains('dialog-circle-close'));
- return {Element,root,dialog,button,run,flush,x,window};
+ return {Element,root,dialog,button,run,flush,x,window,mutate:records=>observer(records)};
 }
 test('PC submissions stay visible and X only runs the separate close handler',()=>{
  for(const label of ['Confirm and Submit','Retry Submit','Submit Manual Damage','Save PC Code and Finalize','Save Contacts and Finish','Confirm Transfer','Send to GM','Use Drama Card','Request Rest','Confirm Damage']){
@@ -130,7 +130,7 @@ test('mounted weapon Console retains its actual bottom Exit while nested require
  const e=fixture(true);e.dialog.className='weapon-console';e.dialog.setAttribute('data-console-owner','1');let closes=0;
  const exit=e.button('Exit Console',{onclick:()=>closes++});exit.setAttribute('data-console-view','');e.run();
  assert.equal(exit.classList.contains('dialog-original-dismiss'),false);assert.equal(exit.getAttribute('aria-hidden'),null);exit.click();assert.equal(closes,1);
- e.x().click();assert.equal(closes,2,'existing X still delegates to same close operation');
+ assert.equal(e.x(),undefined,'authored Exit is the only outer Console dismissal');exit.click();assert.equal(closes,2);
  const f=fixture(true);f.dialog.setAttribute('data-required-roll','');f.button('Confirm and Submit');f.run();assert.equal(f.x().disabled,true);
 });
 test('ownership transfer to nested dialog does not snapshot another owners hiding',()=>{
@@ -144,7 +144,7 @@ test('Bridge, Life Support and Warp retain owned Exit across mounting and owners
   e.run();assert.ok(b.classList.contains('dialog-original-dismiss'),'unmounted dismissal initially managed');
   e.dialog.setAttribute('data-console-owner','test');e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false,family);assert.equal(b.getAttribute('tabindex'),'3');assert.equal(b.getAttribute('aria-hidden'),null);
   for(let i=0;i<3;i++){b.click();e.root.append(b);e.flush();e.dialog.append(b);e.flush();assert.equal(b.classList.contains('dialog-original-dismiss'),false);}
-  assert.equal(closes,3);e.x().click();assert.equal(closes,4);
+  assert.equal(closes,3);assert.equal(e.x(),undefined);b.click();assert.equal(closes,4);
  }
 });
 
@@ -157,4 +157,22 @@ test('cleanup preserves preexisting visibility, inert, styles and later owner at
  const e=fixture(true),b=e.button('Close',{hidden:true});b.classList.add('dialog-original-dismiss');b.setAttribute('inert','');b.setAttribute('style','display:none');b.setAttribute('aria-hidden','true');b.setAttribute('tabindex','7');e.run();e.dialog.remove();e.flush();
  assert.equal(b.hidden,true);assert.ok(b.classList.contains('dialog-original-dismiss'));assert.equal(b.getAttribute('inert'),'');assert.equal(b.getAttribute('style'),'display:none');assert.equal(b.getAttribute('aria-hidden'),'true');assert.equal(b.getAttribute('tabindex'),'7');
  const f=fixture(true),c=f.button('Close');f.run();c.setAttribute('aria-hidden','false');c.setAttribute('tabindex','2');f.root.append(c);f.flush();assert.equal(c.getAttribute('aria-hidden'),'false');assert.equal(c.tabIndex,2);
+});
+
+test('map text and artwork updates skip dismissal rescans, while button and visibility changes still refresh',()=>{
+ const e=fixture(true),close=e.button('Close');e.run();let scans=0;const query=e.dialog.querySelectorAll.bind(e.dialog);e.dialog.querySelectorAll=s=>{if(s==='button')scans++;return query(s);};
+ const label=new e.Element('span');e.dialog.append(label);const icon=new e.Element('i');label.append(icon);
+ e.mutate([{type:'characterData',target:{nodeType:3,parentElement:label}}]);
+ e.mutate([{type:'childList',target:label,addedNodes:[icon],removedNodes:[]}]);assert.equal(scans,0);
+ close.textContent='Confirm and Submit';e.mutate([{type:'characterData',target:{nodeType:3,parentElement:close}}]);assert.ok(scans>0);assert.equal(e.x().disabled,false);assert.equal(close.classList.contains('dialog-original-dismiss'),false);
+ close.textContent='Close';close.disabled=true;e.mutate([{type:'attributes',target:close,attributeName:'disabled'}]);assert.equal(e.x().disabled,true);
+ close.disabled=false;e.mutate([{type:'attributes',target:close,attributeName:'disabled'}]);assert.equal(e.x().disabled,false);
+ const box=new e.Element('div');box.append(close);e.dialog.append(box);box.hidden=true;e.mutate([{type:'attributes',target:box,attributeName:'hidden'}]);assert.equal(e.x().disabled,true);
+ box.hidden=false;e.mutate([{type:'attributes',target:box,attributeName:'hidden'}]);assert.equal(e.x().disabled,false);
+ const next=new e.Element('button');next.textContent='Dismiss';close.remove();box.append(next);e.mutate([{type:'childList',target:box,addedNodes:[next],removedNodes:[close]}]);assert.ok(next.classList.contains('dialog-original-dismiss'));
+});
+
+test('floorplan cell buttons avoid dialog ancestry walks without hiding actual controls',()=>{
+ const e=fixture(true);let walks=0;for(let i=0;i<500;i++){const cell=e.button('Hull '+i),closest=cell.closest.bind(cell);cell.closest=s=>{if(s.includes('dialog'))walks++;return closest(s);};}
+ let closed=0;e.button('Close',{onclick:()=>closed++});e.run();assert.equal(walks,0);e.x().click();assert.equal(closed,1);assert.equal(walks,0);
 });

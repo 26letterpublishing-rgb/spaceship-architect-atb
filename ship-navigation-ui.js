@@ -89,6 +89,7 @@
     const pilotId=unit.id,shipId=seated.ship.id;
     if(!compact)combatViews.delete(seatKey(unit));
     let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
+    if(compact&&!host.querySelector('[data-common-console-style]')){const link=host.createElement('link');link.rel='stylesheet';link.href=new URL('console-common.css',location.href).href;link.dataset.commonConsoleStyle='';host.head.append(link);}
     const dialog=host.createElement('dialog');activeDialog=dialog;
     dialog.className=`ship-navigation-dialog${compact?' navigation-planner':''}`;dialog.setAttribute('aria-label',compact?'Move ship':'Pilot console');
     if(compact)dialog.dataset.popupTheme='none';
@@ -231,7 +232,7 @@
       if(state.practice){form.querySelector('[data-availability]').textContent='Combat navigation unavailable outside combat.';form.querySelector('[data-command-status]').textContent='OUT OF COMBAT';}
       form.querySelector('[data-estimate]').textContent=`${speed} Units / 10 sec${destination?` | ${length.toFixed(1)} Units | Arrival ${speed?(100/settings.rate+length*10/speed).toFixed(1):'--'} sec | Drift ${window.SAShipNavigation.driftDistance(length)} Units / ${window.SAShipNavigation.driftSeconds(length)} sec`:''} | Boost ${cost} AU`;
       form.querySelector('[data-navigation-summary]').textContent=form.querySelector('[data-input-status]').textContent+' · '+form.querySelector('[data-estimate]').textContent;
-      const auMarkup=`<strong>${au.current}<small> / ${au.maximum}</small></strong>${dialog.classList.contains('cockpit-layout')?'':`<span>${Array.from({length:12},(_,i)=>`<i class="${i<Math.round(12*au.current/Math.max(1,au.maximum))?'charged':''}"></i>`).join('')}</span>`}`;
+      const auMarkup=`<strong>${au.current}<small> / ${au.maximum}</small></strong>${dialog.classList.contains('cockpit-layout')?'':`<div class="shared-au-cells" aria-hidden="true" style="--charge:${au.maximum>0?Math.max(0,Math.min(100,au.current/au.maximum*100)):0}%"></div>`}`;
       if(auMarkup!==lastAu){form.querySelector('[data-au]').innerHTML=auMarkup;lastAu=auMarkup;}
       form.querySelector('[data-recharge]').style.width=`${au.current>=au.maximum?100:au.progress}%`;
       const nav=seat.ship.navigation;

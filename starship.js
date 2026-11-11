@@ -1935,6 +1935,11 @@ function renderEmbeddedMovement(){
         const button=document.createElement('button');button.type='button';button.dataset.action=action;button.textContent=label;controls.append(button);
       }
     }
+    const moveViewport=grid.closest('[data-grid-viewport]');
+    const inlineSelecting=Boolean(embeddedMove&&enlargedShipInterior?.grid!==grid);
+    controls.classList.toggle('embedded-move-bottom',inlineSelecting);
+    if(inlineSelecting&&controls.parentElement!==moveViewport)moveViewport.append(controls);
+    else if(!inlineSelecting&&controls.parentElement===moveViewport)controlHost.append(controls);
     controls.classList.toggle('is-selecting',Boolean(embeddedMove));
     const boarding=linkedCampaignState?.starships.find(s=>s.id===draft.id)?.ship.airlockDocking?.links?.some(l=>l.ready&&l.square===embeddedMove?.destination);
     const boardingButton=controls.querySelector('[data-action=confirm]');boardingButton.textContent=boarding?'Board other ship':'Confirm';boardingButton.classList.toggle('airlock-board-button',Boolean(boarding));
@@ -1955,7 +1960,8 @@ function renderEmbeddedMovement(){
     for(const key of ['confirm','cancel'])controls.querySelector(`[data-action=${key}]`).hidden=!embeddedMove;
     controls.querySelector('[data-action=confirm]').disabled=!ready||embeddedMove?.submitting;
     controls.querySelector('[data-action=cancel]').disabled=Boolean(embeddedMove?.submitting&&embeddedMove?.combatUnitId);
-    controls.querySelector('[data-action=confirm]').textContent=boarding?'Board other ship':embeddedMove?.station?'Station':'Confirm Move';
+    controls.querySelector('[data-action=confirm]').textContent=boarding?'Board other ship':'Confirm Move';
+    window.SAMovementConfirm?.sync(controls.querySelector('[data-action=confirm]'),{viewport:grid.closest('[data-grid-viewport]'),target:grid.querySelector('[data-grid-index="'+embeddedMove?.destination+'"]'),movingElement:grid,active:Boolean(embeddedMove?.locked&&!embeddedMove.invalid&&ready)});
     controls.querySelector('output').textContent=embeddedMove?(embeddedMove.submitting?'Moving...':embeddedMove.message):'';
     let stationSelect=controls.querySelector('[data-embedded-station]');
     if(!stationSelect){stationSelect=document.createElement('select');stationSelect.dataset.embeddedStation='';stationSelect.setAttribute('aria-label','Choose a station');controls.insertBefore(stationSelect,controls.querySelector('output'));stationSelect.onchange=()=>{if(!stationSelect.value||!embeddedMove||embeddedMove.submitting)return;const [square,mesh]=stationSelect.value.split(':').map(Number);parent.postMessage({type:'sa-ship-map-destination',square,mesh},location.origin);};}
@@ -2087,7 +2093,7 @@ async function enlargeShipInterior(viewport,source){
   shell.style.cssText='position:fixed;inset:8px;width:calc(100vw - 16px);height:calc(100dvh - 16px);max-width:none;max-height:none;margin:auto;padding:0;border:1px solid #70cce0;background:#06151e;color:#eefaff;overflow:hidden';
   host.style.cssText='width:100%;height:calc(100% - 38px)';const closeButton=doc.createElement('button');closeButton.type='button';closeButton.textContent='Back';closeButton.onclick=closeEnlargedShipInterior;shell.append(host,closeButton);
   const shadow=host.attachShadow({mode:'open'});
-  const links=[...document.querySelectorAll('link[rel="stylesheet"]')].filter(link=>/starship\.css|ship-pass2\.css|ship-map-presentation\.css|crew-tokens\.css|token-art\.css/.test(link.href));
+  const links=[...document.querySelectorAll('link[rel="stylesheet"]')].filter(link=>/starship\.css|ship-pass2\.css|ship-map-presentation\.css|movement-controls\.css|crew-tokens\.css|token-art\.css/.test(link.href));
   const loading=links.map(link=>new Promise(resolve=>{const copy=doc.createElement('link');copy.rel='stylesheet';copy.href=link.href;copy.onload=resolve;copy.onerror=resolve;shadow.append(copy);}));
   const style=doc.createElement('style');style.textContent=`
     :host{display:block;height:100%;font:14px Arial;color:#eefaff}.enlarged-body{margin:0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#06151e;color:#eefaff}

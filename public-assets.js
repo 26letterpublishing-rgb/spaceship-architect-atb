@@ -3,13 +3,16 @@ const debugManifest = require('./debug-tools-manifest.json');
 const debugFiles = new Set(debugManifest.runtimeFiles.map(file=>file.toLowerCase()));
 const debugDirectories=(debugManifest.runtimeDirectories||[]).map(dir=>dir.toLowerCase()+'/');
 function debugToolsEnabled(env=process.env){
-  if(String(env.NODE_ENV||'').trim().toLowerCase()==='production'||String(env.SA_APP_MODE||'').trim().toLowerCase()==='release')return false;
+  const mode=String(env.SA_APP_MODE||'').trim().toLowerCase();
+  if(mode==='release')return false;
+  if(mode!=='shared'&&String(env.NODE_ENV||'').trim().toLowerCase()==='production')return false;
   return !['0','false','off'].includes(String(env.SA_DEBUG_TOOLS||'').trim().toLowerCase());
 }
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
- 'console-viewer.js','console-layout-editor.js','console-layout-store.js','console-layout-catalog.js','console-preview-actions.js','tactical-ring-renderer.js',
+ 'roll-display.js',
+ 'music-preview.js','combat-music.js','console-viewer.js','console-layout-editor.js','console-layout-store.js','console-layout-catalog.js','console-preview-actions.js','tactical-ring-renderer.js',
  'audio-controls.js','home-screen.js','home-feedback.js','npc-icon-picker.js',
  'universe-clock.js','universe-ui.js','universe-ui.css','module-conditions.js','module-author-ui.js',
   'character-lifecycle-ui.js', 'character-lifecycle-ui.css', 'dialog-chrome.js', 'dialog-chrome.css',
@@ -25,7 +28,7 @@ const browserScripts = new Set([
   "crew-logs-ui.js","interior-pan.js","black-hole-gun-console.js","black-hole-gun-console.css",
   'ship-fabrication.js','science-console.js','ship-devastation.js','ship-doors.js','transporter-console.js','intruder-alert.js','crew-deployment.js','quick-prompts.js', 'character-statistics.js', 'ship-floorplan-snapshot.js', 'campaign-recovery.js', 'room-v03.js', 'sic-categories.js', 'sic-card-factory.js',
   'cleanser-ui.js','cleanser-timeline.js','cleanser-impact.js',
-  'warp-effects.js','automation-ui.js','fleet-notices.js','drone-console.js','ship-probes.js','probe-console.js','drone-map.js','surveillance-console.js','skill-catalog.js',
+  'warp-effects.js','automation-ui.js','fleet-notices.js','drone-console.js','ship-probes.js','probe-console.js','drone-map.js','surveillance-console.js','skill-catalog.js','vr-simulations.js',
   'space-objects.js','space-object-editor.js',
   'field-utility-console.js',
   'field-utility-status.js',
@@ -46,7 +49,7 @@ const browserScripts = new Set([
   "npc-combat-dice.js", "race-lore-data.js", "ship-map-core.js", "ship-combat-map.js",
   "showcase.js", "starship.js", "weapon-data.js", "ship-power.js", "ship-navigation.js", "ship-navigation-ui.js", "character-storage.js", "ship-distances.js", "space-map.js", "live-dom.js", "crew-overview.js", "health-display.js",
 ]);
-const publicData = new Set(["data/weapons.json", "data/npc-templates.json", "console-layout-snapshots.json"]);
+const publicData = new Set(["data/combat-music-mixes.json","data/weapons.json", "data/npc-templates.json", "console-layout-snapshots.json"]);
 const vendorScripts = new Set(["vendor/three.module.min.js", "vendor/three.core.min.js", "vendor/cannon-es.js"]);
 const mediaExtensions = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico", ".mp4", ".m4a", ".mp3", ".wav", ".ogg"]);
 
@@ -60,7 +63,8 @@ function resolvePublicAsset(root, pathname, { debugTools=debugToolsEnabled() }={
   if(!debugTools&&(debugFiles.has(file.toLowerCase())||debugDirectories.some(dir=>file.toLowerCase().startsWith(dir))))return null;
   const extension = path.extname(file).toLowerCase();
   const rootFile = !file.includes("/");
-  const allowed = publicData.has(file) || vendorScripts.has(file) || /^alma-snapshots\/[a-z0-9-]+\.json$/.test(file)
+  const musicAsset=/^debug-music\/(contact|onslaught|eldritch)\/[^/]+\.mp3$/.test(file);
+  const allowed = (debugTools && musicAsset) || publicData.has(file) || vendorScripts.has(file) || /^alma-snapshots\/[a-z0-9-]+\.json$/.test(file)
     || (rootFile && (browserScripts.has(file) || [".html", ".css"].includes(extension) || mediaExtensions.has(extension)))
     || (/^fonts\/[^/]+$/.test(file) && [".woff", ".woff2", ".ttf", ".otf"].includes(extension));
   if (!allowed) return null;

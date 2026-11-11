@@ -70,7 +70,7 @@ async function step(room,seconds,{act,oxygen,publish,off}){
   if(!unit)return;
   const pending=missile||unit.delayedAction;
   if(missile||pending?.awaitingRoll){
-    const key=pending.id,spec=missile?{sides:Array(missile.dice).fill(8),bonus:0,damage:true,damageMultiplier:(()=>{const t=require('./ship-targets').find(room,missile.targetId);return t?.isMissile?1:t?.currentShieldHp>0?1:5;})()}:pending.rollSpec;
+    const key=pending.id,spec=missile?{sides:Array(missile.dice).fill(missile.dieSides||8),bonus:0,damage:true,damageMultiplier:(()=>{if(missile.torpedo)return missile.damageMultiplier;const t=require('./ship-targets').find(room,missile.targetId);return t?.isMissile?1:t?.currentShieldHp>0?1:5;})()}:pending.rollSpec;
     if(!spec?.sides?.length)return;
     const holder=missile||unit;let show=holder.automationPresentation;
     if(show?.id!==key){
@@ -82,7 +82,7 @@ async function step(room,seconds,{act,oxygen,publish,off}){
     show.remaining-=Math.min(.5,Math.max(0,seconds));
     if(show.remaining>0)return;
     if(show.phase==='rolling'){show.phase='result';show.remaining=1.2;publish();return;}
-    const result=await act(missile?{action:'missileDamage',id:unit.id,missileId:missile.id,score:show.score}:{action:'rollShipAction',id:unit.id,rollId:key,score:show.score,diceResults:show.values,exertion:0});
+    const result=await act(missile?{action:'missileDamage',id:unit.id,missileId:missile.id,score:show.score,diceResults:show.values}:{action:'rollShipAction',id:unit.id,rollId:key,score:show.score,diceResults:show.values,exertion:0});
     if(result.ok){show.phase='complete';show.completedAt=Date.now();publish();}
     else {unit.automationNotice=result.error;show.remaining=2;off(unit,result.error);pending.automated=false;publish();}
     return;

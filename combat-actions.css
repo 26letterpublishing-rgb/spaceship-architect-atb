@@ -638,6 +638,8 @@
 .attack-damage-breakdown span { color: #8fa9bb; font-size: .62rem; text-transform: uppercase; }
 .attack-check-status strong,
 .attack-damage-breakdown strong { color: #fff; font-size: .95rem; }
+.attack-check-status strong { font-size:12px; line-height:1.4; font-weight:400; }
+.attack-check-status strong::first-line { font-weight:700; }
 .gm-resolve-defender { width: auto; min-height: 30px; margin: 4px 0 10px; font-size: .64rem; }
 .combat-critical-banner {
   padding: 9px 12px;

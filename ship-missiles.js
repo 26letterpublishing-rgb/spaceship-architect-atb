@@ -85,7 +85,7 @@ function resolveInput(room,unit){
   const origin=targets.point(room,ship.id),destination=targets.point(room,target.id);
   const knownItem=sensors.analysis(access.controlSource||ship,target.id)?.layout?.sicInventory?.find(i=>i.id===order.targetSicId);
   room.missileSerial=Math.max(Number(room.missileSerial)||0,...targets.flights(room).map(m=>Number(m.serial)||0))+1;
-  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,...(kind.speedProfile?{speedProfile:{...kind.speedProfile}}:{}),speed:kind.speedProfile?.start??kind.acceleration,masking:kind.masking,dice:kind.dice,...(kind===torpedo?{torpedo:true,dieSides:impaired(access.item)?8:10,damageMultiplier:impaired(access.item)?1:2,maxRange:24,uninterceptable:true}:{}),heading:heading(origin,destination),launchedAt:Date.now()});
+  for(let n=0;n<1;n++)state(ship).flights.push({id:task.id+'-'+n,name:kind.name+' #'+room.missileSerial,launchSource:{name:access.definition.name,impaired:impaired(access.item)},serial:room.missileSerial,splitCount:kind.count,splitDistance:distances.hexDistance(origin,destination)/2,traveled:0,slot:n,salvoSize:1,sourceId:ship.id,targetId:target.id,targetSicId:order.targetSicId,componentName:knownItem?maps.definition(knownItem.type).name:null,unitId:unit.id,characterId:unit.characterId||null,controller:task.rollController||'player',automated:Boolean(task.automated),phase:'flying',position:{q:origin.q,r:origin.r},age:0,acceleration:kind.acceleration,...(kind.speedProfile?{speedProfile:{...kind.speedProfile}}:{}),speed:kind.speedProfile?.start??kind.acceleration,masking:kind.masking,dice:kind.dice,...(kind===torpedo?{torpedo:true,dieSides:impaired(access.item)?8:10,damageMultiplier:impaired(access.item)?1:2,maxRange:24,uninterceptable:true}:{}),heading:heading(origin,destination),launchedAt:Date.now()});
   report(ship,`${kind.name} launched: ${kind.count} inbound projectile${kind.count===1?'':'s'}; pursuing ${target.title}.`,{operatorId:unit.id,missileLaunch:true,targetId:target.id});
 }
 function heading(a,b){return Math.atan2(1.5*(b.r-a.r),Math.sqrt(3)*((b.q-a.q)+(b.r-a.r)/2))*180/Math.PI;}
@@ -123,21 +123,30 @@ function advance(room,seconds){
     if(m.deflected&&m.age>=600){m.phase='expired';m.endedAt=Date.now();}
   }
 }
-function resolveDamage(room,id,total,campaign){
+function resolveDamage(room,id,total,campaign,evidence){
   const m=targets.flights(room).find(m=>m.id===id);
   if(!m)return {ok:false,error:'Missile not found.'};
   if(m.phase==='exploded')return {ok:true,duplicate:true};
   if(m.phase!=='impact')return {ok:false,error:'This missile is not awaiting impact damage.'};
   if(!Number.isInteger(total)||total<m.dice||total>m.dice*(m.dieSides||8))return {ok:false,error:`Confirm the total of the ${m.dice}D${m.dieSides||8} damage dice.`};
+  const values=evidence?.values??[],sides=evidence?.sides||Array(m.dice).fill(m.dieSides||8);
+  if(!Array.isArray(values)||!Array.isArray(sides)||values.length&&(values.length!==m.dice||sides.length!==m.dice||values.some((v,i)=>!Number.isInteger(v)||v<1||!Number.isInteger(sides[i])||sides[i]<1||v>sides[i])||values.reduce((a,b)=>a+b,0)!==total))return {ok:false,error:'Impact dice must match their recorded pool and submitted total.'};
+  let calculation;
+  const remember=(multiplier,outcome)=>{
+    const source=m.launchSource?m.launchSource.name+(m.launchSource.impaired?' (impaired)':''):'Launcher source unavailable (older flight)';
+    const pool=values.length?sides.map(n=>'D'+n).join('+'):m.dice+'D'+(m.dieSides||8);
+    calculation={version:1,kind:'missile-impact',controller:evidence?.controller||m.controller||'player',values:[...values],sides:values.length?[...sides]:[],total,multiplier,summary:[m.name+' / '+source+': '+pool+'; '+(values.length?'dice '+values.join(','):'manual/legacy dice unavailable')+'; total '+total+'.',
+      'Automatic impact; no accuracy roll. '+(multiplier==null?'No damage applied.':'Impact ×'+multiplier+'. ')+outcome],lines:[],gmLines:[]};
+  };
   const target=targets.find(room,m.targetId);
   m.phase='exploded';m.endedAt=Date.now();m.rolled=total;
   if(target?.isMissile||target?.isDrone||target?.isProbe){
     const hit=targets.hit(room,target.id,(target.isDrone||target.isProbe)?total*5:total),owner=room.starships.find(s=>s.id===(target.projectile?.sourceId||target.droneOwnerId||target.probeOwnerId)),source=room.starships.find(s=>s.id===m.sourceId),text=`${m.name}: ${total} rolled. ${hit?'Target destroyed.':'Target survived or is already gone.'}`;
     if(source)report(source,text,{id:'impact-'+m.id,operatorId:m.unitId,impact:true,hit,targetId:target.id,weaponFamily:'missile',damage:hit?1:0});
     if(owner&&owner!==source)report(owner,target.isProbe?'A scouting probe was attacked.':target.isDrone?'The repair drone was attacked.':'A launched missile was intercepted.',{targetId:target.id});
-    reconcile(room);return {ok:true};
+    remember((target.isDrone||target.isProbe)?5:1,hit?'Target destroyed.':'Target survived or already gone.');reconcile(room);return {ok:true,calculation};
   }
-  let podInjuries=0;
+  let podInjuries=0;remember(null,'Target unavailable.');
   if(target&&target.currentHullHp>0&&!target.escapedAt){
     shields.refresh(room);const damage=total*(m.torpedo?m.damageMultiplier:target.currentShieldHp>0?1:5),before={hull:target.currentHullHp,shield:target.currentShieldHp};shields.damage(room,target.id,damage);
     const result={hullDamage:before.hull-target.currentHullHp,shieldDamage:before.shield-target.currentShieldHp};
@@ -149,12 +158,13 @@ function resolveDamage(room,id,total,campaign){
     }
     const parts=[result.shieldDamage>0?`${result.shieldDamage} shield damage`:null,result.hullDamage>0?`${result.hullDamage} hull damage`:null].filter(Boolean);
     const text=`${m.name}: ${total} rolled; ${parts.join(', ')||'no damage'}.${componentHit?` ${m.componentName||'Targeted SIC'} damaged${result.impairments?`: ${result.impairments} impairment(s)`:''}.`:''}`;
+    remember(m.torpedo?m.damageMultiplier:before.shield>0?1:5,parts.join(', ')||'No damage.');
     const id='impact-'+m.id;
     report(target,text,{id,impact:true,hit:true,targetId:target.id,weaponFamily:'missile',damage,...result});
     const source=room.starships.find(s=>s.id===m.sourceId);if(source&&source!==target)report(source,text,{id,operatorId:m.unitId,impact:true,hit:true,targetId:target.id,weaponFamily:'missile',damage,...result});
   }
   // Other arrivals against a now-destroyed target need no meaningless dice.
   for(const other of targets.flights(room))if(other.phase==='impact'&&room.starships.find(s=>s.id===other.targetId)?.currentHullHp<=0){other.phase='expired';other.endedAt=Date.now();}
-  return {ok:true,podInjuries};
+  return {ok:true,podInjuries,calculation};
 }
 module.exports={ROUND,state,pending,queue,resolveInput,nextEvent,advance,resolveDamage,reconcile};

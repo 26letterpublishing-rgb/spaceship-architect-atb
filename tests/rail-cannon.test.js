@@ -182,13 +182,13 @@ test('interrupted input keeps committed ammunition without generating damage',t=
 test('console displays Iron, manual-only fire, shield immunity, and disables empty ammo',t=>{
   const {room,a,unit}=fixture(t),nodes=new Map(),intervals=[];
   function node(){return {value:'0',textContent:'',innerHTML:'',hidden:false,disabled:false,validity:{valid:true},dataset:{},style:{},options:[0,1,2,3].map(value=>({value:String(value)})),
-    clientWidth:300,clientHeight:200,viewBox:{baseVal:{x:0,y:0,width:10,height:10}},classList:{contains:()=>false},
+    clientWidth:300,clientHeight:200,viewBox:{baseVal:{x:0,y:0,width:10,height:10}},classList:{contains:()=>false,add(){}},parentElement:{append(){}},
     append(){},prepend(){},before(){},after(){},setAttribute(){},addEventListener(){},showModal(){},closest(){return this;},querySelectorAll(){return [];},
     querySelector(selector){if(!nodes.has(selector))nodes.set(selector,node());return nodes.get(selector);}};}
   const document={...node(),defaultView:{frameElement:null},body:node(),head:node(),createElement:node,querySelector:()=>null};
   const window={SACombatBridge:{state:()=>room,soundIcon:()=>'',delayIcon:()=>'',consoleTick(){},resumeAudio(){}},
     SAShipLocks:locks,SAStationAccess:stations,SAShipWeapons:weapons,SAShipSensors:sensors,SASpaceMap:{markup:()=>'',update(){},cameraIdentity:()=>null,mountCamera(){}} ,
-    SAShipNavigationUI:{mountSelector(){}},SAConsoleCommon:{updateSound(){}},addEventListener(){}};
+    SAShipNavigationUI:{mountSelector(){}},SAConsoleCommon:{updateSound(){},namedHeader(){}},addEventListener(){}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','weapon-console-ui.js'),'utf8'),{
     window,document,location:{href:'http://localhost/'},URL,performance:{now:()=>0},setInterval:callback=>intervals.push(callback)
   });

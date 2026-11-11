@@ -1,0 +1,805 @@
+{
+  "schema": "sa-combat-music/v1",
+  "songs": [
+    {
+      "id": "contact",
+      "title": "Contact",
+      "stems": [
+        {
+          "name": "Backing Vocals",
+          "file": "Alien Ascension (Backing Vocals).mp3"
+        },
+        {
+          "name": "Bass",
+          "file": "Alien Ascension (Bass).mp3"
+        },
+        {
+          "name": "Brass",
+          "file": "Alien Ascension (Brass).mp3"
+        },
+        {
+          "name": "Drums",
+          "file": "Alien Ascension (Drums).mp3"
+        },
+        {
+          "name": "FX",
+          "file": "Alien Ascension (FX).mp3"
+        },
+        {
+          "name": "Guitar",
+          "file": "Alien Ascension (Guitar).mp3"
+        },
+        {
+          "name": "Keyboard",
+          "file": "Alien Ascension (Keyboard).mp3"
+        },
+        {
+          "name": "Percussion",
+          "file": "Alien Ascension (Percussion).mp3"
+        },
+        {
+          "name": "Strings",
+          "file": "Alien Ascension (Strings).mp3"
+        },
+        {
+          "name": "Synth",
+          "file": "Alien Ascension (Synth).mp3"
+        },
+        {
+          "name": "Vocals",
+          "file": "Alien Ascension (Vocals).mp3"
+        }
+      ],
+      "mixes": {
+        "shielded": {
+          "schema": "alien-ascension-mix/v1",
+          "name": "Full Shields",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 50
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": false,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 18
+            },
+            "FX": {
+              "on": false,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 58
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": false,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Vocals": {
+              "on": false,
+              "level": 100
+            }
+          }
+        },
+        "three": {
+          "schema": "alien-ascension-mix/v1",
+          "name": "Three HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "FX": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": false,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Vocals": {
+              "on": false,
+              "level": 100
+            }
+          }
+        },
+        "two": {
+          "schema": "alien-ascension-mix/v1",
+          "name": "Two HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "FX": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": true,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": false,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Vocals": {
+              "on": false,
+              "level": 100
+            }
+          }
+        },
+        "one": {
+          "schema": "alien-ascension-mix/v1",
+          "name": "One HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "FX": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": true,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": true,
+              "level": 100
+            },
+            "Vocals": {
+              "on": true,
+              "level": 100
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "onslaught",
+      "title": "Onslaught",
+      "stems": [
+        {
+          "name": "Backing Vocals",
+          "file": "Final Space Battle (Backing Vocals).mp3"
+        },
+        {
+          "name": "Bass",
+          "file": "Final Space Battle (Bass).mp3"
+        },
+        {
+          "name": "Brass",
+          "file": "Final Space Battle (Brass).mp3"
+        },
+        {
+          "name": "Drums",
+          "file": "Final Space Battle (Drums).mp3"
+        },
+        {
+          "name": "FX",
+          "file": "Final Space Battle (FX).mp3"
+        },
+        {
+          "name": "Guitar",
+          "file": "Final Space Battle (Guitar).mp3"
+        },
+        {
+          "name": "Keyboard",
+          "file": "Final Space Battle (Keyboard).mp3"
+        },
+        {
+          "name": "Percussion",
+          "file": "Final Space Battle (Percussion).mp3"
+        },
+        {
+          "name": "Strings",
+          "file": "Final Space Battle (Strings).mp3"
+        },
+        {
+          "name": "Synth",
+          "file": "Final Space Battle (Synth).mp3"
+        },
+        {
+          "name": "Vocals",
+          "file": "Final Space Battle (Vocals).mp3"
+        },
+        {
+          "name": "Woodwinds",
+          "file": "Final Space Battle (Woodwinds).mp3"
+        }
+      ],
+      "mixes": {
+        "shielded": {
+          "schema": "final-space-battle-mix/v1",
+          "name": "Final Boss Full Shields",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": false,
+              "level": 100
+            },
+            "FX": {
+              "on": true,
+              "level": 36
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": false,
+              "level": 100
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": false,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Woodwinds": {
+              "on": true,
+              "level": 100
+            }
+          }
+        },
+        "three": {
+          "schema": "final-space-battle-mix/v1",
+          "name": "Final Boss Three HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": false,
+              "level": 100
+            },
+            "Brass": {
+              "on": false,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "FX": {
+              "on": false,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": false,
+              "level": 100
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Woodwinds": {
+              "on": true,
+              "level": 100
+            }
+          }
+        },
+        "two": {
+          "schema": "final-space-battle-mix/v1",
+          "name": "Final Boss Two HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 70
+            },
+            "FX": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": false,
+              "level": 100
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": true,
+              "level": 100
+            },
+            "Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Woodwinds": {
+              "on": true,
+              "level": 100
+            }
+          }
+        },
+        "one": {
+          "schema": "final-space-battle-mix/v1",
+          "name": "Final Boss One HP left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "FX": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": true,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": true,
+              "level": 100
+            },
+            "Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Woodwinds": {
+              "on": true,
+              "level": 100
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "eldritch",
+      "title": "Eldritch",
+      "stems": [
+        {
+          "name": "Lead Vocals",
+          "file": "0 Lead Vocals.mp3"
+        },
+        {
+          "name": "Backing Vocals",
+          "file": "1 Backing Vocals.mp3"
+        },
+        {
+          "name": "Drums",
+          "file": "2 Drums.mp3"
+        },
+        {
+          "name": "Bass",
+          "file": "3 Bass.mp3"
+        },
+        {
+          "name": "Guitar",
+          "file": "4 Guitar.mp3"
+        },
+        {
+          "name": "Keyboard",
+          "file": "5 Keyboard.mp3"
+        },
+        {
+          "name": "Percussion",
+          "file": "6 Percussion.mp3"
+        },
+        {
+          "name": "Strings",
+          "file": "7 Strings.mp3"
+        },
+        {
+          "name": "Synth",
+          "file": "8 Synth.mp3"
+        },
+        {
+          "name": "Other",
+          "file": "9 Other.mp3"
+        },
+        {
+          "name": "Brass",
+          "file": "10 Brass.mp3"
+        }
+      ],
+      "mixes": {
+        "shielded": {
+          "schema": "space-anomaly-mix/v1",
+          "name": "Anomaly Full Shields",
+          "master": 100,
+          "solo": null,
+          "stems": {
+            "Lead Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Backing Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Drums": {
+              "on": false,
+              "level": 100
+            },
+            "Bass": {
+              "on": false,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 50
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Other": {
+              "on": false,
+              "level": 100
+            },
+            "Brass": {
+              "on": false,
+              "level": 100
+            }
+          }
+        },
+        "three": {
+          "schema": "space-anomaly-mix/v1",
+          "name": "Anomaly Three HP Left",
+          "master": 100,
+          "solo": null,
+          "stems": {
+            "Lead Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Backing Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": false,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": false,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Other": {
+              "on": false,
+              "level": 100
+            },
+            "Brass": {
+              "on": false,
+              "level": 100
+            }
+          }
+        },
+        "two": {
+          "schema": "space-anomaly-mix/v1",
+          "name": "Anomaly Two HP Left",
+          "master": 100,
+          "solo": null,
+          "stems": {
+            "Lead Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Backing Vocals": {
+              "on": false,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": true,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": false,
+              "level": 100
+            },
+            "Other": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            }
+          }
+        },
+        "one": {
+          "schema": "space-anomaly-mix/v1",
+          "name": "Anomaly One HP Left",
+          "master": 25,
+          "solo": null,
+          "stems": {
+            "Lead Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Backing Vocals": {
+              "on": true,
+              "level": 100
+            },
+            "Drums": {
+              "on": true,
+              "level": 100
+            },
+            "Bass": {
+              "on": true,
+              "level": 100
+            },
+            "Guitar": {
+              "on": true,
+              "level": 100
+            },
+            "Keyboard": {
+              "on": true,
+              "level": 100
+            },
+            "Percussion": {
+              "on": true,
+              "level": 100
+            },
+            "Strings": {
+              "on": true,
+              "level": 100
+            },
+            "Synth": {
+              "on": true,
+              "level": 100
+            },
+            "Other": {
+              "on": true,
+              "level": 100
+            },
+            "Brass": {
+              "on": true,
+              "level": 100
+            }
+          }
+        }
+      }
+    }
+  ]
+}

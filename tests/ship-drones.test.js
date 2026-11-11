@@ -73,3 +73,40 @@ test('all repair thresholds drop exactly five; other drone durability and repair
  assert.equal(targets.salvageProxy({owner:{id:'owner'},job:{id:'v',position:{q:0,r:0}}}).maximumHullHp,25);
  assert.equal(targets.droneProxy({id:'legacy'}).maximumHullHp,9);
 });
+
+
+test('drone contact numbers survive refresh, reorder, save and reacquisition without revealing hidden owners',()=>{
+ const {room,a,b}=fixture();drones.reconcile(room);
+ const first=targets.droneProxy(b.ship.droneState.drones['b-bay']);
+ const second={...first,id:'second-drone'};
+ const c1=sensors.detect(room,a,first),c2=sensors.detect(room,a,second);
+ assert.notEqual(c1.title,c2.title);assert.match(c1.title,/^Repair Drone 1 \/ Contact \d+$/);
+ assert.equal(c1.droneOwnerId,undefined);assert.equal(c2.droneOwnerId,undefined);
+ const numbers=structuredClone(a.sensorState.droneContactNumbers);
+ sensors.detect(room,a,second);sensors.detect(room,a,first);assert.deepEqual(a.sensorState.droneContactNumbers,numbers);
+ const restored=JSON.parse(JSON.stringify(room)),observer=restored.starships[0];
+ assert.equal(sensors.detect(restored,observer,first).title,c1.title);
+ delete observer.sensorState.contacts.b;delete observer.sensorState.contacts[first.id];
+ assert.deepEqual(sensors.detect(restored,observer,{...first,id:'unseen'}),{});
+ assert.equal(observer.sensorState.droneContactNumbers.unseen,undefined);
+ observer.sensorState.contacts.b={id:'b',level:'detected'};
+ assert.equal(sensors.detect(restored,observer,first).title,c1.title);
+ const v=targets.salvageProxy({owner:b,job:{id:'test-vulture',position:{q:0,r:0}}});
+ const vc=sensors.detect(restored,observer,v);assert.match(vc.title,/^Vulture Drone \/ Contact \d+$/);assert.notEqual(vc.title,c1.title);
+ const body={...first,id:'body',isFloatingBody:true,title:'Pilot (adrift)'};
+ assert.equal(sensors.detect(restored,observer,body).title,'Pilot (adrift)');
+});
+
+test('shared drone contacts are relabeled with recipient designations rather than sender numbers',()=>{
+ const {room,a,b,unit}=fixture();drones.reconcile(room);const first=targets.droneProxy(a.ship.droneState.drones['a-bay']),second=targets.droneProxy(b.ship.droneState.drones['b-bay']);
+ const aFirst=sensors.detect(room,a,first);sensors.detect(room,a,second);
+ const bSecond=sensors.detect(room,b,second),bFirst=sensors.detect(room,b,first);
+ assert.notEqual(aFirst.title,bFirst.title);
+ assert.equal(sensors.queue(room,unit,{sicId:'a-sn',kind:'share',targetIds:['b'],requestId:'numbered-drone-sharing'}).ok,true);
+ sensors.resolveInput(room,unit,()=>6);
+ assert.equal(b.sensorState.contacts[first.id].title,bFirst.title);
+ assert.equal(b.sensorState.contacts[second.id].title,bSecond.title);
+ assert.equal(sensors.detect(room,b,first).title,bFirst.title);
+ assert.equal(sensors.detect(room,b,second).title,bSecond.title);
+ assert.equal(new Set(Object.values(b.sensorState.droneContactNumbers)).size,2);
+});

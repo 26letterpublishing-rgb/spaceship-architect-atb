@@ -40,7 +40,7 @@
         lock.systemId ||= installed(ship)?.id;
         const item=installed(ship,lock.systemId),impairment=points(item||{}),lost=!item||ship.currentHullHp<=0||impairment>(data.impairments[lock.systemId]??data.impairment??0);
         const target=targets.find(room,lock.targetId);
-        if(lost||!target||target.currentHullHp<=0||!inRange(room,ship,target)){drop(ship,lock.targetId,!item?'system offline':lost?'system impaired or ship destroyed':'target destroyed or outside sensor range');continue;}
+        if(lost||!target||targets.destroyed(target)||!inRange(room,ship,target)){drop(ship,lock.targetId,!item?'system offline':lost?'system impaired or ship destroyed':'target destroyed or outside sensor range');continue;}
         const previous=components(lock),valid=previous.filter(id=>!(target.currentShieldHp>0)&&stations.online(target.ship.sicInventory.find(i=>i.id===id)));
         lock.sicIds=valid;lock.sicId=valid.at(-1)||null;
         if(previous.length!==valid.length)report(ship,'Component lock lost; ship lock remains.',{targetId:target.id});
@@ -79,7 +79,7 @@
     access.ship.ship.triangulatorState={recipients:[...new Set(body.recipients)],pending:{}};
     return {ok:true,ship:access.ship,text:'Lock sharing recipients updated. Compatible linked ships receive maintained locks after 12 active seconds; the source pays its normal upkeep.'};
   }
-  function locked(room,ship,targetId){const target=targets.find(room,targetId);return Boolean(installed(ship)&&target&&target.currentHullHp>0&&!ship.escapedAt&&state(ship).targets.some(t=>t.targetId===targetId&&(t.sharedFrom||inRange(room,ship,target))));}
+  function locked(room,ship,targetId){const target=targets.find(room,targetId);return Boolean(installed(ship)&&target&&!targets.destroyed(target)&&!ship.escapedAt&&state(ship).targets.some(t=>t.targetId===targetId&&(t.sharedFrom||inRange(room,ship,target))));}
   const skill=(unit,kind)=>Math.max(0,Number(kind==='break'?unit.pilotSkill:kind==='sic'?unit.sensorSkill:unit.weaponSystemsSkill) || Number(unit.team==='npc'?unit.mentalSkill:0)||0);
   const bars=n=>n>=6?4:n>=5?3:n>=3?2:n>=1?1:0;
   function settings(unit,kind,tier=1){const value={base:10,factors:{Situation:0,Execution:0,Quality:Math.min(4,tier),Performance:0,Efficiency:0,Ingenuity:bars(skill(unit,kind))}};return {...value,rate:delays.calculate(value).rate};}
@@ -89,6 +89,24 @@
     const retryBonus=order.kind==='break'?0:state(ship).failures[(order.kind==='sic'?'sic:':'')+order.targetId]||0;
     const difficulty=order.kind==='break'?breakDifficulty(target,ship.id):sensors.defense(room,target);
     return {sides,bonus:skill(unit,order.kind)+retryBonus-(order.kind==='sic'?maps.scramblePenalty(target,order.targetSicId):0),retryBonus:0,skill:order.kind==='break'?'Piloting':order.kind==='sic'?'Sensor Systems':'Weapon Systems',difficulty,difficultyLabel:`Meet or exceed ${difficulty}${retryBonus?`; retry +${retryBonus} included`:''}${order.kind==='sic'&&maps.scramblePenalty(target,order.targetSicId)?'; Scramble Box -1 included':''}`,attributeKey:'intellect'};
+  }
+  function captureCalculation(room,unit,pending){
+    const order=pending.lockOrder,ship=room.starships.find(s=>s.id===order.shipId),spec=pending.rollSpec,item=installed(ship,order.systemId),def=definition(ship,order.systemId);
+    let source;
+    if(order.kind==='break'){
+      const inventory=new Map(ship.ship.sicInventory.map(i=>[i.id,i])),thrusters=ship.ship.placements.map(p=>({item:inventory.get(p.sicId),p})).filter(({item,p})=>item&&maps.definition(item.type).thruster&&!item.disabled&&!['destroyed','offline','powered-down'].includes(item.status)&&maps.exteriorPlacement(ship.ship,item.type,p.cell,item.id)).slice(0,4);
+      source=thrusters.map(({item})=>maps.definition(item.type).name+(item.impaired||item.status==='impaired'?' (impaired: no die)':'')).join(', ')+' propulsion';
+    }else source=def.name+(points(item||{})?' (impaired)':'');
+    const rating=skill(unit,order.kind),retry=order.kind==='break'?0:state(ship).failures[(order.kind==='sic'?'sic:':'')+order.targetId]||0,target=targets.find(room,order.targetId),penalty=order.kind==='sic'?maps.scramblePenalty(target,order.targetSicId):0;
+    return {version:1,kind:'lock-check',sides:[...spec.sides],bonus:spec.bonus,difficulty:spec.difficulty,summary:[source+' '+spec.sides.map(n=>'D'+n).join('+')+(unit.shipAi?'; Ship AI overrides pool: 4D6':'')+'; '+spec.skill+' +'+rating+(retry?'; retry +'+retry:'')+(penalty?'; Scramble Box -'+penalty:'')+'; queued threshold '+spec.difficulty+'.',''],gmSummary:'GM: target '+order.targetId+(order.targetSicId?' / component '+order.targetSicId:'')+'; '+(order.kind==='break'?'incoming Lock-On break threshold ':'target Defense ')+spec.difficulty+'.'};
+  }
+  function calculation(pending){
+    const spec=pending.rollSpec||{},c=JSON.parse(JSON.stringify(spec.calculation||{version:1,kind:'lock-check',sides:spec.sides||[],bonus:spec.bonus,difficulty:spec.difficulty,summary:['Named sources unavailable (older order); recorded bonus '+(spec.bonus??'unknown')+'; threshold '+(spec.difficulty??'unknown')+'.','']}));
+    c.sides=[...(spec.sides||c.sides)];
+    const settings=pending.settings,labels=settings?Object.entries(settings.factors||{}).filter(([,v])=>v).map(([key,v])=>{const f=delays.calculate({base:settings.base,factors:{[key]:v}});return (({Quality:pending.lockOrder?.kind==='break'?'Break-lock Quality':'SIC Quality',Ingenuity:spec.skill||'Skill'})[key]||key)+' '+(f.flat>=0?'+':'')+f.flat+(f.percent?' / '+Number((f.percent*100).toFixed(2))+'%':'');}).join(', '):'sources unavailable (older order)';
+    c.summary[1]='ATB '+labels+'; speed '+Number(pending.rate||0).toFixed(2)+'/s'+(pending.rollTiming?'; '+pending.rollTiming.seconds+'s ('+pending.rollTiming.outcome+')':'')+'.';
+    if(pending.submittedRoll){c.values=[...(pending.submittedRoll.values||[])];c.total=pending.submittedRoll.score;c.summary[0]+=' '+(c.values.length?'Submitted dice '+c.values.join(','):'Manual dice unavailable')+'; accepted '+c.total+'.';if(pending.submittedRoll.exertion){c.sides.push(...Array(pending.submittedRoll.exertion).fill(12));c.summary[0]+=' Exertion +'+pending.submittedRoll.exertion+'D12.';}}
+    return c;
   }
   function queue(room,unit,body){
     const seat=stations.station(room,unit),access=stations.access(room,unit,body.sicId)||(!body.sicId&&stations.consoles(room,unit).find(a=>a.kind==='lock')),ship=access?.controlled?access.ship:seat?.ship;
@@ -128,9 +146,19 @@
     }
     const input=settings(unit,kind,kind==='break'?1:def.tier),order={shipId:ship.id,targetId:target.id,kind,systemId:item?.id,controlSicId:access?.id||seat.cell.sicId,targetSicId:body.targetSicId,station:seat.key,controllerUnitId:access?.controlled&&!access.remotePilot?unit.id:null,secondTargetPaid:kind==='lock'&&sourceLocks(ship,item.id).length>=1};
     unit.delayedAction={id:`lock-${receipt}`,kind:'action',label:kind==='break'?'Break Lock-On':kind==='sic'?'Lock Component':'Lock-On',rate:input.rate,remaining:100,total:100,consumeTurn:true,resolving:false,settings:input,lockOrder:order,rollSpec:rollSpec(room,unit,order)};
+    unit.delayedAction.rollSpec.calculation=captureCalculation(room,unit,unit.delayedAction);
+    unit.delayedAction.rollSpec.calculation=calculation(unit.delayedAction);
+    unit.delayedAction.rollSpec.difficultyLabel+='; '+unit.delayedAction.rollSpec.calculation.summary[1];
     data.receipts=[...data.receipts,receipt].slice(-256);return {ok:true,ship};
   }
   function resolve(room,unit,roll){
+    const pending=unit.delayedAction;if(!pending?.lockOrder)return resolveInner(room,unit,roll);
+    const c=calculation(pending),values=[],tracked=n=>{const v=roll(n);values.push(v);return v;};Object.assign(tracked,roll);
+    const result=resolveInner(room,unit,tracked);
+    if(!pending.submittedRoll){const submitted=Number.isFinite(roll.submittedScore);c.values=submitted?[...(roll.submittedValues||[])]:values;c.total=result?.total;c.summary[0]+=' '+(c.values.length?(submitted?'Submitted dice ':'Dice ')+c.values.join(','):submitted?'Manual dice unavailable':'No dice consumed')+(c.total!==undefined?'; result '+c.total:'')+'.';}
+    c.summary[1]+=' '+(result?.text||'Resolution unavailable.');if(Number.isFinite(result?.difficulty)){c.resolvedDifficulty=result.difficulty;c.gmSummary=(c.gmSummary||'')+' Resolution threshold '+result.difficulty+'.';}pending.calculation=c;return result;
+  }
+  function resolveInner(room,unit,roll){
     const pending=unit.delayedAction,order=pending?.lockOrder;if(!order)return;unit.delayedAction=null;
     const ship=room.starships.find(s=>s.id===order.shipId),target=targets.find(room,order.targetId);if(!ship)return;
     refresh(room);
@@ -154,5 +182,5 @@
     }else {const key=(order.kind==='sic'?'sic:':'')+target.id;data.failures[key]=(data.failures[key]||0)+1;}
     return report(ship,`${pending.label}: ${success?'SUCCESS':'FAILED'} (${Number(total.toFixed(2))} vs ${difficulty}).`,{lockResult:true,success,targetId:target.id,total,difficulty,operatorId:unit.id});
   }
-  return {configureSharing,shareLocks,state,components,hasComponent,componentLabel,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty};
+  return {configureSharing,shareLocks,state,components,hasComponent,componentLabel,installed,locked,refresh,queue,resolve,rollSpec,settings,drop,breakDifficulty,calculation};
 }));

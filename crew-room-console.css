@@ -40,6 +40,8 @@
 .crew-room-console[data-room-type=science-lab][data-practice=true].shared-console-layout>.science-fabrication{grid-row:2/4!important}
 .crew-room-console[data-room-type=science-lab][data-practice=true]>.shared-timeline{display:none!important}
 .science-recipe img{display:block!important;height:120px!important;width:100%!important;position:static!important;object-fit:cover!important}
+dialog.crew-room-console[data-room-type=science-lab].shared-console-layout[data-console-owner]>.shared-power{grid-row:2/4!important;min-height:0;overflow:auto}
+.crew-room-console[data-room-type=science-lab] [data-lab-stock]{white-space:pre-line;overflow-wrap:anywhere;line-height:1.6}
 @media(max-width:900px){.crew-room-console[data-room-type=science-lab].shared-console-layout>.science-fabrication{order:2;max-height:65vh;min-height:280px}.crew-room-console[data-room-type=science-lab]>.crew-room-controls{max-height:280px;overflow:auto}}
 
 .science-confirm{background:#0b2332;color:#eefaff;border:1px solid #55cfee;border-radius:8px;padding:24px;max-width:min(460px,90vw)}.science-confirm p{white-space:pre-line;line-height:1.6}.science-confirm button{background:#13577a;color:white;border:1px solid #8bd7ec;padding:10px 20px;margin:8px}.science-confirm::backdrop{background:#0008}
@@ -70,3 +72,31 @@
 .crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls p{margin-block:6px}
 .crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls button{min-width:0;max-width:100%;white-space:normal}
 .crew-room-console[data-room-type=hibernation-chamber] .crew-room-controls output:empty{min-height:0;margin-block:0}
+
+/* Library archive text reuses the room's existing records and controls. */
+.crew-room-console[data-room-type=library] .crew-library-reader{position:absolute;inset:24px 20px 72px;z-index:2;overflow:auto;background:#000;color:#f1f5f3;padding:20px;text-align:left;font:16px/1.5 Arial,sans-serif;text-shadow:none;overflow-wrap:anywhere}
+.crew-room-console[data-room-type=library] .crew-library-reader p,.crew-room-console[data-room-type=library] .crew-library-reader label,.crew-room-console[data-room-type=library] .crew-library-reader strong,.crew-room-console[data-room-type=library] .crew-library-reader summary,.crew-room-console[data-room-type=library] .crew-library-reader small{position:static;transform:none;font-family:Arial,sans-serif;font-size:inherit;text-align:left;text-shadow:none}
+.crew-room-console[data-room-type=library] .crew-library-reader p{margin:10px 0;padding:0;max-width:none;background:transparent;white-space:pre-wrap}
+.crew-room-console[data-room-type=library] .crew-library-reader article,.crew-room-console[data-room-type=library] .crew-library-reader details{margin-bottom:18px}
+.crew-room-console[data-room-type=library] .crew-library-reader label{display:flex;align-items:center;gap:8px}
+.crew-room-console[data-room-type=library] .crew-library-reader input[type=checkbox]{appearance:auto;width:20px;height:20px;flex:0 0 20px;margin:0;accent-color:#74bda1}
+.crew-room-console[data-room-type=library] .crew-library-reader:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+
+.crew-room-console[data-room-type=meeting-room] .crew-room-controls{display:flex;flex-direction:column}
+.crew-room-console[data-room-type=meeting-room] .meeting-talking-points{margin-top:auto;padding-top:12px}
+.crew-room-console[data-room-type=meeting-room] .meeting-talking-points ul{padding-left:22px}
+.crew-room-console[data-room-type=meeting-room] .meeting-talking-points li{margin:6px 0}
+.crew-room-console[data-room-type=meeting-room] .meeting-talking-points output{display:block;font:13px Arial,sans-serif;margin-top:6px}
+/* Meeting Room: reuse the live ring inside the existing lower-left artwork frame. */
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog)>.shared-timeline{position:fixed!important;left:3.5vw!important;top:73vh!important;width:51.5vw!important;height:14.5vh!important;min-height:0!important;display:block!important;grid-template-rows:none!important;padding:0!important;border:0;background:transparent;box-shadow:none;overflow:visible!important;container-type:size}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline>h3,body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group>h3{display:none}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .pilot-rings{display:flex!important;align-items:center;justify-content:center;gap:4px;width:100%;height:14.5vh!important;min-height:0!important;overflow:auto}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .tactical-ring-group{flex:1;min-width:0;height:14.5vh!important;display:grid!important;grid-template-rows:1fr!important;place-items:center;padding:0!important;border:0;background:transparent;box-shadow:none}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .tactical-ring-view{height:14.5vh!important;width:100%;padding:0;border:0;background:transparent;box-shadow:none;container-type:size}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .ring-stage{width:min(100%,calc(14.5vh * .84102564));height:14.5vh!important;min-height:0!important;aspect-ratio:328/390;margin:auto}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .tactical-ring-svg{width:100%!important;height:14.5vh!important;max-width:none}
+body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .ring-stage::before,body dialog.crew-room-console.lock-console.shared-console-layout[data-console-owner][data-room-type=meeting-room]:not(.combat-order-dialog) .shared-timeline .ring-stage::after{display:none}
+
+.crew-room-console[data-room-type=medbay] .crew-room-controls :is(h3,label,select,output){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.crew-room-console[data-room-type=medbay] .crew-room-controls h3{font-size:18px}
+.crew-room-console[data-room-type=medbay] .crew-room-controls select{font-size:16px}

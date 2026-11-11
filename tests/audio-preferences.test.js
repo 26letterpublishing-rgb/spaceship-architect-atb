@@ -14,7 +14,7 @@ function setup(values=new Map(),options={}){
  vm.runInContext(source,sandbox);return {mix:sandbox.SAAudioMix,context,gains,sources,tones,events,requests,advance:()=>now+=100,values};
 }
 test('defaults, category multiplication, mute balance and reload are browser-local',()=>{
- const s=setup(),m=s.mix;assert.equal(JSON.stringify(m.preferences()),'{"master":100,"game":100,"interface":30}');
+ const s=setup(),m=s.mix;assert.equal(JSON.stringify(m.preferences()),'{"master":100,"game":100,"interface":30,"music":100}');
  m.setPreferences({master:50,game:40,interface:30});assert.equal(m.level('game'),.2);assert.equal(m.level('interface'),.15);
  m.setMuted(true);assert.equal(m.level('game'),0);assert.equal(m.level('interface'),0);m.setMuted(false);assert.equal(m.level('game'),.2);
  assert.equal(setup(s.values).mix.level('interface'),.15);assert.equal(setup().mix.level('game'),1,'another browser retains its own preferences');
@@ -62,4 +62,11 @@ test('volume previews use the requested clips/chime at the saved effective volum
  m.setMuted(true);assert.ok(s.tones.every(n=>n.disconnected));m.previewVolume('game');await m.previewVolume('master').finished;assert.equal(s.tones.length,6);assert.equal(s.sources.length,2);
  m.setMuted(false);m.setPreferences({game:0,interface:0});m.previewVolume('game');await m.previewVolume('interface').finished;assert.equal(s.tones.length,6);assert.equal(s.sources.length,2);
  m.setPreferences({game:100,interface:30,master:0});m.previewVolume('game');await m.previewVolume('master').finished;assert.equal(s.tones.length,6);assert.equal(s.sources.length,2);
+});
+
+test('music category shares Master/mute once and preserves existing saved balances',()=>{
+ const values=new Map([['sa-audio-levels-v1',JSON.stringify({master:50,game:40,interface:30})]]),s=setup(values),m=s.mix,bus=m.musicOutput(s.context);
+ assert.equal(m.preferences().music,100);assert.equal(bus.gain.value,.5);assert.equal(m.musicOutput(s.context),bus);
+ m.setPreferences({music:35});assert.equal(bus.gain.value,.175);assert.equal(m.level('game'),.2);assert.equal(m.level('interface'),.15);
+ m.setMuted(true);assert.equal(bus.gain.value,0);m.setMuted(false);assert.equal(bus.gain.value,.175);assert.equal(setup(values).mix.preferences().music,35);
 });

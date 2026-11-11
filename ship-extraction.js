@@ -29,9 +29,14 @@ function spec(job){let sides,label;
  if(job.phase==='salvage'){sides=[10,10,10];label='Vulture Drone: recovered component';}
  return sides?{attributeKey:'dexterity',attributeLabel:label,skill:'Engineering',sides,bonus:0,difficulty:null,difficultyLabel:label,exertionAvailable:0}:null;
 }
+function calculation(job,values=[]){
+ const roll=spec(job);if(!roll)return;
+ const rules={success:'Mining Laser; D10 strictly below '+job.cutoff,chart:'Random Mineral Chart; tens then ones; 10 means zero; 00 means 100',mythic:'Mythic Mineral Chart; D'+job.mythicDie,quantity:job.mineral+' quantity; sum dice; multiplier '+(job.multiplier||1)+(job.quantityHalf?'; halve and round up':'')+(job.quantitySubtract?'; subtract '+job.quantitySubtract:'')+'; minimum zero',salvage:'Vulture Drone; three decimal dice; 10 means zero; fair selection rerolls retained'};
+ return {version:1,kind:'extraction-check',stage:job.phase,sides:[...roll.sides],values:[...values],bonus:0,summary:[rules[job.phase]+'; pool '+roll.sides.map(n=>'D'+n).join('+')+'; Engineering +0; '+(values.length?'dice '+values.join(','):'awaiting dice')+'.','Recovery roll; no additional action delay.']};
+}
 function clearRequest(room,job){for(const u of room.units||[])u.pendingShipRolls=(u.pendingShipRolls||[]).filter(r=>r.extractionRoll?.jobId!==job.id);}
 function enqueue(room,ship,job){if(room.outsideCombat||!spec(job))return;const unit=room.units?.find(u=>u.id===job.operatorId);if(!unit||unit.currentHp<=0||unit.vacuum)return;
- if(!unit.pendingShipRolls?.some(r=>r.extractionRoll?.jobId===job.id))(unit.pendingShipRolls||=[]).push({id:randomUUID(),label:spec(job).attributeLabel,extractionRoll:{shipId:ship.id,sicId:job.sicId,jobId:job.id,phase:job.phase},rollSpec:spec(job)});
+ if(!unit.pendingShipRolls?.some(r=>r.extractionRoll?.jobId===job.id))(unit.pendingShipRolls||=[]).push({id:randomUUID(),label:spec(job).attributeLabel,extractionRoll:{shipId:ship.id,sicId:job.sicId,jobId:job.id,phase:job.phase},rollSpec:{...spec(job),calculation:calculation(job)}});
 }
 function advance(room,campaign,seconds){if(!Number.isFinite(seconds)||seconds<0)return false;let changed=false;
  for(const {ship,job}of jobs(room)){if(['complete','cancelled'].includes(job.phase))continue;const block=reason(room,ship,job);
@@ -42,7 +47,14 @@ function advance(room,campaign,seconds){if(!Number.isFinite(seconds)||seconds<0)
   }enqueue(room,ship,job);
  }return changed;
 }
-function resolve(room,ship,job,phase,values,campaign){if(job.phase!==phase||!spec(job))throw Error('This extraction roll is no longer pending.');const s=spec(job);if(!Array.isArray(values)||values.length!==s.sides.length||values.some((n,i)=>!Number.isInteger(n)||n<1||n>s.sides[i]))throw Error('Roll the displayed dice before submitting.');
+function resolve(room,ship,job,phase,values,campaign){
+ const request=(room.units||[]).flatMap(u=>u.pendingShipRolls||[]).find(r=>r.extractionRoll?.jobId===job.id&&r.extractionRoll.phase===phase),c=request?calculation(job,Array.isArray(values)?values:[]):null;
+ if(c&&phase==='salvage'){const target=room.starships.find(t=>t.id===job.targetId),current=target?eligible(target):[],candidates=(job.candidates||[]).filter(v=>current.some(i=>i.id===v.id));c.gmSummary='GM: '+candidates.length+' eligible components; reroll from '+Math.floor(1000/candidates.length)*candidates.length+'; ordered candidates '+candidates.map(v=>v.id+' ('+maps.definition(v.type).name+')').join(', ')+'.';}
+ const result=resolveInner(room,ship,job,phase,values,campaign);
+ if(c){if(phase==='chart'){c.chartResult=(values[0]%10)*10+values[1]%10||100;c.summary[0]+=' Chart result '+c.chartResult+'.';}if(phase==='salvage'){c.selectionRoll=(values[0]%10)*100+(values[1]%10)*10+values[2]%10;c.summary[0]+=' Selection roll '+c.selectionRoll+'.';}c.summary[1]+=' '+result.text;request.calculation=c;}
+ return result;
+}
+function resolveInner(room,ship,job,phase,values,campaign){if(job.phase!==phase||!spec(job))throw Error('This extraction roll is no longer pending.');const s=spec(job);if(!Array.isArray(values)||values.length!==s.sides.length||values.some((n,i)=>!Number.isInteger(n)||n<1||n>s.sides[i]))throw Error('Roll the displayed dice before submitting.');
  let text;
  if(phase==='success'){if(values[0]<job.cutoff){job.phase='chart';text='Mining successful. Roll the Random Mineral Chart.';}else{job.phase='complete';text='No minerals recovered from this attempt.';}}
  else if(phase==='chart'){const n=(values[0]%10)*10+values[1]%10||100;if(n<=3){job.mythicDie=[6,8,10][n-1];job.phase='mythic';text='Mythic mineral vein!';}else{const row=chart.find(r=>n<=r[0]);job.mineral=row[1];job.quantityDice=row[2];job.multiplier=row[3]||1;job.phase='quantity';text='Found '+job.mineral+'. Roll quantity.';}}

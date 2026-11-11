@@ -24,7 +24,7 @@ test('map zoom preserves the current center, aspect and marker identity',()=>{
 function focusedView(document){
  const classes=new Set(),listeners=new Map(),events=[];
  let button={dataset:{},setAttribute(name,value){this[name]=value;},focus(){this.focused=true;}};
- const view={ownerDocument:document,dataset:{},classList:{contains:name=>classes.has(name),toggle(name){if(classes.has(name)){classes.delete(name);return false;}classes.add(name);return true;}},querySelector:()=>button,querySelectorAll:()=>[],addEventListener(name,callback){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(callback);},dispatchEvent(event){events.push(event);},lockedDestination:{q:8,r:-3}};
+ const view={ownerDocument:document,dataset:{},matches:()=>false,classList:{contains:name=>classes.has(name),toggle(name){if(classes.has(name)){classes.delete(name);return false;}classes.add(name);return true;}},querySelector:()=>button,querySelectorAll:()=>[],addEventListener(name,callback){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(callback);},dispatchEvent(event){events.push(event);},lockedDestination:{q:8,r:-3}};
  button.closest=()=>view;
  return {view,listeners,events,get button(){return button;},replaceButton(){button={dataset:{},setAttribute(name,value){this[name]=value;},focus(){this.focused=true;},closest:()=>view};}};
 }

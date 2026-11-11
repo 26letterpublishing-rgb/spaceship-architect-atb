@@ -139,10 +139,18 @@
   function detect(room, observer, target) {
     if(parentDrone(target)&&!droneVisible(room,observer,target))return {};
     const state = knowledge(observer);
+    // Local designations identify observed drones without revealing their owner or hidden fleet.
+    let title=target.title;
+    if(parentDrone(target)){
+      const numbers=state.droneContactNumbers ||= {};
+      if(!Number.isSafeInteger(numbers[target.id])||numbers[target.id]<1)
+        numbers[target.id]=Math.max(0,...Object.values(numbers).filter(n=>Number.isSafeInteger(n)&&n>0))+1;
+      title+= ' / Contact '+numbers[target.id];
+    }
     const newlyDetected=state.contacts[target.id]?.level!=='detected';
     if(newlyDetected&&!target.isMissile&&!target.isMine&&!target.isDrone&&!target.isProbe&&!target.isFloatingBody&&observer.controlType&&target.controlType&&observer.controlType!==target.controlType&&knowledge(target).contacts[observer.id]?.level==='detected')report(target,{enemyDetection:true,targetId:observer.id,text:`${observer.title}: enemy ship has detected your position.`});
     if(state.contacts[target.id]?.level!=='detected')report(observer,{detected:true,shipClass:target.ship.class||'Unknown',nature:target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship',targetId:target.id,text:`${target.title}${target.ship.class?` Class ${target.ship.class}`:''} ${target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship'} detected. Affiliation: ${target.ship.affiliation||'Unknown'}`});
-    return state.contacts[target.id] = { ...state.contacts[target.id],visualOnly:undefined,priorContact:undefined,uncertainty:undefined,id:target.id, level:'detected', title:target.title,
+    return state.contacts[target.id] = { ...state.contacts[target.id],visualOnly:undefined,priorContact:undefined,uncertainty:undefined,id:target.id, level:'detected', title,
       mapColor:maps.shipColor(target),mapIcon:Number(target.ship?.mapIcon)||1,mapHeading:maps.shipHeading(target),mapPowered:target.navigation?.phase==='powered',cloaked:maps.cloaked(target),position:{...point(room,target.id)},hullCondition:condition(target.currentHullHp,target.maximumHullHp),shieldCondition:condition(target.currentShieldHp,target.maximumShieldHp), size:(target.ship.gridCells || []).length,
       shieldConditions:state.analyses[target.id]?.layout ? analyzedShieldConditions(target,state.analyses[target.id].layout) : undefined,
       faction:target.ship.affiliation || '', nature:target.isMine?'Mine':target.isProbe?'Probe':target.isFloatingBody?'Drifting character':target.isSalvageDrone?'Vulture Drone':target.isDrone?'Repair Drone':target.isMissile?'Missile':'Starship', isProbe:Boolean(target.isProbe),probeTier:target.probeTier,probeInhibitor:target.probeInhibitor,probeThreshold:target.isProbe?target.maximumHullHp:undefined,probeOwnerId:target.isProbe&&target.probeOwnerId===observer.id?observer.id:undefined,isFloatingBody:Boolean(target.isFloatingBody),isSalvageDrone:Boolean(target.isSalvageDrone),isDrone:Boolean(target.isDrone),droneTier:target.droneTier,droneSprite:target.droneSprite,droneThreshold:target.isDrone?target.maximumHullHp:undefined,droneOwnerId:target.isDrone&&target.droneOwnerId===observer.id?observer.id:undefined,isMine:Boolean(target.isMine),mineThreshold:target.mineThreshold,mineArt:target.mineArt,isMissile:Boolean(target.isMissile),uninterceptable:Boolean(target.uninterceptable),isTorpedo:Boolean(target.isTorpedo),missileHeading:target.missileHeading,missileSlot:target.missileSlot,missileSalvoSize:target.missileSalvoSize,missilePhase:target.missilePhase,missileSpeed:target.missileSpeed,missileEndedAt:target.missileEndedAt,destroyedAt:target.destroyedAt, defenseScore:defense(room,target), evasionRemaining:Math.max(0,...(target.commandSystems?.evasions||[]).map(e=>e.remaining??20)) };
@@ -277,7 +285,55 @@
     if (complete.analysis && complete.targetId) state.analyses[complete.targetId] = copy(complete);
     state.reports = [complete,...state.reports].slice(0,30);
   }
-  function resolveInput(room, unit, rollDie) {
+  // Snapshot contributions before cooperation is consumed. Never put target intel
+  // in public lines: the server projects gmLines separately for the GM.
+  function calculationSources(room,unit,pending) {
+    const order=pending?.sensorOrder,ship=room.starships.find(s=>s.id===order?.shipId),sensor=ship&&installed(ship);
+    if(!sensor||!['area','hex','analysis','life','lifeArea'].includes(order.kind))return null;
+    const matching=(ship.commandSystems?.preparations||[]).filter(p=>p.action===order.kind&&p.remaining>0);
+    const teams=matching.filter(p=>p.kind==='team'&&p.unitId!==unit.id&&room.units.some(u=>u.id===p.unitId&&!u.defeatedAt));
+    const calculations=matching.filter(p=>p.kind==='calculation').length,ownSkill=skill(unit),rating=Math.max(ownSkill,...teams.map(p=>p.skill));
+    const sides=unit.shipAi?[6,6,6,6]:[...sensor.dice,...teams.flatMap(()=>sensor.dice)];
+    const cooperationBonus=calculations*2+(teams.length?teams.length+1:0),retry=order.kind==='analysis'?(ship.sensorState?.failures?.[order.targetId]||0):0;
+    const settings=pending.settings,rate=settings&&delays.calculate(settings);
+    const lines=[`Dice source: ${sensor.definition.name||sensor.item.type} (tier ${sensor.definition.tier}). Base pool: ${sensor.dice.map(n=>'D'+n).join(' + ')}.`,
+      unit.shipAi?'Ship AI replaces the pool with 4D6.':`Teamwork: ${teams.length} additional base pools.`,
+      `Roll pool: ${sides.map(n=>'D'+n).join(' + ')}.`,
+      `Sensor Systems: ${ownSkill}${unit.sensorSkill==null&&unit.team==='npc'?' (NPC mental-skill fallback)':''}; highest cooperating skill: ${rating}.`,
+      `Calculation preparations: ${calculations} × 2 = +${calculations*2}; teamwork modifier: +${teams.length?teams.length+1:0}; analysis retry: +${retry}.`];
+    if(rate)lines.push(`Input ATB rate: base ${rate.base}; ${rate.labels.join('; ')||'no factor adjustments'}; flat ${rate.flat}, percentage ${rate.percent*100}%, critical addition ${rate.critBonus}; final ${rate.rate} progress/second. Quality comes from Sensors tier: min(4, ceil(tier / 2)). Other configured factors: ${Object.entries(settings.factors||{}).map(([k,v])=>k+' '+v).join(', ')}.`);
+    else lines.push('Original input ATB settings unavailable in this older or triggered order.');
+    if(pending.rollTiming)lines.push(`Recorded input timing: ${pending.rollTiming.baseSeconds} seconds → ${pending.rollTiming.seconds} seconds. Target-dependent timing details are withheld from this public breakdown.`);
+    const gmLines=[];
+    if(order.kind==='analysis'){const target=room.starships.find(s=>s.id===order.targetId);if(target)gmLines.push(`GM only: Systems Analysis target ${target.title}; Masking ${masking(room,target)}; active evasion scores ${(target.commandSystems?.evasions||[]).filter(e=>e.remaining==null||e.remaining>0).map(e=>e.defense).join(', ')||'none'}; highest of these gives Defense ${defense(room,target)}.`);}
+    else for(const check of scanChecks(room,order))gmLines.push(`GM only: ${check.targetId?targets.find(room,check.targetId)?.title||check.targetId:'outside-range life scan'}; timing threshold ${check.difficulty}. This threshold is not a disclosure of the target to players.`);
+    if(pending.rollTiming)gmLines.push(`GM only: input timing margin ${pending.rollTiming.margin}; outcome ${pending.rollTiming.outcome}.`);
+    const pool=Object.entries(sides.reduce((counts,n)=>(counts[n]=(counts[n]||0)+1,counts),{})).map(([n,count])=>`${count}D${n}`).join('+');
+    const name=sensor.definition.name||sensor.item.type;
+    const summary=[`${name}${sensor.item.impaired||sensor.item.status==='impaired'?' (impaired)':''}: ${pool}${unit.shipAi?' (Ship AI)':''}; Sensor Systems +${ownSkill}${rating!==ownSkill?`; team skill +${rating-ownSkill}`:''}${calculations?`; calculations +${calculations*2}`:''}${teams.length?`; teamwork +${teams.length+1}`:''}${retry?`; retry +${retry}`:''}.`,
+      rate?`ATB: base ${rate.base}; ${name} ${rate.flat>=0?'+':''}${rate.flat}${rate.percent?', +'+Number((rate.percent*100).toFixed(2))+'%':''}; ${rate.rate}/s${pending.rollTiming?`; input ${pending.rollTiming.seconds}s`:''}.`:'ATB source unavailable (older/triggered order).'];
+    const gmSummary=order.kind==='analysis'&&room.starships.find(s=>s.id===order.targetId)?`GM: Defense ${defense(room,room.starships.find(s=>s.id===order.targetId))}.`:'';
+    return {version:1,lines,gmLines,summary,gmSummary,sides,rating,cooperationBonus,retry};
+  }
+  function publicCalculation(value){if(!value)return value;const {gmLines,gmSummary,...safe}=value;return safe;}
+  function resolveInput(room,unit,rollDie){
+    const pending=unit.delayedAction,calculation=calculationSources(room,unit,pending),values=[];
+    if(!calculation)return resolveInputInner(room,unit,rollDie);
+    const tracked=sides=>{const value=rollDie(sides);values.push(value);return value;};
+    Object.assign(tracked,rollDie);
+    const result=resolveInputInner(room,unit,tracked);
+    calculation.values=values;
+    calculation.retry=rollDie?.retryBonus??calculation.retry;
+    const submitted=Number.isFinite(rollDie?.submittedScore);
+    calculation.summary[0]+=submitted?` Submitted ${rollDie.submittedScore+(rollDie.retryBonus??calculation.retry)}${values.length?`; resolver dice ${values.join(',')}`:''} (unverified submission).`:values.length?` Rolled ${values.join(',')}; result ${fusedTotal(values)+calculation.rating+calculation.cooperationBonus+calculation.retry}.`:' No dice consumed.';
+    calculation.lines.push(values.length?`Resolver dice: ${values.join(', ')}. Equal pairs fuse once; the two highest resulting dice contribute ${fusedTotal(values)}.`:'No dice consumed by the resolver (automatic, no-roll, or interrupted path).');
+    if(Number.isFinite(rollDie?.submittedScore))calculation.lines.push(`Accepted submitted subtotal: ${rollDie.submittedScore}; retry applied separately: +${rollDie.retryBonus??calculation.retry}. Client-only modifiers or manual dice not recorded here are unavailable. Resolver dice may include internal fallback values and are not proof of a manual roll.`);
+    else if(values.length)calculation.lines.push(`Server calculation: ${fusedTotal(values)} + skill ${calculation.rating} + cooperation ${calculation.cooperationBonus} + retry ${calculation.retry}.`);
+    if(pending)pending.calculation=calculation;
+    for(const effect of unit.queuedEffects||[])if(effect.sensorReport&&effect.sensorReport.shipId===pending.sensorOrder.shipId&&effect.sensorReport.targetId===pending.sensorOrder.targetId&&!effect.calculation)effect.calculation=copy(calculation);
+    return result;
+  }
+  function resolveInputInner(room, unit, rollDie) {
     const order = unit.delayedAction?.sensorOrder;
     const rollController=unit.delayedAction?.rollController;
     if (!order) return;
@@ -453,5 +509,5 @@
     const lower=kind==='analysis'?contact?.analysisLowerBound:contact?.scanLowerBound;
     return {value,label:Number.isFinite(value)?`Difficulty ${value}`:Number.isFinite(lower)?`Difficulty at least ${lower}`:'Difficulty unknown'};
   }
-  return {detect,report,installed,inputSettings,pulseRange,nextEvent,masking,defense,rangeAgainst,refresh,advance,sweepState,fusedTotal,skill,automaticScan,scanChecks,timingDifficulty,outsideHex,queue,resolveInput,resolveReport,view,knowledge,analysis,difficulty};
+  return {calculationSources,publicCalculation,detect,report,installed,inputSettings,pulseRange,nextEvent,masking,defense,rangeAgainst,refresh,advance,sweepState,fusedTotal,skill,automaticScan,scanChecks,timingDifficulty,outsideHex,queue,resolveInput,resolveReport,view,knowledge,analysis,difficulty};
 }));

@@ -1,0 +1,22 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{CampaignApi}=require('../campaign-api');
+async function fixture(){let stored,fail=false,onSave=null;const store={findByName:async()=>[],create:async c=>(stored=structuredClone(c),true),save:async c=>{if(fail)throw Error('disk offline');if(onSave)await onSave();stored=structuredClone(c);},get:async()=>structuredClone(stored)};const api=new CampaignApi({store});async function post(path,body){let result;await api.handle({method:'POST'},{},new URL('http://local/api/campaign/'+path),async()=>body,(_,status,payload)=>result={status,...payload});return result;}const created=await post('create',{name:'Combat death review',gmCode:'fixture-only'}),code=created.campaign.code,token=created.token,campaign=await api.campaign(code);campaign.characters=[{id:'pc',approved:true,character:{phase:'finalized',identity:{characterName:'Test Pilot',raceId:'human'},health:{current:10},experience:{available:2,totalGained:20}}}];await api.save(campaign);const encounter={units:[],starships:[],hasEngagedClock:true,encounterEndedAt:null};return {api,code,token,campaign,post,encounter,stored:()=>stored,fail:v=>fail=v,onSave:fn=>onSave=fn};}
+const reviews=c=>c.privateNotes.filter(n=>n.kind==='death-review');
+test('combat persistence publishes one private death review and retains explicit archive confirmation',async()=>{
+ const f=await fixture();f.campaign.characters[0].character.health.current=0;let broadcasts=0;const original=f.api.broadcast.bind(f.api);f.api.broadcast=async(...args)=>{broadcasts++;return original(...args);};
+ await f.api.saveEncounter(f.code,f.encounter);assert.equal(reviews(f.campaign).length,1);assert.equal(reviews(f.stored()).length,1);assert.equal(f.campaign.characters[0].deathReviewPending,true);assert.equal(broadcasts,1);
+ const note=reviews(f.campaign)[0];assert.equal(note.requestStatus,'pending');assert.equal(f.campaign.characters.length,1);assert.equal(f.campaign.memorials?.length||0,0);
+ await f.api.saveEncounter(f.code,f.encounter);await f.api.save(f.campaign);assert.equal(reviews(f.campaign).length,1);
+ const restored=structuredClone(f.stored());f.api.campaignCache.set(f.code,restored);await f.api.saveEncounter(f.code,f.encounter);assert.equal(reviews(restored).length,1);
+ const player=f.api.newSession(f.code,'character','another-pc'),view=f.api.state(restored,player);assert(!JSON.stringify(view).includes(note.id),'Another character must not receive the death review');
+ const body={code:f.code,token:f.token,noteId:note.id,decision:'confirm'};assert.equal((await f.post('character/death-decision',body)).status,400);assert.equal(restored.characters.length,1);
+ assert.equal((await f.post('character/death-decision',{...body,confirmCharacterId:'pc'})).status,200);const final=await f.api.campaign(f.code);assert.equal(final.characters.length,0);assert.equal(final.archivedCharacters[0].id,'pc');assert.equal(final.memorials.length,1);
+});
+test('failed combat storage publishes neither review nor flag; retry creates it once',async()=>{
+ const f=await fixture();f.campaign.characters[0].character.health.current=0;f.fail(true);let broadcasts=0;f.api.broadcast=async()=>broadcasts++;
+ await assert.rejects(f.api.saveEncounter(f.code,f.encounter),/disk offline/);assert.equal(reviews(f.campaign).length,0);assert(!f.campaign.characters[0].deathReviewPending);assert.equal(broadcasts,0);assert.equal(reviews(f.stored()).length,0);
+ f.fail(false);await f.api.saveEncounter(f.code,f.encounter);assert.equal(reviews(f.campaign).length,1);assert.equal(broadcasts,1);
+});
+test('combat review gates eligibility and does not overwrite live character changes during storage',async()=>{
+ for(const patch of [{approved:false},{phase:'draft'},{hp:1}]){const f=await fixture(),r=f.campaign.characters[0];r.character.health.current=patch.hp??0;if(patch.approved===false)r.approved=false;if(patch.phase)r.character.phase=patch.phase;await f.api.saveEncounter(f.code,f.encounter);assert.equal(reviews(f.campaign).length,0);}
+ const f=await fixture(),r=f.campaign.characters[0];r.character.health.current=0;f.onSave(async()=>{r.character.health.current=7;r.character.privateNote='preserve concurrent edit';});await f.api.saveEncounter(f.code,f.encounter);assert.equal(r.character.health.current,7);assert.equal(r.character.privateNote,'preserve concurrent edit');assert.equal(reviews(f.campaign).length,1);assert(r.deathReviewPending);
+});

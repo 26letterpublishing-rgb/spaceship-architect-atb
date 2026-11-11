@@ -186,7 +186,7 @@
   const dialog=form.closest('dialog');if(!dialog?.open)return;
   e.preventDefault();dialog.close(button.value);
  },true);
- root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();const dialogs=[...document.querySelectorAll('dialog[open]')];if(dialogs.at(-1)?.matches('.sensor-console,.lock-console'))typingVisual.update(null,false,false);dialogs.at(-1)?.close();}},true);
+ root.addEventListener('keydown',e=>{if(e.key==='Escape'){const dialogs=[...document.querySelectorAll('dialog[open]')];if(dialogs.at(-1)?.classList.contains('map-focus'))return;e.preventDefault();e.stopImmediatePropagation();if(dialogs.at(-1)?.matches('.sensor-console,.lock-console'))typingVisual.update(null,false,false);dialogs.at(-1)?.close();}},true);
  async function openConsole(){
   if(!visual){if(family==='lock')root.SALockConsoleUI.open(unit,primaryId);else root.SASensorConsoleUI.open(unit,primaryId);return;}
   try{const kind=route(maps.definition(primary.type));const api={weapon:'SAWeaponConsoleUI',shield:'SAShieldConsoleUI',hacking:'SAHackingConsoleUI',utility:'SAUtilityConsoleUI'}[kind];if(kind==='pilot')await root.SAShipNavigationUI.open(unit,{sicId:primaryId});else await root[api].open(unit,primaryId);document.body.dataset.previewReady=primary.type;}

@@ -1,5 +1,5 @@
 // Simulation flavor only. Training awards remain authoritative in ship-crew-rooms.
-const catalog=require('./skill-catalog');
+(function(root,factory){const api=factory(typeof module==='object'?require('./skill-catalog'):root.SASkillCatalog);if(typeof module==='object')module.exports=api;else root.SAVRSimulations=api;})(typeof globalThis!=='undefined'?globalThis:this,function(catalog){
 const entries={
  'Computer Systems':['Orbital Network Operations','engineering','restored a simulated station network','checking one connection at a time made faults easier to isolate'],
  'Engineering':['Engineering Workshop','engineering','repaired a failing reactor assembly','testing each repair before moving on prevented repeat failures'],
@@ -66,4 +66,5 @@ function simulation(skill){const [title,theme,activity,insight]=entries[skill]||
 function title(skill,saved){return !saved||String(saved).trim()===`Holodeck: ${skill}`?simulation(skill).title:String(saved);}
 function narrative(name,skill,title){const s=simulation(skill);return `${name||'The crewmember'} ${s.activity} in “${title||s.title}”. They discovered ${s.insight}.`;}
 function skills(character){const saved=character?.skills||{};return [...new Set([...catalog.names,...Object.keys(saved)])].map(name=>{const raw=saved[name],value=(typeof raw==='object'?Number(raw?.tenths||0):Number(raw||0)*10)/10;return {name,value,attribute:catalog.attributes[name]||'other',simulation:simulation(name)};}).sort((a,b)=>a.name.localeCompare(b.name));}
-module.exports={simulation,title,narrative,skills};
+return {simulation,title,narrative,skills};
+});

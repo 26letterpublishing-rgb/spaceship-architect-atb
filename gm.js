@@ -858,6 +858,10 @@ async function closeCampaignStarshipEditor() {
   await refreshCampaign().catch((error) => showMessage(dom.message, error.message, "error"));
 }
 
+function campaignCalculationDetails(result){
+ const c=result?.calculation;
+ return window.SARollDisplay.campaign(c);
+}
 function renderRollResults() {
   const requests = [...(campaign.rollRequests || [])].reverse().filter((request) => !request.closedAt);
   dom.rollResults.innerHTML = requests.length ? requests.map((request) => {
@@ -871,7 +875,7 @@ function renderRollResults() {
     }).sort((a, b) => (b.result?.score ?? -Infinity) - (a.result?.score ?? -Infinity));
     return `<article class="roll-request-card">
       <div class="roll-request-head"><div><strong>${escapeHtml(request.attribute)} + ${escapeHtml(request.skill)}</strong><small>${request.difficulty === null ? "No Difficulty" : `Difficulty ${request.difficulty}${request.hideDifficulty ? " (Hidden)" : ""}`}</small></div><button type="button" data-close-roll="${request.id}">Close</button></div>
-      ${rows.map(({ name, result }) => `<div class="result-row"><span>${escapeHtml(name)}</span>${result ? `<strong>${result.cancelled?'—':result.score}</strong><small>${escapeHtml(result.outcome || result.mode)}</small>` : '<span class="waiting">Waiting</span><small>Pending</small>'}</div>${window.SAReputationUI?.comparison(result?.reputation)||''}`).join("")}
+      ${rows.map(({ name, result }) => `<div class="result-row"><span>${escapeHtml(name)}</span>${result ? `<strong>${result.cancelled?'—':result.score}</strong><small>${escapeHtml(result.outcome || result.mode)}</small>` : '<span class="waiting">Waiting</span><small>Pending</small>'}</div>${result&&!result.cancelled?`<details><summary>Calculation details</summary><p style="white-space:pre-line;font-size:12px">${escapeHtml(campaignCalculationDetails(result))}</p></details>`:''}${window.SAReputationUI?.comparison(result?.reputation)||''}`).join("")}
     </article>`;
   }).join("") : "<p>No active check requests.</p>";
 }
@@ -3062,9 +3066,9 @@ window.addEventListener("message",event=>{if(event.origin!==location.origin||eve
 function notifyPromptResults(next){
  const entries=(next.rollRequests||[]).flatMap(request=>Object.entries(request.results||{}).map(([id,result])=>({key:request.id+':'+id,request,id,result})));
  for(const entry of entries){
-  if(entry.result.cancelled)continue;
+  if(entry.result.cancelled||entry.result.gmNotification)continue;
   const person=next.characters.find(c=>c.id===entry.id);
-  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true,reputation:entry.result.reputation,allowOutsideCombat:true,details:`${entry.request.attribute} + ${entry.request.skill||'—'}\nResult: ${entry.result.score}\nDifficulty: ${entry.request.difficulty??'None'}\nOutcome: ${entry.result.outcome||'—'}\nDice: ${(entry.result.diceResults||[]).join(', ')||'Manual entry'}`});
+  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true,reputation:entry.result.reputation,allowOutsideCombat:true,promptResult:{score:entry.result.score,outcome:entry.result.outcome||'Result'},onResolve:action=>api('/api/campaign/roll/notification',{code:next.code,token,requestId:entry.request.id,characterId:entry.id,action}),details:`${entry.request.attribute} + ${entry.request.skill||'—'}\nResult: ${entry.result.score}\nDifficulty: ${entry.request.difficulty??'None'}\nOutcome: ${entry.result.outcome||'—'}\n${campaignCalculationDetails(entry.result)}`});
  }
 }
 

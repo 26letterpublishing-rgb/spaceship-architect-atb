@@ -80,6 +80,9 @@ function damage(ship,crew,person,events){
   events.push({shipId:ship.id,id:randomUUID(),actorId:person.id,unitId:person.unitId,characterId:person.characterId,name:person.name,beforeHp:before,currentHp:person.hp,damage:5,unconscious:person.hp<=0});
 }
 
+function calculation(request){
+  return {version:1,kind:'oxygen-check',sides:[...request.dice],bonus:request.skill,difficulty:request.difficulty,summary:[`${request.sources?.attribute||'Attribute source unavailable (older check)'} ${request.dice.map(n=>'D'+n).join('+')}; ${request.sources?.skill||'Recorded skill'} +${request.skill}; difficulty ${request.difficulty}.`]};
+}
 function advance(ships,actors,seconds){
   sync(ships,actors);const events=[];let left=Math.max(0,Number(seconds)||0);
   while(left>0&&!pending(ships)){
@@ -93,7 +96,8 @@ function advance(ships,actors,seconds){
         if(before.has(crew.id))crew.remaining=Math.max(0,crew.remaining-step);
         if(crew.remaining>1e-7)continue;
         if(crew.phase==='suffocating'){damage(ship,crew,person,events);continue;}
-        crew.request={id:randomUUID(),automated:Boolean(person.automated),dice:[...person.dice],skill:person.skill,difficulty:crew.difficulty};
+        crew.request={id:randomUUID(),automated:Boolean(person.automated),dice:[...person.dice],skill:person.skill,difficulty:crew.difficulty,sources:{attribute:person.characterId?'Health':'NPC Physical',skill:person.characterId?'Athletics':'Physical skill'}};
+        crew.request.calculation=calculation(crew.request);
       }
     }
     left-=step;
@@ -101,18 +105,23 @@ function advance(ships,actors,seconds){
   return events;
 }
 
-function resolve(ships,actors,{actorId,rollId,score}){
+function resolve(ships,actors,{actorId,rollId,score,diceResults}){
   const ship=ships.find(s=>state(s)?.crew?.[actorId]),data=ship&&state(ship),crew=data?.crew[actorId];
   if(!crew||crew.phase==='air'||crew.oxygen>10+1e-7)return {ok:false,error:'This oxygen check is no longer required.'};
   if(data.receipts.includes(rollId))return {ok:true,duplicate:true,events:[]};
   if(!crew.request||crew.request.id!==rollId)return {ok:false,error:'This oxygen check has changed. Use the current request.'};
   if(score===null||score===''||!Number.isFinite(Number(score))||Number(score)<0||Number(score)>100000)return {ok:false,error:'Enter and confirm a valid Health + Endurance result.'};
   const person=actors.find(p=>p.id===actorId&&p.shipId===ship.id);if(!person)return {ok:false,error:'The character is no longer aboard.'};
+  const request=crew.request,details=calculation(request);
+  const valid=Array.isArray(diceResults)&&diceResults.length===request.dice.length&&diceResults.every((v,i)=>Number.isInteger(v)&&v>=1&&v<=request.dice[i]);
+  details.values=valid?[...diceResults]:[];details.total=Number(score);details.evidence=valid?'submitted':'unavailable';
+  details.summary[0]+=(valid?' Submitted dice '+details.values.join(','):' Manual/legacy dice unavailable')+'; accepted total '+Number(score)+'.';
   const difficulty=crew.request.difficulty,success=Number(score)>=difficulty,events=[];
   crew.request=null;data.receipts=[...data.receipts,rollId].slice(-100);
   if(success){crew.phase='resist';crew.remaining=INTERVAL;crew.difficulty=difficulty+4;}
   else damage(ship,crew,person,events);
   crew.result={id:rollId,success,score:Number(score),difficulty,text:success?`Passed: ${score} against ${difficulty}. Next check in 16 seconds (difficulty ${crew.difficulty}).`:`Failed: ${score} against ${difficulty}. Lost 5 HP.${crew.phase==='unconscious'?' Unconscious.':' Losing 5 HP every 16 seconds until oxygen returns.'}`};
+  details.summary.push(crew.result.text);crew.result.calculation=details;
   return {ok:true,events,ship,crew};
 }
 

@@ -3,6 +3,27 @@
   const request=u=>u?.delayedAction?.automated?null:u?.delayedAction?.awaitingRoll?u.delayedAction:u?.pendingShipRolls?.find(r=>!(r.breachCheck&&u.team==='npc'&&u.automationMode&&u.automationMode!=='off'&&!u.automationSuspended));
   const host=()=>{let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;};
   let warmed=null;
+  let historyButton=null,historyDialog=null,historyRows=[];
+  function updateHistory(doc,state,gm,mine){
+    historyRows=state.units.filter(u=>gm||u.id===mine?.id).flatMap(u=>[
+      ...(u.actionResults||[]).filter(r=>r.calculation).map(r=>({...r,actor:u.characterName})),
+      ...(request(u)?.rollSpec?.calculation?[{id:request(u).id,label:request(u).label,actor:u.characterName,calculation:request(u).rollSpec.calculation,text:'Pending roll — source snapshot; final resolver contributions may change before resolution.'}]:[])
+    ]);
+    historyRows.push(...(state.missileHistory||[]).filter(r=>r.calculation).map(r=>({...r,actor:'Projectile'})));
+    if(!historyButton){historyButton=doc.createElement('button');historyButton.type='button';historyButton.className='notice-action';historyButton.textContent='Ship roll details';historyButton.style.cssText='position:fixed;right:12px;bottom:12px;z-index:2147483646';historyButton.onclick=()=>{
+      if(historyDialog?.isConnected)return;
+      const panel=doc.createElement('dialog');historyDialog=panel;panel.className='notification-result-detail';panel.setAttribute('aria-label','Ship roll details');
+      const heading=doc.createElement('h2');heading.textContent='Ship roll details';panel.append(heading);
+      for(const row of historyRows.slice().reverse()){
+        const section=doc.createElement('details'),title=doc.createElement('summary'),text=doc.createElement('p');title.textContent=[row.actor,row.label,row.stage||'pending'].filter(Boolean).join(' — ');
+        const compact=window.SARollDisplay.ship(row.calculation,{gm});
+        text.style.cssText='white-space:pre-line;font-size:12px;line-height:1.4';text.textContent=[Number.isFinite(row.total??row.calculation.total)?`Result ${row.total??row.calculation.total}`:'',compact].filter(Boolean).join('\n');section.append(title,text);panel.append(section);
+      }
+      const close=doc.createElement('button');close.type='button';close.textContent='Close';close.onclick=()=>panel.close();panel.append(close);panel.onclose=()=>{panel.remove();historyDialog=null;historyButton.focus({preventScroll:true});};doc.body.append(panel);panel.showModal();
+    };}
+    historyButton.hidden=!historyRows.length;
+    const parent=dialog||[...doc.querySelectorAll('dialog[open]')].filter(d=>d!==historyDialog).at(-1)||doc.body;if(!historyDialog&&historyButton.parentElement!==parent)parent.append(historyButton);
+  }
   function prepareDice(doc){
     if(warmed?.view.isConnected)return warmed;
     const view=doc.createElement('dialog'),frame=doc.createElement('iframe');view.setAttribute('aria-label','Ship action dice roll');view.setAttribute('data-required-roll','');
@@ -19,6 +40,7 @@
   function poll(){
     const bridge=window.SACombatBridge,state=bridge?.state();if(!state)return;
     const doc=host();if(!warmed&&!state.practice&&performance.now()>2500&&!doc.hidden)prepareDice(doc);const gm=bridge.mode()==='gm',mine=state.units.find(u=>u.id===bridge.myUnitId()),waiting=state.units.filter(request);
+    updateHistory(doc,state,gm,mine);
     if(!notice){notice=doc.createElement('button');notice.type='button';notice.setAttribute('role','status');notice.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#260d13;color:#ff7887;border:1px solid #ff7686;padding:9px 16px;max-width:70vw;font:700 14px Arial';doc.body.append(notice);}
     const relevant=gm?waiting:waiting.filter(u=>u.id===mine?.id&&request(u).rollController!=='gm');
     const calls=state.starships.filter(s=>gm||s.id===mine?.location?.starshipId).flatMap(s=>(s.commandSystems?.calls||[]).filter(c=>c.status==='incoming').map(c=>s.title+': you are being Hailed by '+c.title));
@@ -66,5 +88,5 @@
     view.addEventListener('close',cleanupDialog,{once:true});view.append(loading,error);view.showModal();if(prepared.ready)frame.contentWindow.postMessage({type:'sa-ship-skill-open',...pending.rollSpec,rollId:pending.id,name:unit.characterName,title:pending.label},location.origin);
   }
   const timer=setInterval(poll,200);
-  window.addEventListener('pagehide',()=>{clearInterval(timer);cleanupDialog?.();warmed?.view.remove();warmed=null;notice?.remove();});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);cleanupDialog?.();warmed?.view.remove();warmed=null;notice?.remove();historyDialog?.remove();historyButton?.remove();});
 }());

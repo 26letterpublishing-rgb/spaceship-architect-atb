@@ -1375,7 +1375,10 @@ function mountPairedCombatControls() {
 function shipCombatColumnsMarkup(units, includeMap=true) {
   const ships = (state?.starships || []).filter(s=>!s.escapedAt&&s.ship?.warpState?.phase!=='traveling').sort((a,b)=>Number(a.controlType==='gm')-Number(b.controlType==='gm'));
   // Wrecks remain on the space map, but are no longer active interiors.
-  const interiors = ships.filter(s=>!s.contactOnly&&!s.destroyedAt);
+  const viewer = (state.units||[]).find(u=>u.id===myUnitId) || units.find(u=>u.id===myUnitId);
+  const occupied = viewer?.location?.starshipId || viewer?.vacuum?.sourceShipId || state.sensorObserverId;
+  const captured = new Set((viewer?.hackingSessions||[]).filter(g=>g.connected&&g.control).map(g=>g.targetId));
+  const interiors = ships.filter(s=>!s.contactOnly&&!s.destroyedAt&&(mode!=='player'||s.controlType!=='pc'||s.id===occupied||captured.has(s.id)));
   const sideRows={left:0,right:0};
   const emptyActivity=interiors.length===1&&!ships.some(s=>s.contactLevel==='detected')?`<article class="empty-contact-activity"><h2>Combat Activity</h2>${(state.log||[]).slice(-24).reverse().map(entry=>`<p><b>${escapeHtml(entry.at)}</b> ${window.SAHealthDisplay.logMarkup(entry,mode==='gm')}</p>`).join('')}</article>`:'';
   return `<div class="ship-combat-columns" data-single-pc="${mode==='player'&&interiors.length===1}" data-ship-count="${interiors.length}"><div class="shared-interior-controls" aria-label="Shared interior display"></div><div class="paired-combat-clock"><div class="paired-clock-actions"></div></div><div class="combat-space-map">${includeMap?window.SASpaceMap.markup(ships,state.shipPositions):""}</div>${interiors.map((ship,index) => {
@@ -1398,6 +1401,8 @@ function shipCombatColumnsMarkup(units, includeMap=true) {
 }
 
 function renderShipCombatColumns() {
+  // A modal interior covers this dashboard; state/turn processing continues outside this renderer.
+  if(window.SACombatMap?.isExpandedInteriorOpen?.()){window.SACombatMap.renderInlineMaps();return;}
   // Keep authoritative state and alerts live, but do not rebuild covered interiors.
   try{if(document.hidden||window.frameElement&&!window.frameElement.getClientRects().length)return;}catch{}
   let host=document;try{while(host.defaultView.frameElement&&!host.defaultView.frameElement.hasAttribute('data-explore-perspective'))host=host.defaultView.parent.document;}catch{}
@@ -1436,7 +1441,7 @@ function renderShipCombatColumns() {
   }
   mountPairedCombatControls();
   const columns=unitList.querySelector('.ship-combat-columns'),clock=columns?.querySelector('.paired-combat-clock');
-  if(clock){columns.style.removeProperty('--clock-content-height');const lane=columns.querySelector('.ship-lane-atb'),style=lane&&getComputedStyle(lane);const padding=style?parseFloat(style.paddingTop)+parseFloat(style.paddingBottom):0;columns.style.setProperty('--clock-content-height',Math.max(0,clock.offsetHeight-padding)+'px');}
+  if(clock&&columns.dataset.singlePc!=='true'){columns.style.removeProperty('--clock-content-height');const lane=columns.querySelector('.ship-lane-atb'),style=lane&&getComputedStyle(lane);const padding=style?parseFloat(style.paddingTop)+parseFloat(style.paddingBottom):0;columns.style.setProperty('--clock-content-height',Math.max(0,clock.offsetHeight-padding)+'px');}
   const combatSpaceMap=unitList.querySelector('.combat-space-map');
   const combatSpaceSvg=window.SASpaceMap.update(combatSpaceMap,state.starships,state.shipPositions);
   window.SASpaceMap.mountCamera(combatSpaceSvg,window.SASpaceMap.cameraIdentity('combat'));
@@ -2989,6 +2994,25 @@ function renderGmNpcRollPrompts(attack, attacker, defender) {
   }).join("");
 }
 
+// Presentation of recorded evidence only; never reconstruct character modifiers from a total.
+function opposedRollBreakdown(attack, role) {
+  const roll=role==='attacker'?attack.attackerRoll:attack.defenseRoll;
+  if(!roll)return role==='defender'&&attack.defenderCommand?.expired?'WINDOW EXPIRED':'Waiting';
+  const number=value=>typeof value==='number'&&Number.isFinite(value)?String(value):'Unavailable';
+  const modifiers=[],add=(label,value)=>{if(Number.isFinite(value)&&value!==0)modifiers.push(label+' '+(value>0?'+':'')+value);};
+  const plan=attack.plan||{},result=attack.attackResult;
+  if(role==='attacker')add('Attack adjustment',plan.attackModifier);
+  else{
+    add('Timed Defense',attack.timedDefenseBonus);add('Racial Defense',attack.racialDefenseBonus);add('Attacker effect',attack.attackerDefenseModifier);
+    if(![attack.timedDefenseBonus,attack.racialDefenseBonus,attack.attackerDefenseModifier].some(Number.isFinite))add('Defense adjustment',attack.defenseBonus);
+    if(Number.isFinite(plan.defenseMultiplier)&&plan.defenseMultiplier!==1)modifiers.push('Range ×'+plan.defenseMultiplier);
+    add('Range',plan.defenseRangeModifier);if(attack.calledShot)add('Called shot',5);
+  }
+  const value=result?(role==='attacker'?'Final To-Hit: '+number(result.attackScore):'Final hit threshold: '+number(result.hitDefense)):(roll.mode==='manual'?'Manual score: ':roll.mode==='fixed'?'Fixed score: ':'Score: ')+number(roll.score);
+  const outcome=result?(result.hit?(result.critical?'Critical hit':'Hit'):'Miss'):'Awaiting resolution';
+  return [value+' · '+outcome,modifiers.join(' · ')].filter(Boolean).join('\n');
+}
+
 function renderAttackResolution(mine) {
   const attack = state?.attackResolution;
   let wait = '';
@@ -3101,13 +3125,9 @@ function renderAttackResolution(mine) {
   attackResolutionPanel.classList.remove("hidden");
   attackResolutionTitle.textContent = attack.attackerName + " vs " + attack.defenderName;
   attackResolutionMeta.textContent = attack.weaponName + " at " + attack.distance + " unit" + (attack.distance === 1 ? "" : "s") + " | " + attack.plan.rangeExplanation + " | Card rules: " + (attack.plan.specialRules || "None");
-  attackRollStatus.textContent = attack.attackerRoll ? "Score " + attack.attackerRoll.score : "Waiting";
-  const defenseAdjustment = Number(attack.defenseBonus) || 0;
-  defenseRollStatus.textContent = attack.defenseRoll
-    ? "Score " + attack.defenseRoll.score + (defenseAdjustment ? ` ${defenseAdjustment > 0 ? "+" : "-"} ${Math.abs(defenseAdjustment)} Defense` : "")
-    : attack.defenderCommand?.expired
-      ? "WINDOW EXPIRED"
-      : "Waiting";
+  attackRollStatus.textContent = opposedRollBreakdown(attack,'attacker');
+  defenseRollStatus.textContent = opposedRollBreakdown(attack,'defender');
+  attackRollStatus.style.whiteSpace = defenseRollStatus.style.whiteSpace = 'pre-line';
   const critical = Boolean(attack.attackResult?.critical);
   attackCriticalNotice.hidden = !critical;
   attackCriticalNotice.textContent = attack.calledShot

@@ -7,7 +7,7 @@ services:
     startCommand: npm start
     envVars:
       - key: SA_APP_MODE
-        value: release
+        value: shared
       - key: SA_RELEASE_PUBLIC_DIR
         value: .release-public
       - key: NODE_VERSION

@@ -1,6 +1,11 @@
 (function(){
   const ownerId=crypto.randomUUID();
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function sicCondition(item){
+    if(!item)return '';
+    const points=Math.max(0,Math.floor(Number(item.impairmentPoints)||0),item.impaired||item.status==='impaired'?1:0);
+    return item.status==='destroyed'||points>=4?'SIC DESTROYED':points?'SIC IMPAIRED ('+points+')':'';
+  }
   function restoration(item){
     const remaining=Number(item?.bootRemaining),total=Number(item?.bootDuration);
     if(!Number.isFinite(remaining)||remaining<=0)return null;
@@ -24,10 +29,26 @@
     view.addEventListener('click',event=>{if(event.target.closest?.('[data-close]'))remember();},true);
     view.addEventListener('cancel',remember);
   }
+  function namedHeader(view,name,shipTitle){
+    const host=view.ownerDocument,get=selector=>view.querySelector(selector);
+      view.classList.add('weapon-named-header');
+      const title=get('header h2'),identity=title.parentElement,shipName=host.createElement('small');
+      shipName.className='weapon-header-ship';shipName.textContent=shipTitle;shipName.title=shipTitle;identity.append(shipName);
+      title.textContent=name;title.title=name;
+      get('.weapon-turn').prepend(title);
+      // Keep the renderer's existing command binding; only its duplicate visual is removed.
+      get('[data-command]').hidden=true;
+  }
   function mount(view,unit){
     if(!view||view.dataset.commonMounted)return;view.dataset.commonMounted='1';
     view.dataset.consoleOwner=ownerId;
     const doc=view.ownerDocument,b=window.SACombatBridge;
+    let roomCommandMeter=null;
+    if(view.classList.contains('crew-room-console')){
+      for(const label of view.querySelectorAll('header>div:first-child>small,header>div:first-child>h2'))label.title=label.textContent;
+      const status=view.querySelector('header>[data-turn]');
+      if(status){const group=doc.createElement('div');group.className='room-header-turn';status.before(group);group.append(status);roomCommandMeter=doc.createElement('progress');roomCommandMeter.max=1;roomCommandMeter.value=0;roomCommandMeter.setAttribute('aria-label','Command window');group.append(roomCommandMeter);}
+    }
     bindConsoleExit(view,unit,b);
     const exit=view.querySelector('[data-close]');if(exit){exit.textContent='Exit Console';if(!b.state().catalogPreview)exit.hidden=true;else exit.classList.add('catalog-console-exit');}
     const choiceKey='sa-console-choices:'+location.search+':'+unit.id+':'+(view.dataset.sicId||view.className);let choices={};try{choices=JSON.parse(sessionStorage.getItem(choiceKey)||'{}');}catch{}
@@ -59,19 +80,23 @@
       const consoleExit=view.hasAttribute('data-console-owner')&&!view.classList.contains('combat-order-dialog')&&!view.classList.contains('navigation-planner')&&!view.hasAttribute('data-catalog-snapshot')&&!view.hasAttribute('data-required-roll')&&event.target.closest('[data-console-view]')?.closest('dialog')===view;
       if(access?.blocked&&!consoleExit&&!event.target.closest('[data-close],[data-sound],[data-leave],[data-local-recovery],[data-console-maintenance],.console-swipe,.station-console-select,.transit-status')){event.preventDefault();event.stopImmediatePropagation();}
     },true);
-    const previewAllowed='.lock-console [data-component-picker],.lock-console [data-component-option],.lock-console [data-component-sic],.lock-console [data-target],.lock-console [data-component],[data-console-view],[data-leave-atmosphere],[data-local-recovery],[data-console-maintenance],[data-dev-charge],[data-dev-release],[data-close],[data-sound],.console-swipe,.station-console-select,[data-zoom],[data-auto-zoom],[data-map-focus],[data-action-help],[role=tab],[data-command-page],[data-door-adjustment],summary,.oxygen-panel,.transit-status,.transit-status *,.crew-medical-status,.crew-medical-status *'+(view.classList.contains('utility-console')?', [data-utility-control]':'');
+    const previewAllowed='.weapon-console [data-target],.weapon-console [data-weapon-component],.lock-console [data-component-picker],.lock-console [data-component-option],.lock-console [data-component-sic],.lock-console [data-target],.lock-console [data-component],[data-console-view],[data-leave-atmosphere],[data-local-recovery],[data-console-maintenance],[data-dev-charge],[data-dev-release],[data-close],[data-sound],.console-swipe,.station-console-select,[data-zoom],[data-auto-zoom],[data-map-focus],[data-action-help],[role=tab],[data-command-page],[data-door-adjustment],summary,.oxygen-panel,.transit-status,.transit-status *,.crew-medical-status,.crew-medical-status *'+(view.classList.contains('utility-console')?', [data-utility-control]':'');
     if(b.state()?.practice){view.dataset.practice='true';const badge=doc.createElement('strong');badge.className='console-preview-status';badge.textContent='OUT OF COMBAT / CONSOLE PREVIEW';view.querySelector('header').append(badge);view.addEventListener('click',event=>{if(!event.target.closest(previewAllowed)){event.preventDefault();event.stopImmediatePropagation();}},true);}
     if(view.classList.contains('utility-console')&&view.querySelector('.console-preview-status'))view.querySelector('.console-preview-status').textContent='OUT OF COMBAT';
     if(!doc.querySelector('[data-common-console-style]')){const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('console-common.css',location.href).href;link.dataset.commonConsoleStyle='';doc.head.append(link);}
     const pilot=view.classList.contains('ship-navigation-dialog')||Boolean(view.dataset.standaloneConsole);if(pilot){const host=view.querySelector('.pilot-power,.cleanser-station-controls')||view.querySelector('section')||view;host.insertBefore(service,host.querySelector('fieldset'));}
-    const manageRings=!pilot&&!view.querySelector('[data-rings]');
+    const scienceLab=view.dataset.roomType==='science-lab',library=view.dataset.roomType==='library';
+    const manageRings=!pilot&&!scienceLab&&!library&&!view.querySelector('[data-rings]');
     if(!pilot){
       view.classList.add('shared-console-layout');
       const au=doc.createElement('section');au.className='shared-power';au.innerHTML='<h3>Fleet Condition</h3><div data-common-fleet></div><h3>Auxiliary Power</h3><strong data-common-au></strong><div class="shared-au-cells" aria-hidden="true"></div><progress data-common-recharge max="100" value="0" aria-label="AU recharge"></progress><small data-common-power-note></small>';view.append(au);au.append(service);
-      if(!view.querySelector('[data-rings]')){const rings=doc.createElement('section');rings.className='shared-timeline';rings.innerHTML='<h3>Combat Timeline</h3><div class="pilot-rings" data-rings></div>';view.append(rings);}
+      if(scienceLab){au.querySelector('h3').textContent='Ship Mineral Storage';const stock=au.querySelector('[data-common-fleet]');stock.removeAttribute('data-common-fleet');stock.setAttribute('data-lab-stock','');stock.textContent='Loading mineral storage…';}
+      if(library){au.querySelector('h3').remove();au.querySelector('[data-common-fleet]').remove();}
+      if(!scienceLab&&!library&&!view.querySelector('[data-rings]')){const rings=doc.createElement('section');rings.className='shared-timeline';rings.innerHTML='<h3>Combat Timeline</h3><div class="pilot-rings" data-rings></div>';view.append(rings);}
       const seat=view.querySelector('.weapon-seat,.sensor-seat-actions,.shield-navigation-actions,.lock-seat,.utility-seat,.hacking-seat');if(seat){seat.classList.add('shared-seat');view.append(seat);}
     }
     const defense=doc.createElement('strong');defense.className='console-defense';defense.setAttribute('aria-label','Own ship Defense');view.querySelector('header>div')?.append(defense);
+    const condition=doc.createElement('strong');condition.className='console-system-condition';condition.setAttribute('role','status');condition.hidden=true;view.querySelector('header>div')?.append(condition);
     const remoteBanner=doc.createElement('strong');remoteBanner.className='console-hack-banner';remoteBanner.textContent='Operating Via HACK';remoteBanner.hidden=true;view.querySelector('header>div')?.prepend(remoteBanner);
     let lastRings='',lastFleet='';
     function tick(){
@@ -79,7 +104,9 @@
       view.classList.toggle('remote-link-active',Boolean(access?.remotePilot));
       const au=ship.auState||{},available=au.available??au.current??0;
       updateSound(view);restoreChoices();
+      if(roomCommandMeter){const command=state.command?.unitId===person.id?state.command:null;roomCommandMeter.value=!state.practice&&command?.total>0&&!command.expired?Math.max(0,Math.min(1,command.remaining/command.total)):0;}
       const local=person?.location&&homeShip&&window.SAShipMap.buildLayout(homeShip.ship).footprint.get(person.location.square),target=access?.item||ship.ship.sicInventory.find(i=>i.id===view.dataset.sicId),localSeat=person?.location?.stationed&&local?.sicId===view.dataset.sicId;
+      const conditionText=sicCondition(target);if(condition.textContent!==conditionText)condition.textContent=conditionText;condition.hidden=!conditionText;
       const progress=restoration(target);boot.hidden=!progress;
       if(progress){const text=progress.message+' (combat time)';if(bootText.textContent!==text){bootText.textContent=text;bootNotice.textContent='';}
         if(progress.total){bootMeter.max=progress.total;bootMeter.value=progress.total-progress.remaining;}else bootMeter.removeAttribute('value');
@@ -109,10 +136,10 @@
         view.querySelector('[data-common-recharge]').value=au.maximum&&au.current>=au.maximum?100:au.progress||0;
         view.querySelector('.shared-au-cells').style.setProperty('--charge',`${au.maximum?available/au.maximum*100:0}%`);
         view.querySelector('[data-common-power-note]').textContent=(au.reserved?`${au.reserved} AU reserved. `:'')+(!au.maximum?'No AU output':available>=au.maximum?'Fully charged':state.practice?'Recharge follows campaign time':'Recharge follows combat time');
-        const crewPanel=['life-support','nutrition'].includes(access?.definition?.utility);
+        const crewPanel=['life-support','nutrition','medbay'].includes(access?.definition?.utility);
         view.classList.toggle('crew-health-console',crewPanel);
-        view.querySelector('.shared-power h3').textContent=crewPanel?'Crew Condition':'Fleet Condition';
-        const fleet=crewPanel?window.SAHealthDisplay.crewHealth(state.units,ship.id,b.campaignMapContext?.()):(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}${s.id===ship?.id?' · '+s.currentHullHp+'/'+s.maximumHullHp+' HP':''}</strong><span>${Number.isFinite(s.currentHullHp)?window.SAHealthDisplay.hull(s,b.mode()==='gm')+window.SAHealthDisplay.shields(s,b.mode()==='gm'):'Condition unknown'} / Defense ${s.defenseScore??'?'}</span></p>`).join('');if(fleet!==lastFleet){view.querySelector('[data-common-fleet]').innerHTML=fleet;lastFleet=fleet;}
+        if(!scienceLab&&!library){view.querySelector('.shared-power h3').textContent=crewPanel?'Crew Condition':'Fleet Condition';
+        const fleet=crewPanel?window.SAHealthDisplay.crewHealth(state.units,ship.id,b.campaignMapContext?.()):(state.starships||[]).map(s=>`<p><strong>${esc(s.title)}${s.id===ship?.id?' · '+s.currentHullHp+'/'+s.maximumHullHp+' HP':''}</strong><span>${Number.isFinite(s.currentHullHp)?window.SAHealthDisplay.hull(s,b.mode()==='gm')+window.SAHealthDisplay.shields(s,b.mode()==='gm'):'Condition unknown'} / Defense ${s.defenseScore??'?'}</span></p>`).join('');if(fleet!==lastFleet){view.querySelector('[data-common-fleet]').innerHTML=fleet;lastFleet=fleet;}}
         const rings=manageRings&&view.querySelector('[data-rings]');if(rings){const html=b.pilotRings();if(html!==lastRings){window.SALiveDOM.render(rings,html);if(view.classList.contains('lock-console'))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});if(view.classList.contains('hacking-console'))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});if(view.classList.contains('weapon-console')&&['beam-laser','rapid-laser'].includes(view.dataset.weaponFamily))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});if(view.classList.contains('weapon-console')&&['ripple-cannon','ion-pulse-cannon','missile-launcher'].includes(view.dataset.weaponFamily))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});if(view.classList.contains('weapon-console')&&['ballistic-rail-cannon','ballistic-rail-repeater','devastation-laser'].includes(view.dataset.weaponFamily))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});if(view.classList.contains('weapon-console')&&['phazon-torpedo','mine-launcher','ion-disruptor'].includes(view.dataset.weaponFamily))rings.querySelectorAll('.tactical-ring-group>h3').forEach(heading=>{heading.title=heading.textContent;heading.setAttribute('aria-label',heading.textContent);});lastRings=html;}}
       }
       const busy=Boolean(view.dataset.switching||view.dataset.utilityPending||person.delayedAction||person.delayTimer||person.timedAction||person.shieldRestabilizing||ship.auCommands?.some(c=>c.unitId===person.id));
@@ -134,5 +161,5 @@
     }));
     const timer=setInterval(tick,250);view.addEventListener('close',()=>clearInterval(timer),{once:true});
   }
-  window.SAConsoleCommon={mount,standby,updateSound,ownerId,restoration};
+  window.SAConsoleCommon={mount,standby,updateSound,ownerId,restoration,namedHeader,sicCondition};
 }());

@@ -57,7 +57,23 @@ function queue(room, unit, body) {
   ship.maintenanceReceipts=[...ship.maintenanceReceipts,receipt].slice(-256);
   return {ok:true,ship,immediate:body.kind!=='repair'};
 }
+function calculationSources(room,unit,pending){
+  const order=pending?.maintenanceOrder,ship=room.starships.find(s=>s.id===order?.shipId),item=ship?.ship.sicInventory.find(i=>i.id===order.sicId);if(!item)return null;
+  const d=maps.definition(item.type),key=d.sensor||d.darkveil||d.lockOn?'sensorSkill':d.weapon?'weaponSystemsSkill':d.bridge?'computerSkill':'engineeringSkill',name=({sensorSkill:'Sensor Systems',weaponSystemsSkill:'Weapon Systems',computerSkill:'Computer Systems',engineeringSkill:'Engineering'})[key];
+  const sides=unit.team==='npc'&&!unit.shipAi?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[],rating=Number(unit[key]??(unit.team==='npc'?unit.mentalSkill:0))||0,difficulty=Math.max(10,Number(item.repairDifficulty)||10);
+  return {version:1,kind:'sic-repair',sides:[...sides],rating,difficulty,summary:[d.name+'; '+(unit.team==='npc'&&!unit.shipAi?'NPC Mental':'Intellect')+' '+sides.map(n=>'D'+n).join('+')+'; '+name+' +'+rating+'; difficulty '+difficulty+'.','Fixed repair delay; speed '+Number((100/9).toFixed(2))+'/s; base 9s'+(pending.rollTiming?'; '+pending.rollTiming.outcome+'; final speed '+Number(pending.rate.toFixed(2))+'/s':'')+'.'],lines:[],gmLines:[]};
+}
 function resolve(room,unit,rollDie){
+ const pending=unit.delayedAction,c=calculationSources(room,unit,pending);if(!c)return resolveInner(room,unit,rollDie);
+ const order=pending.maintenanceOrder,ship=room.starships.find(s=>s.id===order.shipId),item=ship.ship.sicInventory.find(i=>i.id===order.sicId),before=points(item),previous=ship.sensorState?.reports?.[0],generated=[];
+ const tracked=n=>{const v=rollDie(n);generated.push(v);return v;};Object.assign(tracked,rollDie);resolveInner(room,unit,tracked);
+ const report=ship.sensorState?.reports?.[0],submitted=Number.isFinite(rollDie.submittedScore);c.values=submitted?(rollDie.submittedValues??pending.submittedRoll?.values??[]):generated;c.total=report!==previous?report.total:undefined;c.repaired=before-points(item);
+ if(submitted){c.sides=[...(pending.rollSpec?.sides||c.sides),...Array(rollDie.exertion||0).fill(12)];}
+ c.summary[0]+=' '+(report===previous?'Cancelled; no repair.':(submitted?'Submitted ':'Result ')+c.total+'; '+(c.values.length?'dice '+c.values.join(','):submitted?'manual dice unavailable':'no dice')+'; impairment removed '+c.repaired+'.');
+ if(rollDie.exertion)c.summary[0]+=' Exertion +'+rollDie.exertion+'D12.';if(submitted)c.summary[0]+=' Unverified submission.';
+ pending.calculation=c;
+}
+function resolveInner(room,unit,rollDie){
   const order=unit.delayedAction?.maintenanceOrder;if(!order)return;
   unit.delayedAction=null;
   const ship=room.starships.find(s=>s.id===order.shipId),item=ship&&local(ship,unit.location);
@@ -90,4 +106,4 @@ function passTime(ship,minutes){
   });
   advance(ship,minutes*60);
 }
-module.exports={local,points,restore,advance,queue,resolve,diagnostics,passTime};
+module.exports={local,points,restore,advance,queue,resolve,calculationSources,diagnostics,passTime};

@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('Black Hole enlarged map hides only redundant arrow and retains controls, camera and ALMA notes',{timeout:120000},async t=>{const r=await promisify(execFile)(process.execPath,[require.resolve('../scripts/playtest-black-hole-map-cleanup.cjs')],{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

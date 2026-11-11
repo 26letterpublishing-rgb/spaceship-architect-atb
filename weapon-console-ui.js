@@ -23,9 +23,19 @@
     firing.append(view.querySelector('[data-fire]'),view.querySelector('[data-error]'),view.querySelector('.weapon-seat'));
     firing.append(view.querySelector('[data-warning]'));
     view.querySelector('.weapon-feed').prepend(firing);
-    const get=s=>view.querySelector(s);const selection=()=>{const o=get('[data-target]').selectedOptions?.[0];return {targetId:o?.dataset.ship||o?.value||get('[data-target]').value||'',targetSicId:o?.dataset.component||null};};let boostsEdited=false,busy=false,lastMap='',lastTargets='',lastReports='',lastFactors='',beat=-1;
+    const get=s=>view.querySelector(s);
+    const componentRow=host.createElement('label'),component=host.createElement('select');
+    componentRow.className='weapon-component-choice';componentRow.textContent='Locked SIC (optional)';componentRow.hidden=true;
+    component.dataset.weaponComponent='';component.setAttribute('aria-label','Locked target component');component.className='workflow-target-pulse';componentRow.append(component);get('[data-target]').closest('label').after(componentRow);
+    let componentTarget='',componentOptions='',eligibleComponents=new Set();
+    const selection=()=>({targetId:get('[data-target]').value||'',targetSicId:!componentRow.hidden&&componentTarget===get('[data-target]').value&&eligibleComponents.has(component.value)?component.value:null});
+    let boostsEdited=false,busy=false,lastMap='',lastTargets='',lastReports='',lastFactors='',beat=-1;
     const summary=host.createElement('p');summary.dataset.componentSummary='';get('[data-target]').closest('label').after(summary);
     const family=initial.definition.weaponFamily||'rapid-laser';view.dataset.weaponFamily=family;
+    // Rapid Laser retains the explicitly approved original turn-meter header.
+    if(family!=='rapid-laser'||initial.definition.phazonTorpedo){
+      window.SAConsoleCommon.namedHeader(view,initial.definition.name,initial.ship.title);
+    }
     if(family==='beam-laser')get('[data-leave]').remove();
     const enlarge=host.createElement('button');enlarge.type='button';enlarge.className='weapon-enlarge-map';enlarge.textContent='Enlarge Map';enlarge.onclick=()=>window.SASpaceMap.enlarge(get('[data-map] .space-map'),enlarge);get('.weapon-plot h3').append(enlarge);
     if(initial.definition.phazonTorpedo){view.classList.add('phazon-torpedo-console');view.style.backgroundImage='url(torpedo-console.webp)';}
@@ -65,8 +75,20 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       const height=bounds.width*chart.clientHeight/Math.max(1,chart.clientWidth),middle=bounds.y+bounds.height/2;
       svg.setAttribute('viewBox',`${bounds.x} ${middle-height/2} ${bounds.width} ${height}`);
       for(const rect of svg.querySelectorAll(':scope > rect')){rect.setAttribute('y',middle-height/2);rect.setAttribute('height',height);}
-      const observer=access.controlSource||access.ship,contacts=[...Object.values(observer.sensorState?.contacts||{}),...(access.controlled?[{id:observer.id,title:observer.title,level:'detected'}]:[])].filter(c=>c.level==='detected'&&c.id!==access.ship.id&&(!c.isMissile||c.missilePhase==='flying')&&!c.uninterceptable),targets=contacts.map(c=>{const lock=window.SAShipWeapons.weaponLock(state,person,access.ship,c.id,access.controlled&&!access.remotePilot),analysis=window.SAShipSensors.analysis(observer,c.id),known=analysis?.layout?.sicInventory||[];return `<option value="${esc(c.id)}">${esc(c.title)}</option>`+(lock&&!access.definition.phazonTorpedo?window.SAShipLocks.components(lock):[]).map(id=>{const item=known.find(i=>i.id===id);return item&&window.SAStationAccess.online(item)?`<option value="${esc(JSON.stringify([c.id,id]))}" data-ship="${esc(c.id)}" data-component="${esc(id)}">${esc(c.title)}: ${esc(window.SAShipLocks.componentLabel(analysis,id))}</option>`:'';}).join('');}).join('');
+      const observer=access.controlSource||access.ship,contacts=[...Object.values(observer.sensorState?.contacts||{}),...(access.controlled?[{id:observer.id,title:observer.title,level:'detected'}]:[])].filter(c=>c.level==='detected'&&c.id!==access.ship.id&&(!c.isMissile||c.missilePhase==='flying')&&!c.uninterceptable),targets=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
       if(targets!==lastTargets){const previous=get('[data-target]').value;get('[data-target]').innerHTML='<option value="">Choose a target</option>'+targets;const valid=[...get('[data-target]').options].filter(o=>o.value);get('[data-target]').value=valid.some(o=>o.value===previous)?previous:!lastTargets&&valid.length===1?valid[0].value:'';lastTargets=targets;}
+      const selectedTarget=get('[data-target]').value,selectedLock=window.SAShipWeapons.weaponLock(state,person,access.ship,selectedTarget,access.controlled&&!access.remotePilot),selectedAnalysis=window.SAShipSensors.analysis(observer,selectedTarget);
+      const known=selectedAnalysis?.layout?.sicInventory||[];
+      eligibleComponents=new Set((selectedLock&&!access.definition.phazonTorpedo&&!access.definition.mineLauncher?window.SAShipLocks.components(selectedLock):[]).filter(id=>{const item=known.find(i=>i.id===id);return item&&window.SAStationAccess.online(item);}));
+      const previousComponent=component.value,sameTarget=componentTarget===selectedTarget;
+      const componentHtml='<option value="">Whole target</option>'+[...eligibleComponents].map(id=>`<option value="${esc(id)}">${esc(window.SAShipLocks.componentLabel(selectedAnalysis,id))}</option>`).join('');
+      if(componentHtml!==componentOptions){component.innerHTML=componentHtml;componentOptions=componentHtml;}
+      component.value=sameTarget&&eligibleComponents.has(previousComponent)?previousComponent:'';
+      // Losing a selected lock/analysis must not silently turn a component shot into a whole-target shot.
+      if(sameTarget&&previousComponent&&!eligibleComponents.has(previousComponent)){get('[data-target]').value='';}
+      componentTarget=get('[data-target]').value;
+      componentRow.hidden=!componentTarget||!eligibleComponents.size;
+      component.disabled=busy||Boolean(pending);
       const picked=selection();summary.textContent=picked.targetSicId?(window.SAShipLocks.componentLabel(window.SAShipSensors.analysis(observer,picked.targetId),picked.targetSicId)||'Choose a target again.'):(picked.targetId?'Whole ship selected.':'Choose a target before firing.');
       get('[data-target]').title=(get('[data-target]').selectedOptions?.[0]?.textContent||'')+(selection().targetSicId?' / SIC ID: '+selection().targetSicId:'');
       const {targetId}=selection(),spec=window.SAShipWeapons.rollSpec(state,person,{shipId:access.ship.id,targetId,sicId}),settings=window.SAShipWeapons.settings(person,access.definition.tier);
@@ -120,7 +142,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
         get('[data-warning]').textContent='One stored charge. AU upkeep continues until the shot fires or you release it. '+(lock?'Locked hit; roll damage.':'Standard accuracy roll, then damage on a hit.');
         if(state.practice){get('[data-turn]').textContent='OUT OF COMBAT';if(get('[data-leave]'))get('[data-leave]').disabled=busy;}
       }
-      if(missile)missile.update(state,person,access,ready,busy);
+      if(missile){missile.update(state,person,access,ready,busy);if(get('[data-target]').closest('label').hidden){componentRow.hidden=true;component.value='';}}
       const reports=(access.ship.weaponState?.reports||[]).map(e=>`<article class="${e.hit?'weapon-hit':e.shot?'weapon-miss':''}"><time>${esc(new Date(e.at).toLocaleTimeString())}</time><p>${esc(e.text)}</p>${e.dice?.length?`<small>Damage dice ${e.dice.join(' + ')}</small>`:''}</article>`).join('')||'<p>No shots fired.</p>';
       if(reports!==lastReports){get('[data-reports]').innerHTML=reports;lastReports=reports;}
     }

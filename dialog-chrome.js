@@ -36,19 +36,20 @@
   // These are full-screen animation/iframe hosts, not popup boxes. Their inner prompts own the frame.
   const presentation=dialog.matches('.automatic-dice-dialog,.combat-effect-stage,.cleanser-cinema,.oxygen-roll,[aria-label="Ship action dice roll"]');
   if(consoleView){surface.classList.remove('sci-fi-dialog-surface');surface.classList.remove('sci-fi-frame-static');}
-  else if(!presentation&&!dialog.closest('.quick-prompts,[data-popup-theme="none"]')){surface.classList.add('sci-fi-dialog-surface');if(typeof getComputedStyle==='function'&&getComputedStyle(surface).position==='static')surface.classList.add('sci-fi-frame-static');}
+  else if(!presentation&&!dialog.closest('.quick-prompts,[data-popup-theme="none"]')){if(!surface.classList.contains('sci-fi-dialog-surface'))surface.classList.add('sci-fi-dialog-surface');if(typeof getComputedStyle==='function'&&getComputedStyle(surface).position==='static')surface.classList.add('sci-fi-frame-static');}
   let pair=controls.get(dialog);
-  // Only the mounted, outer Sensors Console owns its Exit Console control.
+  // Mounted immersive Consoles own their authored Exit Console control.
   // Scan/Hold prompts and catalog screenshots retain their existing chrome.
-  if(dialog.tagName==='DIALOG'&&dialog.classList.contains('sensor-console')&&dialog.hasAttribute('data-console-owner')&&!dialog.classList.contains('combat-order-dialog')&&!dialog.hasAttribute('data-catalog-snapshot')){
+  if(dialog.tagName==='DIALOG'&&consoleView&&dialog.hasAttribute('data-console-owner')&&!dialog.hasAttribute('data-catalog-snapshot')&&!dialog.hasAttribute('data-required-roll')){
    if(pair){restore(pair);pair.bar.remove();positioned.delete(pair);controls.delete(dialog);}
    // The shared bottom toggle can arrive still hidden by the previous Console.
    for(const button of dialog.querySelectorAll('button'))if(button.closest(selector)===dialog)restore(dismissalOwners.get(button));
    dialog.classList.remove('has-close-chrome');
    return;
   }
-  const buttons=[...dialog.querySelectorAll('button')].filter(b=>b.closest(selector)===dialog&&!b.classList.contains('dialog-circle-close'));
-  const dismissals=buttons.filter(isDismissal),available=dismissals.filter(b=>!b.disabled&&!b.closest('[hidden]'));
+  // Classify locally before walking ancestry: floorplan cells are not dismissals.
+  const dismissals=[...dialog.querySelectorAll('button')].filter(isDismissal).filter(b=>b.closest(selector)===dialog);
+  const available=dismissals.filter(b=>!b.disabled&&!b.closest('[hidden]'));
   const candidates=available.length?available:dismissals;
   const close=candidates.find(b=>b.hasAttribute('data-dialog-dismiss'))||candidates.find(b=>/^(close|dismiss|exit|combat view|back to)/i.test(b.textContent.trim()))||candidates[0];
   const authoredConsoleExit=consoleView&&dialog.hasAttribute('data-console-owner')&&!dialog.hasAttribute('data-catalog-snapshot')&&!dialog.hasAttribute('data-required-roll')&&close?.hasAttribute('data-console-view');
@@ -155,7 +156,12 @@
   const dialogs=new Set();
   for(const r of records){
    const element=r.target.nodeType===1?r.target:r.target.parentElement;
-   const dialog=element?.closest(selector);if(dialog)dialogs.add(dialog);
+   // Map routes, counters and character artwork do not change dismissal ownership.
+   // Button text/availability, containing visibility, and inserted/removed controls do.
+   const hasControls=node=>node?.nodeType===1&&(node.matches('button,'+selector)||node.querySelectorAll('button,'+selector).length>0);
+   const relevant=element?.matches(selector)||element?.closest('button')||
+     (r.type==='attributes'?hasControls(element):r.type==='childList'&&[...(r.addedNodes||[]),...(r.removedNodes||[])].some(hasControls));
+   const dialog=element?.closest(selector);if(dialog&&relevant)dialogs.add(dialog);
    if(r.type==='attributes')scan(element);
    if(r.type==='childList')for(const node of r.addedNodes)scan(node);
   }

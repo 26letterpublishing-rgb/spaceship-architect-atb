@@ -8,6 +8,7 @@ function hazards(ship){const s=data(ship);return [...Object.values(s.breachState
 function skill(unit,campaign,name){const value=campaign?.characters?.find(c=>c.id===unit.characterId)?.character.skills?.[name];return value!==undefined?(typeof value==='object'?(Number(value.tenths)||0)/10:Number(value)||0):Number(name==='Engineering'?unit.engineeringSkill:unit.initiativeSkill??unit.physicalSkill)||0;}
 function rollSpec(unit,campaign,name,difficulty){return {attributeKey:'dexterity',attributeLabel:'Dexterity',sides:unit.dexterityDice?.length?[...unit.dexterityDice]:require('./combat-engine').npcAttributeDice(unit.physicalAttribute),bonus:skill(unit,campaign,name),skill:name,difficulty,difficultyLabel:`Difficulty ${difficulty}`};}
 function distance(ship,from,to){const l=maps.buildLayout(data(ship)),route=maps.meshRoute(l,{square:from,mesh:4},{square:to,mesh:4});if(route)return Math.max(0,Math.ceil((route.length-1)/3));return Math.abs(from%l.columns-to%l.columns)+Math.abs(Math.floor(from/l.columns)-Math.floor(to/l.columns));}
+function suctionCalculation(spec,proximity){return {version:1,kind:'suction-check',sides:[...spec.sides],rating:spec.bonus,difficulty:spec.difficulty,summary:[(spec.attributeLabel||'Dexterity')+' '+spec.sides.map(n=>'D'+n).join('+')+'; Initiative +'+spec.bonus+'; '+(Number.isFinite(proximity)?'opening difficulty 16; distance -'+Math.min(16,proximity):'distance source unavailable (older check)')+'; difficulty '+spec.difficulty+'.','Immediate suction check; no action delay.'],lines:[],gmLines:[]};}
 function reconcile(room,campaign,choose=randomInt){const messages=[];
   for(const ship of room.starships||[]){const s=data(ship);if(!(s.sicInventory||[]).some(i=>i.impairmentPoints>=4)&&!hazards(ship).length){if(s.breachState)s.breachState.processed={};continue;}const l=require('./ship-atmosphere').layout(ship),st=state(ship);
     for(const item of s.sicInventory||[]){if(!(item.impairmentPoints>=4)){delete st.processed[item.id];continue;}if(st.processed[item.id])continue;
@@ -16,15 +17,20 @@ function reconcile(room,campaign,choose=randomInt){const messages=[];
     }
     for(const h of hazards(ship)){const source=h.airlock?s.airlockStates[h.id]:st.holes[h.id];source.checked||=[];const key=doors.roomKey(ship,h.square,l);
       for(const unit of room.units||[]){if(unit.shipAi||unit.vacuum||unit.currentHp<=0||unit.location?.starshipId!==ship.id||doors.roomKey(ship,unit.location.square,l)!==key||source.checked.includes(unit.id))continue;
-        source.checked.push(unit.id);const difficulty=Math.max(0,16-distance(ship,unit.location.square,h.square));
-        (unit.pendingShipRolls||=[]).push({id:randomUUID(),label:h.airlock?'Open airlock: resist suction':'Hull breach: resist suction',breachCheck:{shipId:ship.id,hazardId:h.id,square:h.square,side:h.side},rollSpec:rollSpec(unit,campaign,'Initiative',difficulty)});
+        source.checked.push(unit.id);const proximity=distance(ship,unit.location.square,h.square),difficulty=Math.max(0,16-proximity),spec=rollSpec(unit,campaign,'Initiative',difficulty);spec.calculation=suctionCalculation(spec,proximity);
+        (unit.pendingShipRolls||=[]).push({id:randomUUID(),label:h.airlock?'Open airlock: resist suction':'Hull breach: resist suction',breachCheck:{shipId:ship.id,hazardId:h.id,square:h.square,side:h.side},rollSpec:spec});
       }
     }
   }return messages;
 }
 function outward(ship,square,side){if(directions[side])return directions[side];const s=data(ship),c=maps.gridColumns(s),cells=s.gridCells||[],x=square%c,y=Math.floor(square/c),cx=cells.reduce((n,k)=>n+k%c,0)/Math.max(1,cells.length),cy=cells.reduce((n,k)=>n+Math.floor(k/c),0)/Math.max(1,cells.length);return directions[Math.abs(x-cx)>Math.abs(y-cy)?x<cx?'left':'right':y<cy?'top':'bottom'];}
 function report(ship,text,values=[],total){const r={at:new Date().toISOString(),text,values,total};ship.sensorState||={};(ship.sensorState.reports||=[]).unshift(r);return r;}
-function resolveCheck(room,unit,request,total,values=[]){const check=request.breachCheck,ship=room.starships.find(s=>s.id===check.shipId),h=ship&&hazards(ship).find(h=>h.id===check.hazardId);unit.pendingShipRolls=(unit.pendingShipRolls||[]).filter(r=>r.id!==request.id);
+function resolveCheck(room,unit,request,total,values=[],evidence={}){
+ const c=JSON.parse(JSON.stringify(request.rollSpec.calculation||suctionCalculation(request.rollSpec))),result=resolveCheckInner(room,unit,request,total,values);
+ c.values=[...values];c.total=total;if(evidence.exertion)c.sides.push(...Array(evidence.exertion).fill(12));
+ c.summary[0]+=' '+(values.length?'Dice '+values.join(','):'Manual/legacy dice unavailable')+'; accepted total '+total+'.'+(evidence.exertion?' Exertion +'+evidence.exertion+'D12.':'');c.summary[1]+=' '+(result?.text||'Check unavailable.');request.calculation=c;return result;
+}
+function resolveCheckInner(room,unit,request,total,values=[]){const check=request.breachCheck,ship=room.starships.find(s=>s.id===check.shipId),h=ship&&hazards(ship).find(h=>h.id===check.hazardId);unit.pendingShipRolls=(unit.pendingShipRolls||[]).filter(r=>r.id!==request.id);
   if(!h||unit.location?.starshipId!==ship.id||doors.roomKey(ship,unit.location.square)!==doors.roomKey(ship,h.square))return ship&&report(ship,'Suction check cancelled: the opening is sealed or the character left the room.',values,total);
   if(total>=request.rollSpec.difficulty)return report(ship,`${unit.characterName} resisted the suction.`,values,total);
   const point=hex.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id),direction=outward(ship,h.square,h.side),center=hex.roundHex(point);
@@ -37,9 +43,17 @@ function operate(room,unit,body){const ship=room.starships.find(s=>s.id===body.s
   s.airlockStates||={};const old=s.airlockStates[a.id]||{},open=!old.open;if(open&&body.confirmed!==true)throw Error('Confirm opening the airlock: everyone in this room risks being sucked into space.');s.airlockStates[a.id]={open,checked:[]};return `${unit.characterName} ${open?'opened':'closed'} the airlock aboard ${ship.title}.`;
 }
 function queueRepair(room,unit,body,campaign){const ship=room.starships.find(s=>s.id===unit?.location?.starshipId),hole=ship&&state(ship).holes[body.hazardId];if(!hole||hole.sealed||doors.roomKey(ship,hole.square)!==doors.roomKey(ship,unit.location.square))throw Error('Enter the breached room to repair it.');if(room.activeId!==unit.id||unit.delayedAction||unit.timedAction||unit.consoleHold||unit.delayTimer)throw Error('Wait for your turn and finish your current action.');
-  const difficulty=Math.max(0,20-hole.attempts);hole.attempts++;unit.delayedAction={id:randomUUID(),kind:'action',label:'Repair Hull Breach',rate:100/6,total:100,remaining:100,consumeTurn:true,resolving:false,breachRepair:{shipId:ship.id,hazardId:hole.id},rollSpec:rollSpec(unit,campaign,'Engineering',difficulty)};return ship;
+  const difficulty=Math.max(0,20-hole.attempts);hole.attempts++;unit.delayedAction={id:randomUUID(),kind:'action',label:'Repair Hull Breach',rate:100/6,total:100,remaining:100,consumeTurn:true,resolving:false,breachRepair:{shipId:ship.id,hazardId:hole.id},rollSpec:rollSpec(unit,campaign,'Engineering',difficulty)};unit.delayedAction.rollSpec.calculation=repairCalculation(unit.delayedAction);unit.delayedAction.rollSpec.difficultyLabel+='; fixed repair speed 16.67/s (6s)';return ship;
 }
-function resolveRepair(room,unit,roll){const pending=unit.delayedAction,order=pending.breachRepair,ship=room.starships.find(s=>s.id===order.shipId),hole=ship&&state(ship).holes[order.hazardId],spec=pending.rollSpec,values=spec.sides.map(roll),total=Number.isFinite(roll.submittedScore)?roll.submittedScore:require('./ship-sensors').fusedTotal(values)+spec.bonus;unit.delayedAction=null;
+function repairCalculation(pending){const spec=pending.rollSpec;return {version:1,kind:'hull-breach-repair',sides:[...spec.sides],rating:spec.bonus,difficulty:spec.difficulty,summary:['Dexterity '+spec.sides.map(n=>'D'+n).join('+')+'; Engineering +'+spec.bonus+'; attempt difficulty '+spec.difficulty+'.','Fixed breach repair delay; speed 16.67/s; base 6s.'],lines:[],gmLines:[]};}
+function resolveRepair(room,unit,roll){
+ const pending=unit.delayedAction,c=repairCalculation(pending),generated=[],tracked=n=>{const v=roll(n);generated.push(v);return v;};Object.assign(tracked,roll);
+ const report=resolveRepairInner(room,unit,tracked),submitted=Number.isFinite(roll.submittedScore);c.values=submitted?(roll.submittedValues??pending.submittedRoll?.values??[]):generated;c.total=report?.total;
+ if(submitted)c.sides=[...pending.rollSpec.sides,...Array(roll.exertion||0).fill(12)];
+ c.summary[0]+=' '+(submitted?'Submitted ':'Result ')+(c.total??'unavailable')+'; '+(c.values.length?'dice '+c.values.join(','):submitted?'manual dice unavailable':'no dice')+'.';
+ c.summary[1]+=' '+(report?.text||'Repair unavailable.');if(roll.exertion)c.summary[0]+=' Exertion +'+roll.exertion+'D12.';if(submitted)c.summary[0]+=' Unverified submission.';pending.calculation=c;return report;
+}
+function resolveRepairInner(room,unit,roll){const pending=unit.delayedAction,order=pending.breachRepair,ship=room.starships.find(s=>s.id===order.shipId),hole=ship&&state(ship).holes[order.hazardId],spec=pending.rollSpec,values=spec.sides.map(roll),total=Number.isFinite(roll.submittedScore)?roll.submittedScore:require('./ship-sensors').fusedTotal(values)+spec.bonus;unit.delayedAction=null;
   if(!hole||hole.sealed||unit.location?.starshipId!==ship.id||doors.roomKey(ship,unit.location.square)!==doors.roomKey(ship,hole.square))return ship&&report(ship,'Breach repair cancelled: the opening is sealed or the operator left the room.',values,total);
   if(total>=spec.difficulty){hole.sealed=true;return report(ship,`${unit.characterName} sealed the hull breach. Life Support can restore the room’s atmosphere.`,values,total);}return report(ship,`${unit.characterName} could not seal the hull breach. Next attempt: difficulty ${Math.max(0,20-hole.attempts)}.`,values,total);
 }

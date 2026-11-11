@@ -103,7 +103,12 @@ test('Sensors control refinement reuses focus control and removes only movement 
  assert.match(controls,/\.shared-seat\{justify-content:center\}/);
  assert.match(controls,/\[data-hold\]:not\(\.resume-ready\)\{background:linear-gradient/);
  assert.match(controls,/\[data-hold\]:focus-visible\{outline:2px solid #fff;outline-offset:-4px\}/);
- assert.match(controls,/left:50%;bottom:0;transform:translateX\(-50%\);height:34px/);
+ const sharedMapCss=fs.readFileSync(path.join(__dirname,'../space-map.css'),'utf8');
+ assert.match(sharedMapCss,/body dialog button\.console-map-return\{position:fixed!important/);
+ assert.match(sharedMapCss,/transform:translate\(-50%,-100%\)!important/);
+ assert.match(sharedMapCss,/height:34px;min-height:34px/);
+ assert.match(sharedMapCss,/prefers-reduced-motion:reduce/);
+ assert.doesNotMatch(controls,/left:50%;bottom:0/);
  assert.match(controls,/\[data-confirm-scan\]:not\(:disabled\)\{background:#216b40/);
  assert.doesNotMatch(controls,/overflow|grid-template|font-size|data-leave/);
  for(const [,selectors]of controls.matchAll(/([^{}]+)\{[^{}]*\}/g))if(!selectors.includes('@media'))for(const selector of selectors.trim().split(','))assert.ok(selector.startsWith('dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)'),selector);

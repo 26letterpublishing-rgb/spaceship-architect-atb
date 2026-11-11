@@ -25,20 +25,32 @@ test('security droid location markers retain their dedicated artwork instead of 
 function confirmFixture(){
  const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');
  const body=source.slice(source.indexOf('  function positionMoveConfirm('),source.indexOf('  function positionInlineConfirm('));
- const preview={locked:true,path:[1],color:'green',square:1,mesh:4},context={interaction:'move',preview,confirmHomes:new WeakMap()};vm.createContext(context);vm.runInContext(body,context);
- const original={isConnected:true,insertBefore(b){b.parentElement=this;}};
- const button={parentElement:original,nextSibling:null,hidden:false,textContent:'Confirm Move',classList:{toggle(){}},style:{removeProperty(n){delete this[n];}},setAttribute(){}};
- const host={offsetWidth:400,append(b){b.parentElement=this;},getBoundingClientRect:()=>({left:0,top:0,width:400})};
+ const preview={locked:true,path:[1],color:'green',square:1,mesh:4},context={interaction:'move',moveSubmitting:false,preview,confirmHomes:new WeakMap()};vm.createContext(context);vm.runInContext(body,context);
+ let submitted=0;const children=[];const original={isConnected:true,insertBefore(b){b.parentElement=this;if(!children.includes(b))children.push(b);}};
+ const button={ownerDocument:{createElement(){return {dataset:{},setAttribute(){},addEventListener(type,fn){this.click=fn;},remove(){children.splice(children.indexOf(this),1);}};}},click(){if(!this.disabled&&!context.moveSubmitting)submitted++;},parentElement:original,nextSibling:null,disabled:false,hidden:false,textContent:'Confirm Move',classList:{toggle(){}},style:{removeProperty(n){delete this[n];}},setAttribute(){}};
+ let controlsTop=null;const host={querySelector:()=>controlsTop===null?null:{getBoundingClientRect:()=>({top:controlsTop})},offsetWidth:400,append(b){b.parentElement=this;},getBoundingClientRect:()=>({left:0,top:0,width:400})};
  const viewport={style:{getPropertyValue:()=>80},getBoundingClientRect:()=>({left:0,top:0,right:400,bottom:400}),querySelector:()=>({getBoundingClientRect:()=>({left:380,right:400,top:300,height:20})})};
- return {button,preview,context,original,place:()=>context.positionMoveConfirm(host,button,viewport)};
+ return {button,preview,context,original,bottom:()=>children.find(b=>b.dataset?.bottomConfirmMove!==undefined),submitted:()=>submitted,controlsAt:y=>controlsTop=y,hideTarget:()=>viewport.querySelector=()=>null,place:()=>context.positionMoveConfirm(host,button,viewport)};
 }
 test('destination confirmation remains inside the map above its controls and hides invalid selections',()=>{
  const f=confirmFixture();f.place();assert.equal(f.button.hidden,false);assert.ok(parseFloat(f.button.style.left)+56<=380);assert.ok(parseFloat(f.button.style.top)+56<=320);
+ f.controlsAt(260);f.place();assert.ok(parseFloat(f.button.style.top)+56<=252);
  f.preview.color='red';f.place();assert.equal(f.button.hidden,true);
  f.preview.color='green';f.preview.locked=false;f.place();assert.equal(f.button.hidden,true);
 });
 test('leaving movement restores the existing confirmation control to its owner',()=>{
  const f=confirmFixture();f.place();f.context.interaction='relocate';f.place();assert.equal(f.button.parentElement,f.original);assert.equal(f.button.hidden,false);assert.equal(f.button.style.left,undefined);
+ assert.equal(f.bottom(),undefined);
+});
+
+test('bottom confirmation stays available with the circle and shares its guarded submission',()=>{
+ const f=confirmFixture();f.place();const bottom=f.bottom();assert.ok(bottom);assert.equal(bottom.textContent,'Confirm Move');assert.equal(bottom.disabled,false);
+ f.place();assert.equal(f.bottom(),bottom);bottom.click();assert.equal(f.submitted(),1);
+ f.context.moveSubmitting=true;f.place();assert.equal(bottom.disabled,true);bottom.click();assert.equal(f.submitted(),1);
+ f.context.moveSubmitting=false;f.preview.color='red';f.place();assert.equal(bottom.disabled,true);
+ f.preview.color='green';f.preview.locked=false;f.place();assert.equal(bottom.disabled,true);
+ f.preview.locked=true;f.place();assert.equal(bottom.disabled,false);
+ f.hideTarget();f.place();assert.equal(f.button.hidden,true);assert.equal(bottom.disabled,false);bottom.click();assert.equal(f.submitted(),2);
 });
 
 function stationExitFixture(){
@@ -60,4 +72,30 @@ test('station exit cannot close on an unconfirmed response or bypass pending act
  const f=stationExitFixture(),pending=f.send();f.unconfirmed();await pending;assert.equal(f.closed(),0);assert.match(f.context.moveError,/not confirmed/);
  for(const key of ['delayedAction','delayTimer','timedAction','shieldRestabilizing','shipAi']){f.unit[key]=true;await f.send();delete f.unit[key];}
  f.state.activeId='other';await f.send();assert.equal(f.calls(),1);
+});
+
+test('legacy Fit uses final usable viewport dimensions and ignores hidden maps',()=>{
+ const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');let size;const viewport={clientWidth:0,clientHeight:0},grid={parentElement:viewport,style:{setProperty:(k,v)=>size=v}},ship={ship:{gridCells:[125,126,145,146]}};
+ const c={grid,selectedShip:()=>ship,layoutFor:()=>({footprint:new Map()}),window:{SAShipMap:{triangleCells:()=>[],gridColumns:()=>20}}};
+ vm.runInNewContext(source.slice(source.indexOf('  function fitShip() {'),source.indexOf("  window.addEventListener('sa-combat-reset'"))+';this.fit=fitShip',c);
+ c.fit();assert.equal(size,undefined);viewport.clientWidth=400;viewport.clientHeight=140;c.fit();assert.equal(size,'52px');viewport.clientHeight=220;c.fit();assert.equal(size,'92px');
+});
+
+function legacyFocusFixture(){
+ const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8'),body={},outside={},old={dataset:{mapSquare:'125',mapMesh:'0'},isConnected:true};let focused=null,redirect=false;
+ const document={body,activeElement:old},replacement={dataset:{mapSquare:'125',mapMesh:'0'},focus(options){focused={node:'cell',options};document.activeElement=this;}};
+ let cells=[replacement];const grid={contains:n=>n===old,querySelectorAll:()=>cells,focus(options){focused={node:'grid',options};document.activeElement=this;},set innerHTML(v){old.isConnected=false;if(document.activeElement===old)document.activeElement=redirect?outside:body;}};
+ const context={document,grid,dialog:{classList:{contains:()=>false}}};vm.runInNewContext(source.slice(source.indexOf('  function replaceLegacyGrid('),source.indexOf('  function renderGrid()')),context);
+ return {run:()=>context.replaceLegacyGrid('replacement'),focused:()=>focused,remove:()=>cells=[],outside:()=>document.activeElement=outside,redirect:()=>redirect=true,grid};
+}
+test('legacy redraw restores the same cell without scrolling and keeps Escape within the dialog',()=>{const f=legacyFocusFixture();f.run();assert.equal(f.focused().node,'cell');assert.equal(f.focused().options.preventScroll,true);});
+test('legacy removed-cell focus falls back to the map without selecting another destination',()=>{const f=legacyFocusFixture();f.remove();f.run();assert.equal(f.focused().node,'grid');assert.equal(f.grid.tabIndex,-1);});
+test('legacy redraw never steals external or independently redirected focus',()=>{for(const mode of ['outside','redirect']){const f=legacyFocusFixture();f[mode]();f.run();assert.equal(f.focused(),null);}});
+
+test('hidden legacy map skips DOM rebuild and geometry, then refreshes when opened',()=>{
+ const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');let hidden=true,clears=0,positions=0,reads=0;
+ const c={dialog:{classList:{contains:()=>hidden},querySelector(){reads++;return null;}},confirm:{},grid:{parentElement:{}},selectedShip:()=>null,replaceLegacyGrid:v=>{assert.equal(v,'');clears++;},positionMoveConfirm(){positions++;}};
+ vm.runInNewContext(source.slice(source.indexOf('  function renderGrid() {'),source.indexOf('  function statValue('))+source.slice(source.indexOf('  function positionLegacyConfirm()'),source.indexOf('  function positionInlineConfirm(')),c);
+ c.renderGrid();c.positionLegacyConfirm();assert.equal(clears,0);assert.equal(reads,0);assert.equal(positions,0);
+ hidden=false;c.renderGrid();c.positionLegacyConfirm();assert.equal(clears,1);assert.equal(reads,1);assert.equal(positions,1);
 });

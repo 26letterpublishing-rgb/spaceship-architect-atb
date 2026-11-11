@@ -18,7 +18,7 @@
 .pilot-power,.pilot-input,.ship-navigation-dialog footer{align-self:start;margin-top:12px;background:#071014e8;border-top:2px solid #8ea9ab;padding:12px;max-height:100%;overflow:auto}
 .pilot-power{grid-column:1}.pilot-input{grid-column:2}.ship-navigation-dialog footer{grid-column:3;display:flex;flex-direction:column;gap:10px;justify-content:end}
 .ship-navigation-dialog button[type=submit]{background:#115e4b;border-color:#8bffd4}.ship-navigation-dialog [data-error]{font-size:12px;color:#ffabb6;margin:0}.ship-navigation-dialog output{display:block;font-size:12px;color:#b4e7d9;margin-top:8px}
-.pilot-au strong{font:700 30px Arial,sans-serif;color:#f8d77e}.pilot-au small{font-size:14px;color:#c0ccc6}.pilot-au>span{display:flex;gap:3px;margin:8px 0}.pilot-au i{display:block;flex:1;height:22px;background:#293536;transform:skewY(-15deg)}.pilot-au i.charged{background:#e5c869;box-shadow:0 0 7px #ecd77666}
+.pilot-au strong{font:700 30px Arial,sans-serif;color:#f8d77e}.pilot-au small{font-size:14px;color:#c0ccc6}.ship-navigation-dialog .pilot-au>.shared-au-cells{height:22px;margin:8px 0}
 .pilot-recharge,.pilot-input-progress{height:5px;background:#263a3b;overflow:hidden}.pilot-recharge i,.pilot-input-progress i{display:block;height:100%;background:#76e9b7;transition:width .18s linear}.pilot-recharge i{background:#ffe07c}
 .ship-navigation-dialog fieldset{border:0;border-top:1px solid #486368;padding:10px 0 0;margin:12px 0 0}.ship-navigation-dialog legend{font-size:11px;color:#edcc7d}.ship-navigation-dialog fieldset label{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-bottom:8px}.ship-navigation-dialog fieldset small{color:#dace89}.ship-navigation-dialog input[type=checkbox]{appearance:auto!important;width:15px;height:15px;min-height:0;accent-color:#6cddba;margin:0;padding:0;border:0;box-shadow:none}
 .pilot-input [data-factors]{display:flex;justify-content:space-around;gap:12px;padding-bottom:8px}.pilot-input [data-factors]>div{text-align:center;min-width:0}.pilot-input small{display:block;font-size:11px}.pilot-factor{display:block;width:76px;height:76px}.pilot-factor svg{width:100%;height:100%;fill:none}.pilot-factor .c4-ring{stroke:#405358;stroke-width:7;fill:none}.pilot-factor .c4-ring.active{stroke:#6ce5c1;filter:drop-shadow(0 0 2px #75edcc)}
@@ -48,7 +48,6 @@
 .pilot-rings .ring-queued-shell{fill:#ffffff22;stroke:#c5ccdb}.pilot-rings .ring-queued-fill{fill:#c5ccdb}
 .pilot-chart{position:relative;overflow:hidden}.pilot-chart::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 48%,#74e8ca0a 50%,transparent 52%);background-size:100% 200%;animation:helm-sweep 9s linear infinite}
 .pilot-input-progress{position:relative}.ship-navigation-dialog[data-input=active] .pilot-input-progress::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(110deg,transparent 0 12px,#e6fff488 12px 16px);animation:helm-data .8s linear infinite}
-.pilot-au i.charged{animation:helm-charge 4s ease-in-out infinite}.pilot-au i.charged:nth-child(3n){animation-delay:-1.3s}.pilot-au i.charged:nth-child(3n+1){animation-delay:-2.6s}
 @keyframes helm-sweep{to{background-position:0 200%}}@keyframes helm-data{to{background-position:35px 0}}@keyframes helm-charge{50%{box-shadow:0 0 11px #ecd77699;filter:brightness(1.12)}}
 .pilot-destination{pointer-events:none}.pilot-destination.locked circle{animation:helm-lock 2.5s ease-in-out infinite}@keyframes helm-lock{50%{stroke-opacity:.45}}
 .navigation-planner{width:min(960px,calc(100vw - 32px));height:min(760px,calc(100dvh - 32px));background:#09191e}
@@ -300,3 +299,6 @@ body dialog.shield-console-dialog .shield-operations input{font-family:Orbitron,
 .ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet>h3,
 .ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet>[data-fleet]{display:none}
 .ship-navigation-dialog.cockpit-layout.map-focus .pilot-fleet .pilot-power{display:block;max-height:none}
+
+/* Bridge power contents sit at the bottom; oversized content retains its scroll area. */
+.ship-navigation-dialog:not(.navigation-planner):not(.cockpit-layout):not(.map-focus) .pilot-power{align-self:end;height:max-content;max-height:100%;min-height:0;overflow:auto}

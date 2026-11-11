@@ -9,24 +9,28 @@
     const doc=host(),win=doc.defaultView;
     if(win.SAInterfaceNoticeHost)return win.SAInterfaceNoticeHost;
     const rail=doc.createElement('aside');rail.className='interface-notice-rail';rail.setAttribute('aria-label','Notifications');rail.setAttribute('popover','manual');doc.body.append(rail);
-    let queued=false;
+    const criticalBanners=new Set();let queued=false;
     function refresh(){
       // Top-layer paint alone does not escape a modal dialog's inert subtree.
       const parent=[...doc.querySelectorAll('dialog[open]')].filter(d=>d.matches(':modal')).at(-1)||doc.body;
       if(rail.parentElement!==parent){if(rail.matches(':popover-open'))rail.hidePopover();parent.append(rail);}
+      for(const banner of criticalBanners){
+        if(banner.parentElement!==parent){if(banner.matches(':popover-open'))banner.hidePopover();parent.append(banner);}
+        if(!banner.matches(':popover-open'))banner.showPopover();
+      }
       const active=[...rail.children].some(n=>!n.hidden&&(!n.classList.contains('result-notifications')||n.children.length));
       if(win.SAExploreSession?.active?.()===false)return;
       if(active&&!rail.matches(':popover-open'))rail.showPopover();else if(!active&&rail.matches(':popover-open'))rail.hidePopover();
     }
     function schedule(){if(queued)return;queued=true;win.requestAnimationFrame(()=>{queued=false;refresh();});}
     // A popover stays above dialogs without moving the page or resizing consoles.
-    const observer=new win.MutationObserver(records=>{if(records.some(r=>r.type==='attributes'&&r.target.tagName==='DIALOG')){if(rail.matches(':popover-open'))rail.hidePopover();schedule();}else if(records.some(r=>r.type==='childList'))schedule();});
+    const observer=new win.MutationObserver(records=>{if(records.some(r=>r.type==='attributes'&&r.target.tagName==='DIALOG')){if(rail.matches(':popover-open'))rail.hidePopover();for(const banner of criticalBanners)if(banner.matches(':popover-open'))banner.hidePopover();schedule();}else if(records.some(r=>r.type==='childList'))schedule();});
     observer.observe(doc.documentElement,{subtree:true,attributes:true,attributeFilter:['open'],childList:true});
     // Only our local dismiss controls bypass Console action guards; no game action does.
-    doc.addEventListener('click',event=>{const button=event.target.closest?.('.notice-dismiss');if(button&&rail.contains(button)&&button._noticeDismiss){event.preventDefault();event.stopImmediatePropagation();button._noticeDismiss();}},true);
+    doc.addEventListener('click',event=>{const button=event.target.closest?.('.notice-dismiss,[data-critical-dismiss]');if(button&&button._noticeDismiss&&(rail.contains(button)||[...criticalBanners].some(b=>b.contains(button)))){event.preventDefault();event.stopImmediatePropagation();button._noticeDismiss();}},true);
     win.addEventListener('sa-perspective-visibility',()=>{schedule();if(!critical.active)critical.resume?.();});
     doc.addEventListener('visibilitychange',schedule);
-    const api={mount(node,key=''){if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail)rail.append(node);schedule();return node;},refresh,schedule,remove(node){node?.remove();refresh();}};
+    const api={mount(node,key=''){if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail)rail.append(node);schedule();return node;},mountCritical(node){criticalBanners.add(node);refresh();},removeCritical(node){criticalBanners.delete(node);node.remove();},refresh,schedule,remove(node){node?.remove();refresh();}};
     win.addEventListener('pagehide',()=>observer.disconnect(),{once:true});win.SAInterfaceNoticeHost=api;return api;
   }
   function critical(key,message,type='danger'){
@@ -53,12 +57,14 @@
         text.textContent='All hands on deck';
         const subtitle=doc.createElement('small');subtitle.textContent='---enter the combat tab immediately!---';text.append(subtitle);
       }
-      let closed=false,timer;const close=()=>{if(closed)return;closed=true;clearTimeout(timer);banner.remove();critical.close=null;next();};
-      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.onclick=close;if(item.type==='combat-start'){button.setAttribute('aria-label','Dismiss All hands on deck');button.dataset.uiSound='none';}banner.append(track,button);doc.body.append(banner);banner.showPopover();
+      let closed=false,timer;const close=()=>{if(closed)return;closed=true;clearTimeout(timer);noticeHost().removeCritical(banner);critical.close=null;next();};
+      critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.setAttribute('data-critical-dismiss','');button._noticeDismiss=close;button.onclick=close;if(item.type==='combat-start'){button.setAttribute('aria-label','Dismiss All hands on deck');button.dataset.uiSound='none';}banner.append(track,button);noticeHost().mountCritical(banner);
       const reduce=win.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const width=track.clientWidth,length=text.scrollWidth,ms=item.type==='combat-start'?10000:Math.max(7000,(width+length)/115*1000);
-      if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,fill:'forwards'});}
-      timer=setTimeout(()=>{if(item.type==='combat-start'){close();return;}banner.animate([{opacity:1},{opacity:0}],{duration:650,fill:'forwards'}).finished.then(close).catch(close);},item.type==='combat-start'?10000:reduce?8000:ms);
+      const width=track.clientWidth,length=text.scrollWidth;
+      const ms=reduce?Math.max(8000,2000+text.textContent.trim().split(/\s+/).length/3*1000):(width+length)/115*1000;
+      if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,easing:'linear',fill:'forwards'});}
+      // Close exactly when the trailing text reaches the left edge; no extra fade.
+      timer=setTimeout(close,ms);
     }
   }
   function closeButton(node,onClose=()=>{},label='Dismiss notification'){
@@ -84,7 +90,7 @@
     else if(!waitingNode.matches(':popover-open'))waitingNode.showPopover();
   }
   function stored(key){try{return sessionStorage.getItem(key);}catch{return false;}}
-  function push(key,title,message,{topLayer=false,reputation=null,details=null,allowOutsideCombat=false}={}){
+  function push(key,title,message,{topLayer=false,reputation=null,details=null,allowOutsideCombat=false,promptResult=null,onResolve=null}={}){
     const storageKey='sa-result:'+key;if(seen.has(key)||stored(storageKey))return;seen.add(key);
     if(!isCombatActive()&&!allowOutsideCombat){try{sessionStorage.setItem(storageKey,'1');}catch{}return;}
     const doc=host();
@@ -94,14 +100,26 @@
     const card=doc.createElement('article'),heading=doc.createElement('strong'),text=doc.createElement('p');
     card.dataset.allowOutsideCombat=String(allowOutsideCombat);card.setAttribute('role','status');heading.textContent=title;text.textContent=message;
     card.dataset.outcome=/failed|missed|cancelled/i.test(message)?'failed':/success|succeeded|complete|restored|cleared|damage confirmed/i.test(message)?'success':'pending';card.dataset.resultKey=storageKey;
-    let closed=false,timer,fade;
-    const close=()=>{if(closed)return;closed=true;clearTimeout(timer);fade?.cancel();resultClosers.delete(card);try{sessionStorage.setItem(storageKey,'1');}catch{}card.remove();if(!tray.children.length)tray.hidden=true;noticeHost().refresh();};
+    let closed=false,timer,fade,terminal=null,settling=false,settled=false;
+    if(promptResult){
+      card.className='prompt-result-notice';
+      card.dataset.outcome=/failure/i.test(promptResult.outcome)?'failed':/success/i.test(promptResult.outcome)?'success':'pending';
+      card.dataset.critical=String(/critical/i.test(promptResult.outcome));
+      const summary=doc.createElement('div'),score=doc.createElement('b'),outcome=doc.createElement('span');summary.className='prompt-result-summary';score.textContent=String(promptResult.score);outcome.textContent=promptResult.outcome;summary.append(score,outcome);card.append(summary);
+    }
+    const settle=async action=>{
+      if(closed||settling)return;terminal||=action;settling=true;clearTimeout(timer);
+      try{await onResolve?.(terminal);settled=true;close();}
+      catch{settling=false;text.textContent='Could not record notification handling. Retrying…';timer=setTimeout(()=>settle(terminal),3000);}
+    };
+    const close=()=>{if(closed)return;closed=true;clearTimeout(timer);fade?.cancel();resultClosers.delete(card);if(!promptResult||settled)try{sessionStorage.setItem(storageKey,'1');}catch{}card.remove();if(!tray.children.length)tray.hidden=true;noticeHost().refresh();};
     resultClosers.set(card,close);
     const ok=closeButton(card,close,'Dismiss '+title);
+    if(promptResult)ok._noticeDismiss=()=>{void settle('dismiss');};
     card.append(heading,text);
     if(details||reputation){
       const view=doc.createElement('button');view.type='button';view.textContent='View Results';view.className='notice-action';view.onclick=()=>{
-        view.disabled=true;
+        view.disabled=true;if(promptResult)void settle('view');
         const dialog=doc.createElement('dialog');dialog.className='notification-result-detail';const h=doc.createElement('h2');h.textContent=title;const p=doc.createElement('p');p.textContent=details||message;dialog.append(h,p);
         if(reputation&&window.SAReputationUI){const block=doc.createElement('div');block.innerHTML=window.SAReputationUI.comparison(reputation);dialog.append(block);}
         const done=doc.createElement('button');done.textContent='Close';done.onclick=()=>dialog.close();dialog.append(done);dialog.onclose=()=>{dialog.remove();view.disabled=false;};doc.body.append(dialog);dialog.showModal();
@@ -109,7 +127,7 @@
     }
     ok.textContent='Dismiss';
     card.append(ok);tray.append(card);noticeHost().mount(tray,'action-results');noticeHost().schedule();
-    timer=setTimeout(()=>{if(closed)return;if(!card.isConnected||doc.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches){close();return;}fade=card.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});fade.finished.then(close).catch(close);},8000);
+    timer=setTimeout(()=>{if(closed)return;if(promptResult){void settle('expire');return;}if(!card.isConnected||doc.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches){close();return;}fade=card.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});fade.finished.then(close).catch(close);},promptResult?24000:8000);
   }
   function analysisNotice(key,result){
     if(result.analysisPhase!=='complete'){push(key,result.label,result.text);return;}

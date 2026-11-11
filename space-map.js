@@ -2,6 +2,29 @@
   const escape = value => String(value ?? "").replace(/[&<>"']/g,c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const colors = ["#54d7f5","#f5858d","#b997ff","#64dfa1","#ffd275","#f89dd9"];
   const enlarged = new Set();
+  const calloutKey='sa-ship-callouts-v1';
+  let showCallouts=true;
+  try{showCallouts=localStorage.getItem(calloutKey)!=='false';}catch{}
+  function affiliation(ship,observer){
+    if(ship.uncertainty||ship.gmContactMarker||['unknown','last-known'].includes(ship.contactLevel)||observer&&ship.id!==observer.id&&observer.sensorState?.contacts?.[ship.id]?.level!=='detected')return 'UNKNOWN';
+    return ship.controlType==='pc'?'ALLY':ship.controlType==='gm'?'HOSTILE':'UNKNOWN';
+  }
+  function calloutMarkup(ship,observer){
+    if(ship.spaceObject||ship.isDrone||ship.isProbe||ship.isMissile)return '';
+    const label=affiliation(ship,observer),color={ALLY:'#ffe277',UNKNOWN:'#be8cff',HOSTILE:'#ff656d'}[label];
+    return '<g data-ship-callout="'+label+'" pointer-events="none" style="color:'+color+'"><path d="M.6 .5 L1.6 1.5 H5" fill="none" stroke="currentColor" stroke-width=".07"/><text x="1.7" y="1.35" font-size=".55" fill="currentColor" stroke="#070e14" stroke-width=".1" paint-order="stroke">'+label+'</text></g>';
+  }
+  function bindCallouts(root){
+    for(const button of root.querySelectorAll('[data-ship-callouts-toggle]')){
+      button.checked=showCallouts;
+      const svg=button.closest('.space-map')?.querySelector('[data-space-canvas]');
+      if(svg)svg.dataset.shipCallouts=String(showCallouts);
+      button.onchange=()=>{
+        showCallouts=button.checked;try{localStorage.setItem(calloutKey,String(showCallouts));}catch{}
+        bindCallouts(document);for(const dialog of enlarged)bindCallouts(dialog);
+      };
+    }
+  }
   const cameraStorageKey='sa-starmap-cameras-v1',cameraLimit=40,cameras=new WeakMap();
   let cameraFallback=[];
   function validCamera(value){
@@ -23,14 +46,14 @@
     const prior=cameras.get(svg);if(prior?.key===key)return;
     if(prior)saveCamera(svg);prior?.observer.disconnect();
     delete svg.dataset.userViewBox;delete svg.dataset.manualCamera;
-    const stored=readCameras().find(x=>x[0]===key)?.[1];
-    if(stored){svg.setAttribute('viewBox',stored);svg.dataset.userViewBox=stored;}else fitRendered(svg);
+    // Reloaded maps fit current disclosed contents, even after a saved manual zoom.
+    fitRendered(svg);
     const observer=new MutationObserver(()=>saveCamera(svg));
     const record={key,observer,saved:null};cameras.set(svg,record);observer.observe(svg,{attributes:true,attributeFilter:['viewBox']});saveCamera(svg);coverViewport(svg);
     svg.closest?.('dialog')?.addEventListener('close',()=>{if(cameras.get(svg)===record)releaseCamera(svg);},{once:true});
     // Console framing/reparenting finishes after its initial render. Fit once at
-    // that mounted size, without replacing a restored camera or user input.
-    if(!stored&&typeof requestAnimationFrame==='function'){
+    // that mounted size, without replacing input made during opening.
+    if(typeof requestAnimationFrame==='function'){
       const finish=()=>requestAnimationFrame(()=>{
         if(svg.isConnected&&cameras.get(svg)===record&&!svg.dataset.userViewBox&&!svg.dataset.manualCamera){fitRendered(svg);saveCamera(svg);}
       });
@@ -38,6 +61,13 @@
       if(svg.ownerDocument?.fonts?.ready)assets.push(svg.ownerDocument.fonts.ready);
       if(assets.length)Promise.allSettled(assets).then(finish);else finish();
     }
+  }
+  function refitContents(svg,signature,positions=null,kind='contents'){
+    const previous=svg._fitSignatures?.[kind];
+    (svg._fitSignatures||={})[kind]=signature;
+    if(previous===undefined||previous===signature||!cameras.has(svg))return;
+    delete svg.dataset.manualCamera;
+    fitRendered(svg,positions);saveCamera(svg);
   }
   function releaseCamera(svg){saveCamera(svg);cameras.get(svg)?.observer.disconnect();cameras.delete(svg);}
   const wreckVisible=ship=>Boolean(ship.destroyedAt)&&Date.now()-Date.parse(ship.destroyedAt)>=2400;
@@ -81,7 +111,7 @@
     const ghosts=(window.SACombatBridge?.state?.()?.gmContactMarkers||[]).filter(g=>!ships.some(s=>s.id===g.id));
     if(ghosts.length){ships=[...ships,...ghosts];positions=[...(positions||[]),...ghosts.map(g=>({...g.position,id:g.id}))];}
     const objects=options.spaceObjects||window.SACombatBridge?.state?.()?.spaceObjects||[];
-    const signature=JSON.stringify([ships.map(s=>[s.id,s.title,s.destroyedAt,s.ship?.salvagedAt,wreckVisible(s),s.escapedAt,s.uncertainty,s.contactLevel,s.ship?.warpState?.phase,s.isCloaked||window.SAShipMap.cloaked(s),window.SAShipMap.scaleRank(s),window.SAShipMap.shipIcon(s),window.SAShipMap.shipColor(s),s.missilePhase,s.missileEndedAt,s.probeTier,s.probeInhibitor,s.droneSprite,(s.lockState?.targets||[]).map(l=>l.targetId)]),objects.map(o=>[o.id,o.name,o.kind,o.quantity,o.intensity,o.destroyedAt,o.collectedBy])]);
+    const signature=JSON.stringify([ships.map(s=>[s.id,s.title,s.controlType,s.destroyedAt,s.ship?.salvagedAt,wreckVisible(s),s.escapedAt,s.uncertainty,s.contactLevel,s.ship?.warpState?.phase,s.isCloaked||window.SAShipMap.cloaked(s),window.SAShipMap.scaleRank(s),window.SAShipMap.shipIcon(s),window.SAShipMap.shipColor(s),s.missilePhase,s.missileEndedAt,s.probeTier,s.probeInhibitor,s.droneSprite,(s.lockState?.targets||[]).map(l=>l.targetId)]),objects.map(o=>[o.id,o.name,o.kind,o.quantity,o.intensity,o.destroyedAt,o.collectedBy])]);
     let svg=container.querySelector('[data-space-canvas]');
     if(!svg||container._spaceStructure!==signature){
       const template=container.ownerDocument.createElement('template');template.innerHTML=markup(ships,positions,false,options);const next=template.content.querySelector('svg');
@@ -92,6 +122,12 @@
     const points=new Map(window.SAShipDistances.positions(ships,positions).map(p=>[p.id,p]));for(const o of objects)points.set(o.id,o);
     for(const marker of svg.querySelectorAll('[data-space-ship],[data-contact-halo]')){const point=points.get(marker.dataset.spaceShip||marker.dataset.contactHalo);if(point)moveMarker(marker,xy(point));}
     const fields=svg.querySelector('[data-map-fields]'),fieldArt=fieldMarkup(ships,positions,.65);if(fields&&fields._markup!==fieldArt){fields.innerHTML=fieldArt;fields._markup=fieldArt;}
+    const byId=new Map(ships.map(s=>[s.id,s]));
+    const contents=[...svg.querySelectorAll('[data-space-ship]:not([data-fit-ignore])')].map(m=>{
+      const id=m.dataset.spaceShip,s=byId.get(id);
+      return [id,s?.contactLevel||'',Boolean(s?.uncertainty),Boolean(s?.destroyedAt)];
+    }).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+    refitContents(svg,JSON.stringify(contents),points);
     refreshFloatingHealth(svg,ships,options.observer);watchMaps(container);return svg;
   }
   const shipMarkerRadius = ship => Math.max(.55,[0,.55,1.05,1.6,2.2,3.2][window.SAShipMap.scaleRank(ship)]*.58);
@@ -182,7 +218,7 @@
     const minX=(Math.min(...xs)+Math.max(...xs)-width)/2, minY=(Math.min(...ys)+Math.max(...ys)-height)/2;
     const size=.65,locked=new Set(ships.flatMap(s=>(s.lockState?.targets||[]).map(l=>l.targetId)));
     const patternId = `space-hex-${options.navigation?'navigation':editable?'editor':'view'}`;
-    return `<section class="space-map"><header>${!editable&&window.SACombatBridge?.mode?.()==='gm'?'<button type="button" data-ship-glows aria-label="Ship glow colors" title="Ship glow colors">&#9881;</button>':''}${!editable && !options.navigation ? '<button type="button" data-space-enlarge aria-label="Enlarge space map" title="Enlarge space map">&#x2922;</button>' : ''}</header><svg data-space-canvas data-space-editable="${editable}" data-show-cleanser-scars="${!editable}" viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Starship positions on a hex map"><defs><pattern id="${patternId}" width="${Math.sqrt(3)}" height="3" patternUnits="userSpaceOnUse"><path d="M0 -1 L.866 -.5 V.5 L0 1 L-.866 .5 V-.5 Z M.866 .5 L1.732 1 V2 L.866 2.5 L0 2 V1 Z M0 2 L.866 2.5 V3.5 L0 4 L-.866 3.5 V2.5 Z" fill="none" stroke="#689099" stroke-width=".035"/></pattern></defs><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#070e14"/><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${patternId})"/>${editable?'':cleanserScarMarkup(options.cleanserScars||window.SACombatBridge?.state?.()?.cleanserScars||[])}${routes.map(route=>`<path data-navigation-route="${escape(route.id)}" d="M${route.a.x} ${route.a.y} L${route.b.x} ${route.b.y}" fill="none" stroke="${route.color}" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-dasharray="${route.drift?'6 5':'none'}" opacity=".7"/>`).join('')}${probeRoutes(ships)}<g data-map-fields>${fieldMarkup(utilityShips,saved,size)}</g>${points.map((p,i)=>({p,i})).sort((a,b)=>Number(!ships[a.i].spaceObject)-Number(!ships[b.i].spaceObject)).map(({p,i})=>{const c=cart[i];if(ships[i].gmContactMarker||ships[i].contactLevel==='last-known')return `<g data-space-ship="${escape(p.id)}" transform="translate(${c.x} ${c.y})" opacity="${ships[i].gmContactMarker?.75:1}" style="color:${ships[i].mapColor||'#ff575f'}"><title>${escape(ships[i].title)}${ships[i].observerTitle?' — seen by '+escape(ships[i].observerTitle):''}</title>${vesselMarkup(ships[i])}<text y="-.7" text-anchor="middle" font-size=".6" fill="currentColor">${escape(ships[i].title)}</text></g>`;if(ships[i].ship?.salvagedAt)return '';if(ships[i].spaceObject){const o=ships[i].spaceObject;if(o.kind==='projection')return projectionMarkup(o,c);if(o.kind==='sun')return `<g ${unseenObjects.has(o.id)?'data-fit-ignore="true"':''} data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(o.name)} / Sun</title><image class="map-sun" href="map-sun.webp" x="-2.5" y="-2.5" width="5" height="5"/><text y="-2.6" text-anchor="middle" fill="#ffeec1" font-size=".5">${escape(o.name)}</text></g>`;if(o.gunOrb)return `<g data-space-ship="${escape(o.id)}" transform="translate(${c.x} ${c.y})"><circle r=".45" fill="#c68bff" stroke="#e3caff" stroke-width=".1" style="filter:drop-shadow(0 0 .25px #af50ff)"/><text y="-.7" font-size=".35" fill="#e3caff" text-anchor="middle">${escape(o.name)}</text></g>`;if(o.kind==='black-hole')return blackHoleMarkup(o,c,unseenObjects.has(o.id));if(o.kind==='planet')return planetMarkup(o,c,unseenObjects.has(o.id),options.system);return `<g data-space-ship="${escape(p.id)}" data-space-object="${escape(p.id)}" ${unseenObjects.has(p.id)?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(o.name)} / ${o.quantity}</title>${['mineral','asteroid'].includes(o.kind)?`<image href="${o.kind==='asteroid'?'asteroid-mining.webp':'map-mineral.webp'}" x="${-size*.85*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" y="${-size*.85*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" width="${size*1.7*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" height="${size*1.7*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}"/>`:`<path d="M-.7 -.6H.7V.6H-.7Z" transform="scale(${size*.65})" fill="#dfa969" stroke="#fff" stroke-width=".08"/>`}<text y="${size*1.4}" text-anchor="middle" font-size="${size*.85}" fill="#e7efef" stroke="#070e14" stroke-width="${size*.12}" paint-order="stroke">${escape(o.name)}</text></g>`;}if(ships[i].isProbe)return `<g data-space-ship="${escape(p.id)}" data-space-probe="${escape(p.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(ships[i].title)} / Defense ${escape(ships[i].defenseScore)}</title>${ships[i].probeInhibitor?'<circle data-probe-inhibitor r="3.464101615" fill="#b687ee" fill-opacity=".1" stroke="#b687ee" stroke-width=".07" stroke-dasharray=".2 .15"/>':''}<image href="sic-art-probe-${Number(ships[i].probeTier)||1}.webp" x="${-size*.65}" y="${-size*.65}" width="${size*1.3}" height="${size*1.3}"/><text y="${size*1.4}" text-anchor="middle" fill="#9be5ed" font-size="${size*.85}">${escape(ships[i].title)}</text>${locked.has(p.id)?`<circle r="${size*.8}" fill="none" stroke="#ffe277" stroke-width="${size*.08}"/>`:''}</g>`;if(ships[i].isDrone)return `<g data-space-ship="${escape(p.id)}" data-space-drone="${escape(p.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(ships[i].title)} / Defense ${escape(ships[i].defenseScore)}</title><g transform="translate(${ships[i].isFloatingBody||ships[i].isSalvageDrone?0:size*1.6} ${ships[i].isFloatingBody||ships[i].isSalvageDrone?0:size*.8})"><image href="${escape(ships[i].droneSprite||'repair-drone-1-sprite.webp')}" x="${-size*.6}" y="${-size*.6}" width="${size*1.2}" height="${size*1.2}"/>${locked.has(p.id)?`<circle r="${size*.8}" fill="none" stroke="#ffe277" stroke-width="${size*.08}"/>`:""}</g></g>`;if(ships[i].isMissile)return missileMarkup(ships[i],p,c,size,locked.has(p.id));const overlap=points.slice(0,i).filter(o=>o.q===p.q&&o.r===p.r).length;return `${contactHalo(ships[i],c)}<g data-space-ship="${escape(p.id)}" transform="translate(${c.x} ${c.y})" class="${wreckVisible(ships[i])?'ship-wreck':''}" style="color:${window.SAShipMap.shipColor(ships[i])}"><title>${escape(ships[i].title || ships[i].ship?.title)}: ${ships[i].uncertainty ? "approximate sector" : `${Number(p.q.toFixed(2))}, ${Number(p.r.toFixed(2))}`}</title><circle data-ship-hit r="${Math.max(.75,shipMarkerRadius(ships[i]))}" fill="transparent" stroke="none" pointer-events="all"/>${!wreckVisible(ships[i])&&!ships[i].uncertainty&&(ships[i].currentShieldHp>0||ships[i].shieldCondition>0)?`<circle data-shield-ring r="${shipMarkerRadius(ships[i])}" fill="none" stroke="#65ef91" stroke-width=".09" style="animation:shield-map-pulse 1.6s ease-in-out infinite;pointer-events:none"/>`:''}${wreckVisible(ships[i])?wreckMarkup(size):vesselMarkup(ships[i])}${conditionMarkup(ships[i],size,options.observer)}${locked.has(p.id)?`<circle data-lock-reticle r="${size*.95}" fill="none" stroke="#ffe277" stroke-width="${size*.08}" stroke-dasharray="${size*.7} ${size*.35}"/>`:''}<text y="${size*(overlap%2 ? 1 : -1)*(1.2+Math.ceil(overlap/2)*.85)}" text-anchor="${ships.filter(s=>!s.isMissile).length===2 ? (i===0 ? `end` : `start`) : c.x<minX+width*.25 ? `start` : c.x>minX+width*.75 ? `end` : `middle`}" font-size="${size*1.15}" fill="currentColor" stroke="#070e14" stroke-width="${size*.18}" paint-order="stroke">${escape((ships[i].title || ships[i].ship?.title || 'Starship').split(' — ')[0]+(wreckVisible(ships[i])?' [DESTROYED]':''))}</text></g>`;}).join('')}</svg>${editable?`<div class="space-map-coordinates">${points.map((p,i)=>`<label><strong style="color:${window.SAShipMap.shipColor(ships[i])}">${escape(ships[i].title || ships[i].ship?.title)}</strong><input type="radio" name="space-placement-ship" value="${escape(p.id)}" ${i===0?'checked':''} aria-label="Place ${escape(ships[i].title)}"><span>Q</span><input type="number" step="1" min="-10000" max="10000" value="${p.q}" data-space-id="${escape(p.id)}" data-space-axis="q" aria-label="${escape(ships[i].title)} hex Q"><span>R</span><input type="number" step="1" min="-10000" max="10000" value="${p.r}" data-space-id="${escape(p.id)}" data-space-axis="r" aria-label="${escape(ships[i].title)} hex R"></label>`).join('')}</div>`:''}</section>`;
+    return `<section class="space-map"><header>${!editable?'<div class="ship-callout-switch"><label><input type="checkbox" role="switch" data-ship-callouts-toggle><span>Ship callouts</span></label></div>':''}${!editable&&window.SACombatBridge?.mode?.()==='gm'?'<button type="button" data-ship-glows aria-label="Ship glow colors" title="Ship glow colors">&#9881;</button>':''}${!editable && !options.navigation ? '<button type="button" data-space-enlarge aria-label="Enlarge space map" title="Enlarge space map">&#x2922;</button>' : ''}</header><svg data-space-canvas data-ship-callouts="${showCallouts}" data-space-editable="${editable}" data-show-cleanser-scars="${!editable}" viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Starship positions on a hex map"><defs><pattern id="${patternId}" width="${Math.sqrt(3)}" height="3" patternUnits="userSpaceOnUse"><path d="M0 -1 L.866 -.5 V.5 L0 1 L-.866 .5 V-.5 Z M.866 .5 L1.732 1 V2 L.866 2.5 L0 2 V1 Z M0 2 L.866 2.5 V3.5 L0 4 L-.866 3.5 V2.5 Z" fill="none" stroke="#689099" stroke-width=".035"/></pattern></defs><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="#070e14"/><rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${patternId})"/>${editable?'':cleanserScarMarkup(options.cleanserScars||window.SACombatBridge?.state?.()?.cleanserScars||[])}${routes.map(route=>`<path data-navigation-route="${escape(route.id)}" d="M${route.a.x} ${route.a.y} L${route.b.x} ${route.b.y}" fill="none" stroke="${route.color}" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-dasharray="${route.drift?'6 5':'none'}" opacity=".7"/>`).join('')}${probeRoutes(ships)}<g data-map-fields>${fieldMarkup(utilityShips,saved,size)}</g>${points.map((p,i)=>({p,i})).sort((a,b)=>Number(!ships[a.i].spaceObject)-Number(!ships[b.i].spaceObject)).map(({p,i})=>{const c=cart[i];if(ships[i].gmContactMarker||ships[i].contactLevel==='last-known')return `<g data-space-ship="${escape(p.id)}" transform="translate(${c.x} ${c.y})" opacity="${ships[i].gmContactMarker?.75:1}" style="color:${ships[i].mapColor||'#ff575f'}"><title>${escape(ships[i].title)}${ships[i].observerTitle?' — seen by '+escape(ships[i].observerTitle):''}</title>${vesselMarkup(ships[i])}${editable?'':calloutMarkup(ships[i],options.observer)}<text y="-.7" text-anchor="middle" font-size=".6" fill="currentColor">${escape(ships[i].title)}</text></g>`;if(ships[i].ship?.salvagedAt)return '';if(ships[i].spaceObject){const o=ships[i].spaceObject;if(o.kind==='projection')return projectionMarkup(o,c);if(o.kind==='sun')return `<g ${unseenObjects.has(o.id)?'data-fit-ignore="true"':''} data-space-ship="${escape(o.id)}" data-space-object="${escape(o.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(o.name)} / Sun</title><image class="map-sun" href="map-sun.webp" x="-2.5" y="-2.5" width="5" height="5"/><text y="-2.6" text-anchor="middle" fill="#ffeec1" font-size=".5">${escape(o.name)}</text></g>`;if(o.gunOrb)return `<g data-space-ship="${escape(o.id)}" transform="translate(${c.x} ${c.y})"><circle r=".45" fill="#c68bff" stroke="#e3caff" stroke-width=".1" style="filter:drop-shadow(0 0 .25px #af50ff)"/><text y="-.7" font-size=".35" fill="#e3caff" text-anchor="middle">${escape(o.name)}</text></g>`;if(o.kind==='black-hole')return blackHoleMarkup(o,c,unseenObjects.has(o.id));if(o.kind==='planet')return planetMarkup(o,c,unseenObjects.has(o.id),options.system);return `<g data-space-ship="${escape(p.id)}" data-space-object="${escape(p.id)}" ${unseenObjects.has(p.id)?'data-fit-ignore="true"':''} transform="translate(${c.x} ${c.y})"><title>${escape(o.name)} / ${o.quantity}</title>${['mineral','asteroid'].includes(o.kind)?`<image href="${o.kind==='asteroid'?'asteroid-mining.webp':'map-mineral.webp'}" x="${-size*.85*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" y="${-size*.85*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" width="${size*1.7*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}" height="${size*1.7*(o.kind==='asteroid'?1+Math.floor(Math.min(50,o.quantity)/5)*.1:1)}"/>`:`<path d="M-.7 -.6H.7V.6H-.7Z" transform="scale(${size*.65})" fill="#dfa969" stroke="#fff" stroke-width=".08"/>`}<text y="${size*1.4}" text-anchor="middle" font-size="${size*.85}" fill="#e7efef" stroke="#070e14" stroke-width="${size*.12}" paint-order="stroke">${escape(o.name)}</text></g>`;}if(ships[i].isProbe)return `<g data-space-ship="${escape(p.id)}" data-space-probe="${escape(p.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(ships[i].title)} / Defense ${escape(ships[i].defenseScore)}</title>${ships[i].probeInhibitor?'<circle data-probe-inhibitor r="3.464101615" fill="#b687ee" fill-opacity=".1" stroke="#b687ee" stroke-width=".07" stroke-dasharray=".2 .15"/>':''}<image href="sic-art-probe-${Number(ships[i].probeTier)||1}.webp" x="${-size*.65}" y="${-size*.65}" width="${size*1.3}" height="${size*1.3}"/><text y="${size*1.4}" text-anchor="middle" fill="#9be5ed" font-size="${size*.85}">${escape(ships[i].title)}</text>${locked.has(p.id)?`<circle r="${size*.8}" fill="none" stroke="#ffe277" stroke-width="${size*.08}"/>`:''}</g>`;if(ships[i].isDrone)return `<g data-space-ship="${escape(p.id)}" data-space-drone="${escape(p.id)}" transform="translate(${c.x} ${c.y})"><title>${escape(ships[i].title)} / Defense ${escape(ships[i].defenseScore)}</title><g transform="translate(${ships[i].isFloatingBody||ships[i].isSalvageDrone?0:size*1.6} ${ships[i].isFloatingBody||ships[i].isSalvageDrone?0:size*.8})"><image href="${escape(ships[i].droneSprite||'repair-drone-1-sprite.webp')}" x="${-size*.6}" y="${-size*.6}" width="${size*1.2}" height="${size*1.2}"/>${locked.has(p.id)?`<circle r="${size*.8}" fill="none" stroke="#ffe277" stroke-width="${size*.08}"/>`:""}</g></g>`;if(ships[i].isMissile)return missileMarkup(ships[i],p,c,size,locked.has(p.id));const overlap=points.slice(0,i).filter(o=>o.q===p.q&&o.r===p.r).length;return `${contactHalo(ships[i],c)}<g data-space-ship="${escape(p.id)}" transform="translate(${c.x} ${c.y})" class="${wreckVisible(ships[i])?'ship-wreck':''}" style="color:${window.SAShipMap.shipColor(ships[i])}"><title>${escape(ships[i].title || ships[i].ship?.title)}: ${ships[i].uncertainty ? "approximate sector" : `${Number(p.q.toFixed(2))}, ${Number(p.r.toFixed(2))}`}</title><circle data-ship-hit r="${Math.max(.75,shipMarkerRadius(ships[i]))}" fill="transparent" stroke="none" pointer-events="all"/>${!wreckVisible(ships[i])&&!ships[i].uncertainty&&(ships[i].currentShieldHp>0||ships[i].shieldCondition>0)?`<circle data-shield-ring r="${shipMarkerRadius(ships[i])}" fill="none" stroke="#65ef91" stroke-width=".09" style="animation:shield-map-pulse 1.6s ease-in-out infinite;pointer-events:none"/>`:''}${wreckVisible(ships[i])?wreckMarkup(size):vesselMarkup(ships[i])}${conditionMarkup(ships[i],size,options.observer)}${editable?'':calloutMarkup(ships[i],options.observer)}${locked.has(p.id)?`<circle data-lock-reticle r="${size*.95}" fill="none" stroke="#ffe277" stroke-width="${size*.08}" stroke-dasharray="${size*.7} ${size*.35}"/>`:''}<text y="${size*(overlap%2 ? 1 : -1)*(1.2+Math.ceil(overlap/2)*.85)}" text-anchor="${ships.filter(s=>!s.isMissile).length===2 ? (i===0 ? `end` : `start`) : c.x<minX+width*.25 ? `start` : c.x>minX+width*.75 ? `end` : `middle`}" font-size="${size*1.15}" fill="currentColor" stroke="#070e14" stroke-width="${size*.18}" paint-order="stroke">${escape((ships[i].title || ships[i].ship?.title || 'Starship').split(' — ')[0]+(wreckVisible(ships[i])?' [DESTROYED]':''))}</text></g>`;}).join('')}</svg>${editable?`<div class="space-map-coordinates">${points.map((p,i)=>`<label><strong style="color:${window.SAShipMap.shipColor(ships[i])}">${escape(ships[i].title || ships[i].ship?.title)}</strong><input type="radio" name="space-placement-ship" value="${escape(p.id)}" ${i===0?'checked':''} aria-label="Place ${escape(ships[i].title)}"><span>Q</span><input type="number" step="1" min="-10000" max="10000" value="${p.q}" data-space-id="${escape(p.id)}" data-space-axis="q" aria-label="${escape(ships[i].title)} hex Q"><span>R</span><input type="number" step="1" min="-10000" max="10000" value="${p.r}" data-space-id="${escape(p.id)}" data-space-axis="r" aria-label="${escape(ships[i].title)} hex R"></label>`).join('')}</div>`:''}</section>`;
   }
   function probeRoutes(ships){
     // Only owner/GM projections contain probeState; enemy flight destinations stay private.
@@ -304,10 +340,10 @@
     const v=svg.viewBox.baseVal,width=Math.max(4*Math.sqrt(3),Math.min(100000,v.width*factor)),height=width*v.height/v.width;
     svg.setAttribute('viewBox',`${v.x+(v.width-width)/2} ${v.y+(v.height-height)/2} ${width} ${height}`);svg.dataset.userViewBox=svg.getAttribute('viewBox');coverViewport(svg);
   }
-  function fitRendered(svg){
+  function fitRendered(svg,positions=null){
     delete svg.dataset.userViewBox;
     const markers=[...svg.querySelectorAll('[data-space-ship]:not([data-fit-ignore])')],points=markers.map(m=>{
-      const p=m.transform.baseVal.consolidate()?.matrix;return p?{x:p.e,y:p.f,pad:m.hasAttribute('data-planet')?3:1.5}:null;
+      const target=positions?.get(m.dataset.spaceShip),p=m.transform.baseVal.consolidate()?.matrix;const point=target?xy(target):p?{x:p.e,y:p.f}:null;return point?{...point,pad:m.hasAttribute('data-planet')?3:1.5}:null;
     }).filter(Boolean);for(const orbit of svg.querySelectorAll('[data-system-orbit]')){const b=orbit.getBBox();points.push({x:b.x,y:b.y,pad:0},{x:b.x+b.width,y:b.y+b.height,pad:0});}if(!points.length)return;
     const ratio=(svg.clientWidth||600)/(svg.clientHeight||250),left=Math.min(...points.map(p=>p.x-p.pad)),right=Math.max(...points.map(p=>p.x+p.pad)),top=Math.min(...points.map(p=>p.y-p.pad)),bottom=Math.max(...points.map(p=>p.y+p.pad));
     const width=Math.max(12,right-left+4,(bottom-top+4)*ratio),height=width/ratio;
@@ -316,6 +352,19 @@
   function ensureMapStyles(doc){
     if(doc.querySelector('link[data-space-map-style]'))return;
     const link=doc.createElement('link');link.rel='stylesheet';link.href=new URL('space-map.css?v=20260922-usability',location.href).href;link.dataset.spaceMapStyle='';doc.head.append(link);
+  }
+  const consoleReturns=new WeakMap();
+  function mountConsoleReturn(view,button){
+    consoleReturns.get(view)?.();
+    const doc=view.ownerDocument,win=doc.defaultView,marker=doc.createComment('Console map return origin');
+    button.before(marker);view.append(button);button.classList.add('console-map-return');
+    let frame=0;
+    const place=()=>{frame=0;const map=view.querySelector('[data-space-canvas]');if(!map||!button.isConnected)return;const r=map.getBoundingClientRect();button.style.left=(r.left+r.width/2)+'px';button.style.top=(r.bottom-10)+'px';};
+    const schedule=()=>{if(!frame)frame=win.requestAnimationFrame(place);};
+    const observer=new win.ResizeObserver(schedule);observer.observe(view);const area=view.querySelector('.pilot-chart,.sensor-chart,.space-map');if(area)observer.observe(area);
+    win.addEventListener('resize',schedule);win.addEventListener('scroll',schedule,true);
+    const cleanup=()=>{observer.disconnect();win.cancelAnimationFrame(frame);win.removeEventListener('resize',schedule);win.removeEventListener('scroll',schedule,true);view.removeEventListener('close',cleanup);button.classList.remove('console-map-return');button.style.removeProperty('left');button.style.removeProperty('top');if(marker.isConnected)marker.replaceWith(button);consoleReturns.delete(view);};
+    consoleReturns.set(view,cleanup);view.addEventListener('close',cleanup,{once:true});schedule();
   }
   const focusHandlers=new WeakMap();
   function focusMap(view,button){
@@ -326,7 +375,9 @@
       const restore=event=>{if(view.classList.contains('map-focus')&&(event.type==='cancel'||event.key==='Escape')){event.preventDefault();event.stopImmediatePropagation();focusMap(view,view.querySelector('[data-map-focus]')||button);}};
       view.addEventListener('cancel',restore,true);view.addEventListener('keydown',restore,true);focusHandlers.set(view,restore);
     }
+    if(!focused)consoleReturns.get(view)?.();
     view.dispatchEvent(new view.ownerDocument.defaultView.CustomEvent('mapfocuschange',{detail:{focused}}));
+    if(focused&&view.matches('[data-console-owner],.ship-navigation-dialog'))mountConsoleReturn(view,button);
     requestAnimationFrame(()=>{for(const svg of view.querySelectorAll('[data-space-canvas]'))coverViewport(svg);button.focus();});
     return focused;
   }
@@ -347,9 +398,11 @@
     const controls=host.createElement('nav');controls.className='space-map-dialog-controls';controls.setAttribute('aria-label','Map controls');
     controls.innerHTML='<button type="button" data-map-zoom=".7" aria-label="Zoom in enlarged map">+</button><button type="button" data-map-zoom="1.4" aria-label="Zoom out enlarged map">−</button><button type="button" data-map-fit>Fit Contacts</button><button type="button" data-map-close>Close</button>';
     controls.onclick=event=>{const target=event.target.closest('button');if(!target)return;const svg=dialog.querySelector('svg');if(target.hasAttribute('data-map-close'))dialog.close();else if(target.hasAttribute('data-map-fit')){delete dialog.dataset.manualZoom;fitRendered(svg);}else{dialog.dataset.manualZoom='true';zoom(svg,Number(target.dataset.mapZoom));}};
+    const fromConsole=Boolean(source.closest('dialog')?.matches('[data-console-owner],.ship-navigation-dialog'));
+    const returnButton=controls.querySelector('[data-map-close]');if(fromConsole){returnButton.textContent='Return to Console';returnButton.setAttribute('data-dialog-action','');returnButton.onclick=()=>dialog.close();}
     dialog.append(controls);enlarged.add(dialog);
     const cleanup=()=>{releaseCamera(dialog.querySelector('svg'));window.removeEventListener('pagehide',cleanup);enlarged.delete(dialog);dialog.remove();};
-    dialog.addEventListener('close',()=>{cleanup();if(button?.isConnected)button.focus();},{once:true});window.addEventListener('pagehide',cleanup,{once:true});host.body.append(dialog);dialog.showModal();watchMaps(dialog);const sourceSvg=source.matches?.('[data-space-canvas]')?source:source.querySelector('[data-space-canvas]'),key=cameras.get(sourceSvg)?.key;if(key){mountCamera(dialog.querySelector('svg'),key);dialog.addEventListener('close',()=>{const value=validCamera(dialog.querySelector('svg')?.getAttribute('viewBox'));if(value&&sourceSvg.isConnected){sourceSvg.setAttribute('viewBox',value);sourceSvg.dataset.userViewBox=value;saveCamera(sourceSvg);coverViewport(sourceSvg);}});}else fitRendered(dialog.querySelector('svg'));
+    dialog.addEventListener('close',()=>{cleanup();if(button?.isConnected)button.focus();},{once:true});window.addEventListener('pagehide',cleanup,{once:true});host.body.append(dialog);dialog.showModal();watchMaps(dialog);if(fromConsole)mountConsoleReturn(dialog,returnButton);const sourceSvg=source.matches?.('[data-space-canvas]')?source:source.querySelector('[data-space-canvas]'),key=cameras.get(sourceSvg)?.key;if(key){mountCamera(dialog.querySelector('svg'),key);dialog.addEventListener('close',()=>{const value=validCamera(dialog.querySelector('svg')?.getAttribute('viewBox'));if(value&&sourceSvg.isConnected){sourceSvg.setAttribute('viewBox',value);sourceSvg.dataset.userViewBox=value;saveCamera(sourceSvg);coverViewport(sourceSvg);}});}else fitRendered(dialog.querySelector('svg'));
   }
   let highlightedObject=null;
   function highlightObjects(root){
@@ -383,6 +436,11 @@
         const label=marker.querySelector(':scope > text'),value=(ship.title||ship.ship?.title||'Starship').split(' — ')[0]+(wreckVisible(ship)?' [DESTROYED]':unknown?' (unknown)':'');if(label&&label.dataset.mapLabel!==value){label.dataset.mapLabel=value;label.textContent=value;}
       }
     }
+    for(const svg of root.querySelectorAll('[data-space-canvas]')){
+      const ids=new Set([...svg.querySelectorAll('[data-space-ship]:not([data-fit-ignore])')].map(m=>m.dataset.spaceShip));
+      const knowledge=ships.filter(s=>ids.has(s.id)).map(s=>[s.id,observer?.sensorState?.contacts?.[s.id]?.level||'']).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+      refitContents(svg,JSON.stringify(knowledge),null,'knowledge');
+    }
   }
   function refresh(ships,positions,observer) {
     let root=document;try{while(root.defaultView.frameElement&&!root.defaultView.frameElement.hasAttribute('data-explore-perspective'))root=root.defaultView.parent.document;}catch{}
@@ -394,6 +452,8 @@
       svg.insertAdjacentHTML('beforeend',probeRoutes(ships));
       for(const ship of ships){
         const marker=svg.querySelector(`[data-space-ship="${CSS.escape(ship.id)}"]`);if(!marker||ship.isMissile||ship.isDrone||ship.isProbe)continue;
+        const callout=marker.querySelector('[data-ship-callout]'),label=affiliation(ship,observer);
+        if(callout&&callout.dataset.shipCallout!==label){callout.remove();marker.insertAdjacentHTML('beforeend',calloutMarkup(ship,observer));}
         marker.style.color=window.SAShipMap.shipColor(ship);
         const body=marker.querySelector('[data-vessel-body]'),rank=window.SAShipMap.scaleRank(ship),appearance=ship.uncertainty||['unknown','last-known'].includes(ship.contactLevel)||ship.gmContactMarker?'unknown':window.SAShipMap.cloaked(ship)||ship.isCloaked?'cloaked':'normal';
         if(ship.ship?.salvagedAt){marker.remove();continue;}if(wreckVisible(ship)){body?.remove();if(!marker.querySelector('[data-debris]'))marker.insertAdjacentHTML('afterbegin',wreckMarkup(.65));marker.classList.add('ship-wreck');}else if(!body||body.dataset.appearance!==appearance||appearance!=='unknown'&&Number(body.dataset.rank)!==rank){body?.remove();marker.insertAdjacentHTML('afterbegin',vesselMarkup(ship));}else{body.setAttribute('transform',`rotate(${window.SAShipMap.shipHeading(ship)})`);body.style.setProperty('--vessel-glow',window.SAShipMap.shipColor(ship));body.querySelector('.starship-map-art')?.classList.toggle('is-powered',ship.navigation?.phase==='powered'||ship.mapPowered===true);}
@@ -451,6 +511,16 @@
     const stars=ambient(svg);const transform=`translate(${x} ${y}) scale(${width} ${height})`;if(stars.getAttribute('transform')!==transform)stars.setAttribute('transform',transform);
     syncCleanserScars(svg);
     for(const background of svg.querySelectorAll(':scope > rect'))for(const [k,v] of Object.entries({x,y,width,height}))if(background.getAttribute(k)!==String(v))background.setAttribute(k,v);
+    let calloutRow=0;
+    for(const callout of svg.querySelectorAll('[data-ship-callout]')){
+      const matrix=callout.parentElement.transform.baseVal.consolidate()?.matrix,left=matrix&&matrix.e>x+width/2;
+      const path=callout.querySelector('path'),text=callout.querySelector('text');
+      const font=Math.max(.55,9/scale),end=Math.max(5,1.7+callout.dataset.shipCallout.length*font*.65);
+      const lineY=1.5+(scale<15?(calloutRow++%2)*1.5:0);
+      text.setAttribute('y',String(lineY-.15));text.setAttribute('font-size',String(font));
+      path.setAttribute('d',left?'M-.6 .5 L-1.6 '+lineY+' H-'+end:'M.6 .5 L1.6 '+lineY+' H'+end);
+      text.setAttribute('x',left?'-1.7':'1.7');text.setAttribute('text-anchor',left?'end':'start');
+    }
     const visibleLabels=[];
     for(const label of svg.querySelectorAll('[data-space-ship] > text')){
       const marker=label.parentElement,transform=marker.transform.baseVal.consolidate()?.matrix;if(!transform)continue;
@@ -520,6 +590,7 @@
     svg.addEventListener('pointerup',end,true);svg.addEventListener('pointercancel',()=>{drag=null;});svg.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false;}},true);
   }
   function watchMaps(root=document){
+    bindCallouts(root);
     highlightObjects(root);
     const maps=[...(root.matches?.('[data-space-canvas]')?[root]:[]),...root.querySelectorAll('[data-space-canvas]')];
     for(const svg of maps){if(watched.has(svg))continue;bindPan(svg);

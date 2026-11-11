@@ -3,6 +3,14 @@
   const api=factory(node?require('./ship-distances'):root.SAShipDistances);
   if(node)module.exports=api;if(root)root.SAShipTargets=api;
 }(typeof window!=='undefined'?window:null,function(distances){
+  // Sensor projections carry rounded six-segment condition, not actual HP.
+  // Projectiles/drones/probes retain real threshold values even as contacts.
+  function destroyed(record){
+    if(!record)return false;
+    if(record.destroyedAt)return true;
+    const conditionOnly=(record.analyzedContact||record.contactOnly)&&record.contactLevel&&!record.isMissile&&!record.isMine&&!record.isDrone&&!record.isProbe&&!record.isFloatingBody;
+    return !conditionOnly&&Number.isFinite(record.currentHullHp)&&record.currentHullHp<=0;
+  }
   const flights=room=>(room.starships||[]).flatMap(s=>s.ship?.missileState?.flights||[]);
   function proxy(m){return {id:m.id,title:m.name,isMissile:true,uninterceptable:Boolean(m.uninterceptable),isTorpedo:Boolean(m.torpedo),isMine:Boolean(m.isMine),mineThreshold:m.threshold,mineArt:m.ammunition,missileHeading:m.heading||0,missileSlot:m.slot||0,missileSalvoSize:m.salvoSize||1,missilePhase:m.phase,missilePosition:m.position,missileSpeed:m.speed,missileEndedAt:m.endedAt,defenseScore:m.masking,currentHullHp:['flying','impact','mine','web'].includes(m.phase)?1:0,maximumHullHp:1,currentShieldHp:0,maximumShieldHp:0,ship:{gridCells:[],placements:[],sicInventory:[],doorStates:{}},projectile:m};}
   const drones=room=>(room.starships||[]).flatMap(s=>Object.values(s.ship?.droneState?.drones||{})).filter(d=>['repairing','returning'].includes(d.phase));
@@ -17,5 +25,5 @@
   function find(room,id){const salvage=salvagers(room).find(s=>'salvage-'+s.job.id===id);if(salvage)return salvageProxy(salvage);const body=bodies(room).find(u=>u.vacuum.id===id);if(body)return bodyProxy(body);const ship=(room.starships||[]).find(s=>s.id===id);if(ship)return ship.ship?.salvagedAt?undefined:ship;const p=probes(room).find(p=>p.id===id);if(p)return probeProxy(p);const d=drones(room).find(d=>d.id===id);if(d)return droneProxy(d);const m=flights(room).find(m=>m.id===id);return m&&(['flying','impact','mine','web'].includes(m.phase)||Date.now()-(m.endedAt||0)<6000)?proxy(m):undefined;}
   function point(room,id){const salvage=salvagers(room).find(s=>'salvage-'+s.job.id===id);if(salvage)return salvage.job.position||point(room,salvage.job.targetId);const body=bodies(room).find(u=>u.vacuum.id===id);if(body)return body.vacuum.position;const ship=(room.starships||[]).find(s=>s.id===id);if(ship?.probePosition)return ship.probePosition;const probe=probes(room).find(p=>p.id===id);if(probe)return probe.position;if(ship?.missilePosition)return ship.missilePosition;if(ship?.isDrone)return ship.dronePosition||point(room,ship.droneTargetId);const d=drones(room).find(d=>d.id===id);if(d)return point(room,d.targetId);const m=!ship&&flights(room).find(m=>m.id===id);return m?.position||distances.positions(room.starships||[],room.shipPositions||[]).find(p=>p.id===id);}
   function hit(room,id,damage){const salvage=salvagers(room).find(s=>'salvage-'+s.job.id===id);if(salvage){if(damage<25)return false;const item=salvage.owner.ship.sicInventory.find(i=>i.id===salvage.job.sicId);if(item){item.impairmentPoints=Math.max(1,item.impairmentPoints||0);item.impaired=true;}require('./ship-extraction').advance(room,null,0);return true;}const body=bodies(room).find(u=>u.vacuum.id===id);if(body){body.currentHp=Math.max(0,Number(body.currentHp||0)-Math.max(0,Number(damage)||0));return true;}if(flights(room).some(m=>m.id===id&&m.isMine))return require('./ship-mines').hit(room,id,damage);if(probes(room).some(p=>p.id===id))return require('./ship-probes').hit(room,id,damage);if(drones(room).some(d=>d.id===id))return require('./ship-drones').hit(room,id,damage);const m=flights(room).find(m=>m.id===id);if(!m||m.uninterceptable||!['flying','impact','mine','web'].includes(m.phase)||damage<1)return false;m.phase='destroyed';m.endedAt=Date.now();return true;}
-  return {salvagers,salvageProxy,probes,probeProxy,flights,drones,droneProxy,proxy,all,find,point,hit};
+  return {destroyed,salvagers,salvageProxy,probes,probeProxy,flights,drones,droneProxy,proxy,all,find,point,hit};
 }));

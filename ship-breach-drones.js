@@ -24,11 +24,12 @@ function reconcile(room){
   }
  }
 }
+function calculation(die){return {version:1,kind:'breach-drone-repair',sides:[die],difficulty:5,summary:['Hull Breach Repair Drone D'+die+'; character skill +0; difficulty 5.','Fixed repair cycle: 12 active seconds.'],lines:[],gmLines:[]};}
 function enqueue(room,ship,d){
  const existing=(room.units||[]).find(u=>u.pendingShipRolls?.some(r=>r.breachDroneRoll?.droneId===d.id));if(existing)return;
  const unit=(room.units||[]).find(u=>u.location?.starshipId===ship.id&&u.currentHp>0)||(room.units||[]).find(u=>u.currentHp>0)||(room.units||[])[0];
  if(!unit)return;
- (unit.pendingShipRolls||=[]).push({id:randomUUID(),label:'Hull Breach Repair Drone',rollController:'gm',breachDroneRoll:{shipId:ship.id,droneId:d.id},rollSpec:{attributeKey:'dexterity',attributeLabel:'Repair Drone',skill:'Engineering',sides:[d.die],bonus:0,difficulty:5,difficultyLabel:'5 or higher seals the breach',exertionAvailable:0}});
+ (unit.pendingShipRolls||=[]).push({id:randomUUID(),label:'Hull Breach Repair Drone',rollController:'gm',breachDroneRoll:{shipId:ship.id,droneId:d.id},rollSpec:{attributeKey:'dexterity',attributeLabel:'Repair Drone',skill:'Engineering',sides:[d.die],bonus:0,difficulty:5,difficultyLabel:'5 or higher seals the breach; fixed 12-second repair cycle',exertionAvailable:0,calculation:calculation(d.die)}});
 }
 function nextSegment(ship,d){
  const layout=maps.buildLayout(ship.ship);
@@ -68,10 +69,12 @@ function resolve(room,order,values){
  const ship=room.starships.find(s=>s.id===order.shipId),d=ship&&Object.values(state(ship).drones).find(d=>d.id===order.droneId);
  if(!d||d.phase!=='awaiting-roll')throw Error('This drone repair roll is no longer pending.');
  if(values.length!==1||!Number.isInteger(values[0])||values[0]<1||values[0]>d.die)throw Error('Roll the requested repair die.');
+ const request=(room.units||[]).flatMap(u=>u.pendingShipRolls||[]).find(r=>r.breachDroneRoll?.droneId===d.id),c=calculation(d.die);c.values=[...values];c.total=values[0];c.summary[0]+=' Rolled '+values[0]+'.';if(request)request.calculation=c;
  const h=holes(ship).find(h=>h.id===d.hazardId);clearRoll(room,d);
- if(!h){reconcile(room);return 'Hull Breach Repair Drone: opening already sealed.';}
+ if(!h){c.summary[1]+=' Cancelled: opening already sealed.';reconcile(room);return 'Hull Breach Repair Drone: opening already sealed.';}
  const die=d.die,success=values[0]>=5;
  if(success){h.sealed=true;d.phase='idle';d.hazardId=null;d.route=null;d.segment=null;}else{d.die=DICE[Math.min(DICE.length-1,DICE.indexOf(d.die)+1)];d.remaining=12;d.phase='repairing';}
+ c.summary[1]+=' '+(success?'Breach sealed.':'Failed; next attempt D'+d.die+' in 12 active seconds.');
  const text=`${ship.title}: Hull Breach Repair Drone rolled ${values[0]} on D${die}. ${success?'Breach sealed.':`Next attempt: D${d.die} in 12 active seconds.`}`;
  (ship.sensorState||={}).reports||=[];ship.sensorState.reports.unshift({at:new Date().toISOString(),text,values,total:values[0]});reconcile(room);return text;
 }

@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('Rail typography: both weapons, desktop sizes, targeting, retry and family isolation',{timeout:120000},async t=>{const r=await promisify(execFile)(process.execPath,[require.resolve('../scripts/playtest-rail-typography.cjs')],{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

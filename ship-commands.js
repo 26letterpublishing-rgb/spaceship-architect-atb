@@ -110,7 +110,38 @@ function queue(room, unit, body) {
   data.receipts = [...data.receipts,receipt].slice(-256);
   return {ok:true,ship};
 }
-function resolveInput(room, unit, rollDie, triggeredOrder = null) {
+function calculationSources(room,unit,pending) {
+  const order=pending?.commandOrder,ship=room.starships.find(s=>s.id===order?.shipId);
+  if(!ship||!['evade','ram','skim'].includes(order.kind))return null;
+  const propulsion=maps.propulsion(ship),inventory=new Map(ship.ship.sicInventory.map(i=>[i.id,i]));
+  const thrusters=ship.ship.placements.map(p=>({item:inventory.get(p.sicId),p})).filter(({item,p})=>item&&maps.definition(item.type).thruster&&!item.disabled&&!['destroyed','offline','powered-down'].includes(item.status)&&maps.exteriorPlacement(ship.ship,item.type,p.cell,item.id)).slice(0,4);
+  const matching=(ship.commandSystems?.preparations||[]).filter(p=>p.action===order.kind&&p.remaining>0),teams=matching.filter(p=>p.kind==='team'&&p.unitId!==unit.id&&room.units.some(u=>u.id===p.unitId&&!u.defeatedAt)),calculations=matching.filter(p=>p.kind==='calculation').length;
+  const rating=skill(unit,order.kind),highest=Math.max(rating,...teams.map(p=>p.skill)),base=Array(propulsion.evadeCount).fill(propulsion.evadeDie),sides=unit.shipAi?[6,6,6,6]:[...base,...teams.flatMap(()=>base)];
+  const sources=thrusters.map(({item})=>maps.definition(item.type).name+(item.impaired||item.status==='impaired'?' (impaired: no die)':' D'+propulsion.evadeDie));
+  const settings=pending.settings,rate=settings&&delays.calculate(settings);
+  const factors=settings?Object.entries(settings.factors||{}).filter(([,v])=>v).map(([key,value])=>{const f=delays.calculate({base:settings.base,factors:{[key]:value}}),name=({Quality:'Thruster Quality',Performance:'Maneuver Performance',Ingenuity:'Piloting'})[key]||key;return name+' '+(f.flat>=0?'+':'')+f.flat+(f.percent?' / '+Number((f.percent*100).toFixed(2))+'%':'')+(f.critBonus?' / critical +'+f.critBonus:'');}):[];
+  const target=room.starships.find(s=>s.id===order.targetId),gmSummary=order.kind==='evade'?'GM: own Masking '+sensors.masking(room,ship)+'.':target?'GM: target Defense '+sensors.defense(room,target)+'.':'';
+  return {version:1,kind:'piloting-command',sides,rating:highest,cooperationBonus:calculations*2+(teams.length?teams.length+1:0),summary:[
+    sources.join(', ')+(unit.shipAi?'; Ship AI overrides pool: 4D6':teams.length?'; team pools +'+teams.length:'')+'; Piloting +'+rating+(highest!==rating?'; team skill +'+(highest-rating):'')+(calculations?'; calculations +'+calculations*2:'')+(teams.length?'; teamwork +'+(teams.length+1):'')+(order.kind==='evade'?'; Hull Size Modifier '+(propulsion.hsm>=0?'+':'')+propulsion.hsm:'')+'.',
+    rate?'ATB base '+rate.base+'; '+factors.join('; ')+'; '+rate.rate+'/s'+(pending.rollTiming?'; input '+pending.rollTiming.seconds+'s':'')+'.':'ATB sources unavailable (older/triggered order).'],gmSummary,lines:[],gmLines:[]};
+}
+function resolveInput(room,unit,rollDie,triggeredOrder=null){
+  const pending=unit.delayedAction,context=triggeredOrder?{commandOrder:triggeredOrder,settings:pending?.settings}:pending,calculation=calculationSources(room,unit,context);
+  if(!calculation)return resolveInputInner(room,unit,rollDie,triggeredOrder);
+  const generated=[],tracked=n=>{const value=rollDie(n);generated.push(value);return value;};Object.assign(tracked,rollDie);
+  const ship=room.starships.find(s=>s.id===context.commandOrder.shipId),previous=ship?.sensorState?.reports?.[0];
+  resolveInputInner(room,unit,tracked,triggeredOrder);
+  const submitted=Number.isFinite(rollDie.submittedScore),known=rollDie.submittedValues??pending?.submittedRoll?.values;
+  calculation.values=submitted?(known||[]):generated;
+  const report=ship?.sensorState?.reports?.[0];calculation.total=report!==previous?report?.total:undefined;
+  if(submitted){calculation.total=rollDie.submittedScore;calculation.sides=[...(pending?.rollSpec?.sides||calculation.sides),...Array(rollDie.exertion||0).fill(12)];}
+  calculation.summary[0]+=generated.length?(submitted?' Submitted '+calculation.total+'; '+(calculation.values.length?'dice '+calculation.values.join(','):'manual dice unavailable')+' (unverified submission).':' Dice '+generated.join(',')+'; result '+calculation.total+'.'):' No dice consumed (armed, cancelled or interrupted).';
+  if(rollDie.exertion)calculation.summary[0]+=' Exertion +'+rollDie.exertion+'D12.';
+  if(pending&&!triggeredOrder)pending.calculation=calculation;
+  return {calculation};
+}
+function resolveInputInner(room, unit, rollDie, triggeredOrder = null) {
+  const inputSettings=unit.delayedAction?.settings;
   const order = triggeredOrder || unit.delayedAction?.commandOrder;
   if (!order) return;
   if(!triggeredOrder)unit.delayedAction = null;
@@ -122,7 +153,7 @@ function resolveInput(room, unit, rollDie, triggeredOrder = null) {
   if(order.trigger){const triggerTarget=room.starships.find(s=>s.id===order.trigger.targetId);if(!triggerTarget||destroyed(triggerTarget))return report(ship,'Conditional order cancelled: triggering ship unavailable.');}
   if(order.trigger&&!triggeredOrder){
     if(data.armed||!power.spend(room,ship.id,2))return report(ship,'Conditional order cancelled: another order is armed or 2 AU are unavailable.');
-    data.armed={order,unitId:unit.id,location:{...unit.location},remaining:12,traveled:0};
+    data.armed={order,inputSettings:inputSettings?JSON.parse(JSON.stringify(inputSettings)):undefined,unitId:unit.id,location:{...unit.location},remaining:12,traveled:0};
     return report(ship,'Conditional order armed for 12 combat seconds (2 AU spent).');
   }
   if (['team','calculation'].includes(order.kind)) {
@@ -243,4 +274,4 @@ function advance(room, seconds, before = null, rollDie = sides => require('node:
     }else if(armed.remaining<=0){data.armed=null;report(ship,'Conditional order expired without its trigger.');}
   }
 }
-module.exports = {queue,resolveInput,advance,reconcileCalls,sameHex,ROLL_ACTIONS,validateTrigger,armExternal};
+module.exports = {queue,resolveInput,calculationSources,advance,reconcileCalls,sameHex,ROLL_ACTIONS,validateTrigger,armExternal};

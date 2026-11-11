@@ -14,6 +14,7 @@ function project(room,session){
  ]);
  for(const u of room.units||[])if(u.vacuum&&(gm||own.has(u.vacuum.sourceShipId)||u.characterId===id))critical.push({key:'vacuum:'+u.id,text:u.characterName+': Crew Member Ejected into Space!',type:'danger'});
  return {critical,lockedShips:ships.filter(s=>!room.encounterEndedAt&&room.starships.some(other=>other.id!==s.id&&(other.lockState?.targets||[]).some(l=>l.targetId===s.id))).map(s=>({id:s.id,title:s.title})),
+ lockLosses:ships.flatMap(s=>(s.lockState?.reports||[]).filter(r=>r.lockLost).map(r=>({id:s.id+':'+r.id,at:r.at,text:s.title+': Lock-on lost.'}))),
  intrusions:ships.filter(s=>gm||s.crewCharacterIds?.includes(id)||(room.units||[]).some(u=>u.characterId===id&&u.location?.starshipId===s.id&&!require('./ship-surveillance').hostile(room,s,u))).flatMap(s=>s.ship.surveillanceState?.reports||[]),
  activity:(room.log||[]).filter(e=>gm||own.has(e.starshipId)).slice(-12).map(e=>({id:e.id,at:e.timestamp,text:require('./health-display').logText(e.text,gm)})),
  detections:ships.flatMap(s=>(s.sensorState?.reports||[]).filter(r=>r.unknownDetected||(r.detected&&r.nature==='Starship')).map(r=>({id:`${s.id}:${r.at}:${r.targetId}`,at:r.at,text:r.unknownDetected?'Unknown Object Detected!!':`Class ${r.shipClass||'Unknown'} Starship Detected!`}))),

@@ -12,13 +12,15 @@ test('release mode cannot enable Debug tools; development remains available unle
 test('release stripping is staging-only, recoverable, exact and preserves production files and notes',()=>{
  assert.throws(()=>release.strip(root),/checkout/);
  const stage=fs.mkdtempSync(path.join(os.tmpdir(),'sa-release-stage-'));
- for(const file of [...manifest.runtimeFiles,...manifest.preservedProductionFiles])fs.copyFileSync(path.join(root,file),path.join(stage,file));
+ for(const file of [...manifest.runtimeFiles,...manifest.preservedProductionFiles]){fs.mkdirSync(path.dirname(path.join(stage,file)),{recursive:true});fs.copyFileSync(path.join(root,file),path.join(stage,file));}
  const notes='Personal notes stay untouched';fs.writeFileSync(path.join(stage,'saved-notes.txt'),notes);
  assert.throws(()=>release.strip(stage),/marker/);assert.throws(()=>release.check(stage),/Development tools remain/);
  fs.writeFileSync(path.join(stage,'.sa-release-staging.json'),JSON.stringify({project:require('../package.json').name,disposable:true}));
  const before=Object.fromEntries(manifest.preservedProductionFiles.map(f=>[f,fs.readFileSync(path.join(stage,f))]));
  fs.mkdirSync(path.join(stage,'alma-snapshots'));fs.writeFileSync(path.join(stage,'alma-snapshots','example.json'),'Sample capture');
- const result=release.strip(stage);assert.equal(result.removed,manifest.runtimeFiles.length+1);assert(!result.backup.startsWith(stage+path.sep));assert.equal(release.check(stage).excluded,manifest.runtimeFiles.length);
+ fs.mkdirSync(path.join(stage,'debug-music','contact'),{recursive:true});fs.writeFileSync(path.join(stage,'debug-music','contact','sample.mp3'),'Audio fixture');
+ const result=release.strip(stage);assert.equal(result.removed,manifest.runtimeFiles.length+2);assert(!result.backup.startsWith(stage+path.sep));assert.equal(release.check(stage).excluded,manifest.runtimeFiles.length);
+ assert.equal(fs.readFileSync(path.join(result.backup,'debug-music','contact','sample.mp3'),'utf8'),'Audio fixture');assert(!fs.existsSync(path.join(stage,'debug-music','contact','sample.mp3')));
  assert.equal(fs.readFileSync(path.join(result.backup,'alma-snapshots','example.json'),'utf8'),'Sample capture');assert(!fs.existsSync(path.join(stage,'alma-snapshots','example.json')));
  for(const f of manifest.runtimeFiles){assert(!fs.existsSync(path.join(stage,f)));assert.deepEqual(fs.readFileSync(path.join(result.backup,f)),fs.readFileSync(path.join(root,f)));}
  for(const f of manifest.preservedProductionFiles)assert.deepEqual(fs.readFileSync(path.join(stage,f)),before[f]);
@@ -69,6 +71,6 @@ test('release staging preserves source and prior versions, verifies artifacts an
  fs.writeFileSync(oldManifestPath,JSON.stringify(oldManifest));staging.verify(target);
  const newer=staging.build(target);assert.notEqual(newer.stage,result.stage);assert.equal(newer.reused,false);assert.match(fs.readFileSync(path.join(result.stage,'home-screen.js'),'utf8'),/tamper/);assert.deepEqual(fs.readFileSync(path.join(newer.stage,'home-screen.js')),fs.readFileSync(path.join(root,'home-screen.js')));
  assert(fs.existsSync(path.join(root,'console-viewer.html')));
- const yaml=fs.readFileSync(path.join(root,'render.yaml'),'utf8');assert.match(yaml,/release:stage && npm run release:verify-stage/);assert.match(yaml,/key: SA_APP_MODE\s+value: release/);assert.match(yaml,/key: SA_RELEASE_PUBLIC_DIR\s+value: \.release-public/);assert.match(fs.readFileSync(path.join(root,'.gitignore'),'utf8'),/^\.release-public\/$/m);
+ const yaml=fs.readFileSync(path.join(root,'render.yaml'),'utf8');assert.match(yaml,/release:stage && npm run release:verify-stage/);assert.match(yaml,/key: SA_APP_MODE\s+value: shared/);assert.match(yaml,/key: SA_RELEASE_PUBLIC_DIR\s+value: \.release-public/);assert.match(fs.readFileSync(path.join(root,'.gitignore'),'utf8'),/^\.release-public\/$/m);
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');assert(html.indexOf('src="runtime-config.js"')<html.indexOf('src="home-screen.js"'));
 });

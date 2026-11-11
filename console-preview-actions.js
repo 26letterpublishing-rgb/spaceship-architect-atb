@@ -3,8 +3,36 @@
   if(!state?.debugConsole||state.roomCode!=='SIMULATED-VIEWER')throw Error('Local Console fixture required.');
   const unit=state.units[0],ship=state.starships[0],data=ship.ship,primary=data.sicInventory.find(i=>i.id==='preview');let serial=0;
   const info={details:{notes:[],prisoners:[],orders:[],enabled:true,safety:true,robotBartender:true,name:'SIMULATED Ship AI',jobs:[]},skills:[{name:'Piloting',attribute:'Physical',trainingGain:1,level:2}],attributes:['Physical','Mental'],patients:[{id:unit.id,name:'Simulated patient',hp:20,maximum:30,downSeconds:0}],shipMinerals:data.minerals,fabricators:[],targets:state.starships.slice(1).map(s=>({id:s.id,title:s.title,name:s.title,eligible:true})),passengers:[{id:unit.id,name:unit.characterName}],occupants:[{id:unit.id,name:unit.characterName}],capacity:{ships:[],used:0,maximum:162},cargo:[],report:'SIMULATED / Local preview only',gm:true,rooms:[],crew:[],reports:[],title:ship.title,columns:20};
+  const vr=primary?.type==='vr-training-room',vrText=typeof module==='object'?require('./vr-simulations'):root.SAVRSimulations,skillCatalog=typeof module==='object'?require('./skill-catalog'):root.SASkillCatalog;
+  if(vr){info.attributes=structuredClone(skillCatalog.groups);info.skills=vrText.skills({skills:{Piloting:4.5,'Computer Systems':2}}).map(s=>({...s,trainingGain:s.value>4?1:null}));info.trained=false;}
+  if(primary?.type==='medbay'){
+   info.patients[0].name=unit.characterName;
+   info.details.jobs=[{id:'simulated-treatment',patientId:unit.id,patientName:unit.characterName,phase:'recovering',remaining:3}];
+  }
+  function vrRequest(body){
+   const skill=info.skills.find(s=>s.name===body.skill);if(!skill)throw Error('Choose a simulated character skill.');
+   if(primary.disabled)throw Error('The simulated VR room is powered off.');
+   const title=vrText.title(skill.name,body.text).slice(0,120);let text;
+   if(body.kind==='train'){
+    if(info.trained)throw Error('Simulated daily training already used. Restart preview to try again.');
+    const gain=skill.trainingGain===1?1:body.score;if(!Number.isInteger(gain)||gain<1||gain>4)throw Error('Enter a D4 result from 1 to 4.');
+    const before=skill.value;skill.value=Math.round(before*10+gain)/10;skill.trainingGain=skill.value>4?1:null;info.trained=true;
+    text='SIMULATED: '+skill.name+': '+before.toFixed(1)+' to '+skill.value.toFixed(1)+'. Daily training used. No real character changed.';
+   }else text='SIMULATED: Simulation loaded: '+title+(body.enabled!==false?' / safety protocols on.':' / safety protocols off. GM adjudicates consequences.');
+   Object.assign(info.details,{simulation:title,trainingSkill:skill.name,safety:body.enabled!==false,report:{text:'SIMULATED: '+vrText.narrative(unit.characterName,skill.name,title)+(body.kind==='simulate'?' Practice simulation; no training award.':' No real character changed.')}});
+   return {result:{...structuredClone(info),text}};
+  }
   const kinds=new Set(['inspect','note','remove','check','refresh','configure','simulate','train','exercise','order','bartender','hibernate','wake','intake','condition','release','load','treat','cancel','deposit','withdraw','tractor','release-tractor','grab','operate','dock','undock','launch-pod','reflector','ionic-force-displacers','transport-scrambler','scan','refresh-cameras']);
-  function request(body){if(!kinds.has(body.kind||'inspect'))throw Error('This operation has no simulated result yet; no game request was sent.');if(!body.kind||body.kind==='inspect')return {result:structuredClone(info)};
+  function request(body){
+   if(body.kind==='talking-points'&&primary?.type==='meeting-room'){
+    if(primary.disabled)throw Error('The simulated Meeting Room is powered off.');
+    if(!Array.isArray(body.points)||body.points.length!==5||body.points.some(p=>typeof p!=='string'||p.length>500))throw Error('Enter five talking points, up to 500 characters each.');
+    if(body.expectedRevision!==(info.details.talkingPointsRevision||0))throw Error('Talking points changed since you loaded them. Your draft is retained; reload saved points before merging and saving.');
+    info.details.talkingPoints=[...body.points];info.details.talkingPointsRevision=(info.details.talkingPointsRevision||0)+1;
+    return {result:{text:'SIMULATED: Talking points saved.',talkingPointsRevision:info.details.talkingPointsRevision}};
+   }
+   if(!kinds.has(body.kind||'inspect'))throw Error('This operation has no simulated result yet; no game request was sent.');if(!body.kind||body.kind==='inspect')return {result:structuredClone(info)};
+   if(vr&&['simulate','train'].includes(body.kind))return vrRequest(body);
    const text='SIMULATED: '+(body.text||body.kind);info.report=text;info.details.report={text};
    if(body.kind==='note')info.details.notes.push({id:'sample-'+(++serial),title:String(body.title||'Sample note'),text:String(body.text||''),author:'Simulated operator',authorId:unit.characterId||unit.id,checked:false});
    if(body.kind==='remove')info.details.notes=info.details.notes.filter(n=>n.id!==body.noteId);

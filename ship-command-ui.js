@@ -84,7 +84,7 @@
       const state=bridge.state(),person=state.units.find(u=>u.id===unitId),ship=window.SAShipNavigation.station(state,person,dialog.dataset.sicId)?.ship;
       if(!ship)return;
       stepButton.hidden=ship.commandSystems?.evadeStep?.unitId!==unitId;stepButton.disabled=busy;
-      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>{const target=state.starships.find(s=>s.id===c.id);return c.level==='detected'&&!c.isMissile&&!c.destroyedAt&&!target?.destroyedAt&&!(Number.isFinite(target?.currentHullHp)&&target.currentHullHp<=0);});
+      const contacts=Object.values(ship.sensorState?.contacts||{}).filter(c=>{const target=state.starships.find(s=>s.id===c.id);return c.level==='detected'&&!c.isMissile&&!c.destroyedAt&&!window.SAShipTargets.destroyed(target);});
       refreshConditional(dialog,contacts);
       const options=contacts.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
       if(options!==lastTargets){

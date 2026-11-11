@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('Ion Pulse typography: five tiers, desktop sizes, targeting, retry and family isolation',{timeout:120000},async t=>{const r=await promisify(execFile)(process.execPath,[require.resolve('../scripts/playtest-ion-pulse-typography.cjs')],{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

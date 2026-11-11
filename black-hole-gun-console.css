@@ -19,3 +19,6 @@ body dialog.black-hole-console [data-intensity]::-webkit-slider-thumb{appearance
 body dialog.black-hole-console [data-intensity]::-moz-range-track{height:8px;border-radius:4px;background:var(--intensity-tone)}
 body dialog.black-hole-console [data-intensity]::-moz-range-thumb{width:20px;height:20px;border:2px solid #f5eaff;border-radius:50%;background:var(--intensity-tone)}
 body dialog.black-hole-console [data-intensity]:focus-visible{outline:2px solid #eee;outline-offset:3px}
+
+/* The enlarged Console already provides its dedicated Return control. */
+body dialog.black-hole-console.map-focus [data-space-enlarge]{display:none}

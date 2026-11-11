@@ -1,0 +1,48 @@
+November 11 current-build publication checkpoint
+
+Authority: Jason explicitly requested pushing the current local build, including
+prior local-only work, as a GitHub mirror at the next safe checkpoint. He also
+requested removal of demonstrably unused repository assets. No manual deployment.
+
+Includes inherited ALMA/Console changes, compact roll displays and calculation
+provenance, shared Debug configuration and music preview assets, plus Code4 combat
+repairs: dismissible banners during Consoles, duplicate prompted dice-strip removal,
+near-zero living target selection, selecting-floorplan toolbar constraint, distinct
+drone contacts, durable combat death review, automatic Fit Ships on reload/contact
+changes, centered scrolling banners, broken-lock notices, complete simultaneous
+ship-report timelines, and authorized-viewer SIC impairment indicators.
+
+Validation: final full suite 2321/2321; subsequent asset/music/shared-build checks
+18/18. Shared public stage verified 1194 assets after unused sound removal.
+SIC condition/header/repair checks 26/26; ten Console families at 1280, 1366 and
+1920 desktop widths; authenticated GM/PC switching and real repair propagation,
+with enemy equipment privacy verified. Screenshots inspected personally.
+Latest combat screenshot checkpoint 03:47:27 UTC, November 11.
+
+Disposable combat coverage includes detection/Analysis/Lock/Beam against a living
+near-zero target, drone dropdown/submission, enemy docking/boarding/movement/melee,
+indoor oxygen depletion, airlock suction/oxygen/death and GM archive/memorial,
+contact-driven camera refitting, broken-lock notices and multiple timeline losses.
+Clock/roll advancement used APIs where recorded; boarding is not autonomous AI.
+Ram has queue/rendered-target coverage, not a completed authenticated mouse attack.
+The original unexplained sudden detection loss has not been independently reproduced.
+No physical audio audition, Safari/tablet, live-save or deployed-app validation.
+Parent independent review and Jason's playtest remain acceptance requirements.
+
+Cleanup: removed only unreferenced sword-slash.m4a (17080 bytes), after scanning
+1325 source/config/documentation files. Original preserved outside this repository
+at ../Preserved Source Audio/20261111/sword-slash.m4a with matching SHA256.
+All 34 current music stems remain referenced and are included. The ambiguous
+'One Shield' request is unresolved; no potentially needed music source was deleted.
+
+Scope excludes private saves, credentials, backups/Gold Standard, temporary QA
+captures, local handoffs and unrelated historical scripts. They remain local.
+The app source and shared runtime assets are the mirror scope; this is not a
+byte-for-byte copy of the entire working directory, and Git normalizes line endings.
+render.yaml retains local shared Debug build/stage configuration. A linked GitHub
+deployment may run after push; no separate normal-server activation is authorized
+or performed here. Publication/remote verification are recorded in the handoff.
+
+Detailed local evidence: HANDOFF-CODE4-CHECKPOINT-20261111.txt and temporary
+sa-code4-prepublish-full.txt, sa-code4-publish-assets-tests.txt,
+sa-sic-condition-3z2APR/results.json, sa-sic-condition-live-Rer7p6/results.json.

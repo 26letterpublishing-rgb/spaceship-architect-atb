@@ -79,8 +79,8 @@ const { validatePreparation, preparationFingerprint } = require("./encounter-pre
 
 const PORT = Number(process.env.PORT || 8790);
 const HOST = "0.0.0.0";
-const PUBLIC_DIR = !publicDebugTools && process.env.SA_RELEASE_PUBLIC_DIR
-  ? require('./scripts/stage-release-public.cjs').resolveStage(process.env.SA_RELEASE_PUBLIC_DIR)
+const PUBLIC_DIR = process.env.SA_RELEASE_PUBLIC_DIR
+  ? require('./scripts/stage-release-public.cjs').resolveStage(process.env.SA_RELEASE_PUBLIC_DIR, String(process.env.SA_APP_MODE||'').trim().toLowerCase()==='shared'?'shared':'release')
   : __dirname;
 
 const rooms = new Map();
@@ -195,6 +195,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     activeAction: null,
     attackResolution: null,
     itemResolution: null,
+    missileHistory: [],
     vehicles: [],
     areaEffects: [],
     activeSource: null,
@@ -232,6 +233,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.activeAction = clone(snapshot.activeAction);
     room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
     room.itemResolution = snapshot.itemResolution ? clone(snapshot.itemResolution) : null;
+    room.missileHistory = clone(snapshot.missileHistory || []);
     room.vehicles = Array.isArray(snapshot.vehicles) ? clone(snapshot.vehicles) : [];
     room.areaEffects = Array.isArray(snapshot.areaEffects) ? clone(snapshot.areaEffects) : [];
     room.activeSource = snapshot.activeSource || null;
@@ -403,9 +405,9 @@ function publicState(room) {
     if(pending&&!pending.rollConfirmed&&!pending.rollBeforeDelay&&!(pending.weaponOrder?.burst?.shot>1)&&shipSensors.automaticScan(room,unit,pending.sensorOrder)===null&&(pending.lockOrder||pending.weaponOrder||pending.maintenanceOrder||pending.probeOrder?.kind==='scan'||(pending.transporterOrder?.risk>0||pending.transporterOrder?.scramblers?.length>0)||['area','hex','analysis','life','lifeArea'].includes(pending.sensorOrder?.kind)||['evade','ram','skim'].includes(pending.commandOrder?.kind))&&!pending.sensorOrder?.trigger&&!pending.commandOrder?.trigger){
       pending.rollBeforeDelay=true;pending.awaitingRoll=true;pending.resolving=true;
     }
-    if(unit.delayedAction?.awaitingRoll){unit.delayedAction.automated ||= require('./ship-automation').active(unit);unit.delayedAction.rollSpec ||= shipRollSpec(room,unit,unit.delayedAction);if(unit.shipAi&&!unit.delayedAction.rollSpec.damage){unit.delayedAction.rollSpec.sides=[6,6,6,6];}
+    if(unit.delayedAction?.awaitingRoll){unit.delayedAction.automated ||= require('./ship-automation').active(unit);unit.delayedAction.rollSpec ||= shipRollSpec(room,unit,unit.delayedAction);if(unit.shipAi&&!unit.delayedAction.rollSpec.damage){unit.delayedAction.rollSpec.sides=[6,6,6,6];if(unit.delayedAction.rollSpec.calculation)unit.delayedAction.rollSpec.calculation.sides=[6,6,6,6];}
       unit.delayedAction.rollSpec.exertionAvailable=unit.delayedAction.transporterOrder?0:unit.characterId?Number(crewCampaign?.characters.find(c=>c.id===unit.characterId)?.character.resources?.exertionCurrent)||0:npcStatistics.availableExertion(unit);}
-    for(const request of unit.pendingShipRolls||[]){request.rollSpec ||= shipRollSpec(room,{...unit,location:request.armed.location},request.armed.delayed||{commandOrder:request.armed.order});request.rollSpec.exertionAvailable=(request.extractionRoll||request.breachDroneRoll)?0:unit.characterId?Number(crewCampaign?.characters.find(c=>c.id===unit.characterId)?.character.resources?.exertionCurrent)||0:npcStatistics.availableExertion(unit);}
+    for(const request of unit.pendingShipRolls||[]){request.rollSpec ||= shipRollSpec(room,{...unit,location:request.armed.location},request.armed.delayed||{commandOrder:request.armed.order,settings:request.armed.inputSettings});request.rollSpec.exertionAvailable=(request.extractionRoll||request.breachDroneRoll)?0:unit.characterId?Number(crewCampaign?.characters.find(c=>c.id===unit.characterId)?.character.resources?.exertionCurrent)||0:npcStatistics.availableExertion(unit);}
   }
   room.showcase ||= Boolean(campaignApi?.isShowcase(room.roomCode));
   shipShields.refresh(room);
@@ -447,6 +449,7 @@ function publicState(room) {
     roomCode: room.roomCode,
     encounterId:room.encounterId,
     crewRoomRolls:crewRooms.rolls(room),
+    missileHistory: clone(room.missileHistory || []),
     missileRolls:shipTargets.flights(room).filter(m=>m.phase==='impact').map(m=>({id:m.id,name:m.name,dice:m.dice,dieSides:m.dieSides||8,unitId:m.unitId,characterId:m.characterId,controller:m.controller,automated:m.automated,damageMultiplier:(()=>{if(m.torpedo)return m.damageMultiplier;const t=shipTargets.find(room,m.targetId);return t?.isMissile?1:t?.isDrone?5:t?.currentShieldHp>0?1:5;})()})),
     running: room.running,
     rollPaused: (transitPending(room)||shipOxygen.pending(room.starships)||room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length)),
@@ -509,11 +512,15 @@ function pushLog(room, text, context = {}) {
 }
 
 function recordShipReports(room, operation) {
-  const previous=new Map(room.starships.map(ship=>[ship.id,ship.sensorState?.reports?.[0]]));
+  const previous=new Map(room.starships.map(ship=>[ship.id,new Set((ship.sensorState?.reports||[]).map(report=>report.id||report))]));
   const result=operation();
   for(const ship of room.starships){
-    const report=ship.sensorState?.reports?.[0];
-    if(report&&report!==previous.get(ship.id))pushLog(room,report.text,{starshipId:ship.id,detected:Boolean(report.detected),...(report.objectRefs?.length?{objectRefs:clone(report.objectRefs)}:{})});
+    const seen=previous.get(ship.id)||new Set();
+    // Reports are newest first; append every new retained event oldest first.
+    for(const report of [...(ship.sensorState?.reports||[])].reverse()){
+      const key=report.id||report;if(seen.has(key))continue;seen.add(key);
+      pushLog(room,report.text,{starshipId:ship.id,detected:Boolean(report.detected),...(report.objectRefs?.length?{objectRefs:clone(report.objectRefs)}:{})});
+    }
   }
   return result;
 }
@@ -1064,6 +1071,7 @@ function snapshotRoom(room) {
   return {
     encounterId:room.encounterId,
     hackingPrivate: clone(room.hackingPrivate || null),
+    missileHistory: clone(room.missileHistory || []),
     running: room.running,
     pausedForTurn: room.pausedForTurn,
     resumeAfterTurn: room.resumeAfterTurn,
@@ -1116,6 +1124,7 @@ function restoreUndoSnapshot(room) {
   room.activeAction = clone(snapshot.activeAction);
   room.attackResolution = restoreAttackResolution(snapshot.attackResolution);
   room.itemResolution = clone(snapshot.itemResolution);
+  room.missileHistory = clone(snapshot.missileHistory || []);
   room.vehicles = clone(snapshot.vehicles || []);
   room.areaEffects = clone(snapshot.areaEffects || []);
   room.activeSource = snapshot.activeSource;
@@ -1191,18 +1200,23 @@ function requiresGmAction(data) {
 function visibleEncounter(data, viewer) {
   if (!data?.units || !data?.starships) return data;
   const waitingForGm=Boolean(viewer?.characterId&&requiresGmAction(data));
-  data={...data,starships:data.starships.map(s=>({...s,ship:{...s.ship,oxygenState:undefined,missileState:s.ship.missileState?{cooldowns:s.ship.missileState.cooldowns,flights:(s.ship.missileState.flights||[]).filter(m=>['flying','impact','mine','web'].includes(m.phase)||Date.now()-(m.endedAt||0)<6000)}:undefined}}))};
+  data={...data,starships:data.starships.map(s=>({...s,ship:{...s.ship,oxygenState:undefined,missileState:s.ship.missileState?{cooldowns:s.ship.missileState.cooldowns,flights:(s.ship.missileState.flights||[]).filter(m=>['flying','impact','mine','web'].includes(m.phase)||Date.now()-(m.endedAt||0)<6000).map(m=>{const {calculation,...visible}=m;return visible;})}:undefined}}))};
   const hackingDice=data.starships.filter(s=>viewer?.gm||viewer?.characterId&&s.crewCharacterIds?.includes(viewer.characterId)).flatMap(s=>(s.ship.fieldState?.hackAlertRolls||[]).filter(r=>r.phase!=='complete'||Date.now()-(r.completedAt||0)<1800).map(r=>({id:s.id,characterName:s.title,hackAlert:true,automationPresentation:r})));
   data={...data,hackingDice,starships:data.starships.map(s=>({...s,ship:{...s.ship,fieldState:s.ship.fieldState?{...s.ship.fieldState,hackAlertRolls:undefined}:undefined}}))};
   data = { ...data, accessRole: viewer?.gm ? 'gm' : viewer?.characterId ? 'character' : 'spectator' };
   const notices=require('./fleet-status').project(data,{role:viewer?.gm?'gm':'character',characterId:viewer?.characterId});
-  data={...data,fleetNotices:{critical:notices.critical,lockedShips:notices.lockedShips,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
+  data={...data,fleetNotices:{critical:notices.critical,lockedShips:notices.lockedShips,lockLosses:notices.lockLosses,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
   data.crewRoomRolls=(data.crewRoomRolls||[]).filter(r=>viewer?.gm||(viewer?.characterId&&r.characterId===viewer.characterId&&r.controller!=='gm'));
   data.starships=data.starships.map(s=>viewer?.gm||viewer?.spectator&&s.controlType==='pc'||s.crewCharacterIds?.includes(viewer?.characterId)||data.units.some(u=>u.characterId===viewer?.characterId&&u.location?.starshipId===s.id)?s:{...s,ship:{...s.ship,atmosphereState:undefined,cloakState:undefined,crewRoomState:undefined,fabricationState:undefined,fieldState:undefined,droneState:undefined,probeState:undefined}});
+  data.missileHistory=(data.missileHistory||[]).filter(r=>viewer?.gm||(viewer?.characterId&&r.characterId===viewer.characterId&&r.controller!=='gm'));
   data.missileRolls=(data.missileRolls||[]).filter(m=>viewer?.gm||(viewer?.characterId&&m.characterId===viewer.characterId&&m.controller!=='gm'));
   data.starships=data.starships.map(s=>({...s,ship:{...s.ship,surveillanceState:undefined}}));
   if(!viewer?.gm){const campaign=campaignApi.campaignCache.get(data.roomCode);data={...data,starships:data.starships.map(s=>({...s,ship:{...s.ship,transitReceipts:undefined,warpState:require('./campaign-starmaps').publicWarpState(s.ship.warpState,campaign)}}))};}
   if (viewer?.gm) return {...require('./ship-illusions').project(data,data,viewer),gmContactMarkers:require('./ship-relays').gmMarkers(data),intruderShips:data.starships.filter(s=>s.ship.intruderState?.detected?.length).map(s=>({id:s.id,title:s.title}))};
+  // New provenance is private to the roller; never send GM-only target facts
+  // through pending, triggered, historical or queued-analysis records.
+  const projectRoll=(roll,own)=>{if(!roll)return roll;own=own&&roll.rollController!=='gm'&&roll.controller!=='gm';const projected={...roll};if(projected.calculation)projected.calculation=own?shipSensors.publicCalculation(projected.calculation):undefined;if(projected.rollSpec?.calculation)projected.rollSpec={...projected.rollSpec,calculation:own?shipSensors.publicCalculation(projected.rollSpec.calculation):undefined};if(projected.armed)projected.armed={...projected.armed,delayed:projectRoll(projected.armed.delayed,own)};return projected;};
+  data={...data,units:data.units.map(unit=>{const own=Boolean(viewer?.characterId)&&unit.characterId===viewer.characterId;return {...unit,delayedAction:projectRoll(unit.delayedAction,own),pendingShipRolls:(unit.pendingShipRolls||[]).map(r=>projectRoll(r,own)),queuedEffects:(unit.queuedEffects||[]).map(r=>projectRoll(r,own)),actionResults:(unit.actionResults||[]).map(r=>projectRoll(r,own))};})};
   if(data.showcase&&viewer?.characterId)data={...data,demoAutomation:data.units.filter(u=>u.automationPresentation).map(u=>({id:u.id,characterName:u.characterName,automationEnabled:u.team==='npc'&&require('./ship-automation').active(u),automationPresentation:u.automationPresentation})).concat(data.starships.flatMap(s=>(s.ship.missileState?.flights||[]).filter(m=>m.automated&&m.automationPresentation).map(m=>({id:m.unitId,characterName:m.name,automationPresentation:m.automationPresentation}))))};
   const intruderSource=data;
   data={...data,planetaryEvent:visibleCleanserEvent(data.planetaryEvent)};
@@ -1866,12 +1880,13 @@ function shipRollSpec(room,unit,pending){
   let sides=[],bonus=0,skill='Sensor Systems',difficulty={value:null,label:'Difficulty unknown'};
   if(!ship)return {sides,bonus,skill,difficulty:null,difficultyLabel:'System unavailable'};
   if(pending.sensorOrder){sides=shipSensors.installed(ship)?.dice||[];bonus=shipSensors.skill(unit);difficulty=shipSensors.difficulty(room,ship.id,order.kind,order.targetId,order.hex);}
-  else if(pending.maintenanceOrder){const item=ship?.ship.sicInventory.find(i=>i.id===order.sicId),d=shipMapCore.definition(item?.type),sensor=d.sensor||d.darkveil||d.lockOn;skill=sensor?'Sensor Systems':d.weapon?'Weapon Systems':d.bridge?'Computer Systems':'Engineering';bonus=Number(sensor?unit.sensorSkill:d.weapon?unit.weaponSystemsSkill:d.bridge?unit.computerSkill:unit.engineeringSkill)||Number(unit.mentalSkill)||0;sides=unit.team==='npc'&&!unit.shipAi?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];difficulty={value:Math.max(10,Number(item?.repairDifficulty)||10),label:'Repair difficulty '+Math.max(10,Number(item?.repairDifficulty)||10)};}
+  else if(pending.maintenanceOrder){const item=ship?.ship.sicInventory.find(i=>i.id===order.sicId),d=shipMapCore.definition(item?.type),sensor=d.sensor||d.darkveil||d.lockOn;skill=sensor?'Sensor Systems':d.weapon?'Weapon Systems':d.bridge?'Computer Systems':'Engineering';bonus=Number(sensor?unit.sensorSkill:d.weapon?unit.weaponSystemsSkill:d.bridge?unit.computerSkill:unit.engineeringSkill)||Number(unit.mentalSkill)||0;sides=unit.team==='npc'&&!unit.shipAi?require('./combat-engine').npcAttributeDice(unit.mentalAttribute):unit.intellectDice||[];difficulty={value:Math.max(10,Number(item?.repairDifficulty)||10),label:'Repair difficulty '+Math.max(10,Number(item?.repairDifficulty)||10)+'; fixed repair speed 11.11/s (9s base)'};}
   else{const propulsion=shipMapCore.propulsion(ship);skill='Piloting';sides=Array(propulsion?.evadeCount||0).fill(propulsion?.evadeDie||4);bonus=Number(unit.pilotSkill??unit.mentalSkill)||0;}
   if(!pending.maintenanceOrder){const matching=(ship?.commandSystems?.preparations||[]).filter(p=>p.action===order.kind&&p.remaining>0),teams=matching.filter(p=>p.kind==='team'&&p.unitId!==unit.id&&room.units.some(u=>u.id===p.unitId&&!u.defeatedAt));sides=[...sides,...teams.flatMap(()=>sides)];bonus=Math.max(bonus,...teams.map(p=>p.skill))+matching.filter(p=>p.kind==='calculation').length*2+(teams.length?teams.length+1:0);}
   const retryBonus=pending.sensorOrder?.kind==='analysis'?ship.sensorState?.failures?.[order.targetId]||0:0;
   const checks=pending.sensorOrder?shipSensors.scanChecks(room,order):[];if(checks.length){difficulty={value:Math.max(...checks.map(c=>c.difficulty)),label:'Difficulty '+checks.map(c=>c.difficulty).join(' / ')};}
-  return {sides,bonus:bonus+retryBonus,retryBonus,skill,difficulty:difficulty.value,difficultyLabel:difficulty.label};
+  return {sides,bonus:bonus+retryBonus,retryBonus,skill,difficulty:difficulty.value,difficultyLabel:difficulty.label,
+    ...(pending.sensorOrder||pending.commandOrder||pending.maintenanceOrder?{calculation:shipSensors.publicCalculation(pending.sensorOrder?shipSensors.calculationSources(room,unit,pending):pending.maintenanceOrder?shipMaintenance.calculationSources(room,unit,pending):shipCommands.calculationSources(room,unit,pending))}:{})};
 }
 function recordActionResult(unit, value) {
   unit.actionResults=[...(unit.actionResults||[]).filter(r=>r.id!==value.id),{...value,at:new Date().toISOString()}].slice(-40);
@@ -1888,6 +1903,7 @@ function resolveCompletedEvent(room,event,source){
     recordActionResult(event.unit,{id:`${pending?.id||effect.id}:complete`,label:pending?.label||effect.label,
       ...(effect?.sensorReport?{analysisPhase:fresh.some(r=>r.analysis)?'complete':'failed'}:pending?.sensorOrder?.kind==='analysis'?{analysisPhase:event.unit.queuedEffects?.some(e=>e.sensorReport?.targetId===pending.sensorOrder.targetId)?'processing':'failed'}:{}),
       text:[...new Set(fresh.map(r=>r.text).filter(Boolean))].join(' ')||'Action resolved.',total:pending?.submittedRoll?pending.submittedRoll.score+(pending.submittedRoll.retryBonus||0):fresh[0]?.total,
+      calculation:pending?.calculation||effect?.calculation,
       controller:pending?.rollController||effect?.rollController||'player',stage:'complete'});
   }
   return result;
@@ -1895,7 +1911,7 @@ function resolveCompletedEvent(room,event,source){
 function resolveCompletedEventInner(room, event, source) {
   if (!event) return false;
   const stored=event.unit?.delayedAction?.submittedRoll;
-  if(stored&&!event.rollDie){let index=0;event.rollDie=sides=>stored.values[index++]??require('node:crypto').randomInt(1,sides+1);event.rollDie.submittedScore=stored.score;event.rollDie.retryBonus=stored.retryBonus;}
+  if(stored&&!event.rollDie){let index=0;event.rollDie=sides=>stored.values[index++]??require('node:crypto').randomInt(1,sides+1);event.rollDie.submittedScore=stored.score;event.rollDie.retryBonus=stored.retryBonus;event.rollDie.submittedValues=[...stored.values];event.rollDie.exertion=stored.exertion||0;}
   const pending=event.type==='delayed'&&event.unit.delayedAction;
   if(pending?.missileOrder){recordShipReports(room,()=>shipMissiles.resolveInput(room,event.unit));event.unit.atb=Math.max(0,event.unit.atb-room.threshold);scheduleRoomPersist(room,0);return false;}
   if(pending?.weaponDamage)return false;
@@ -2543,8 +2559,13 @@ async function handleRoomAction(body, res, automated = false) {
     if(missile?.automated&&!automated){sendJson(res,409,{error:'Automation is resolving this missile.'});return;}
     if(!missile||(!gmAuthorized&&(!characterAuthorized||missile.controller==='gm'||missile.characterId!==String(body.characterId)))){sendJson(res,403,{error:'The launching player or GM must resolve this damage.'});return;}
     const damageCampaign=await campaignApi.campaign(room.roomCode);
-    const result=recordShipReports(room,()=>shipMissiles.resolveDamage(room,body.missileId,Number(body.score),damageCampaign));
+    const result=recordShipReports(room,()=>shipMissiles.resolveDamage(room,body.missileId,Number(body.score),damageCampaign,{values:body.diceResults===undefined?[]:body.diceResults,sides:automated&&missile.automationPresentation?.sides?missile.automationPresentation.sides:Array(missile.dice).fill(missile.dieSides||8),controller:gmAuthorized&&!automated?'gm':missile.controller||'player'}));
     if(!result.ok){sendJson(res,409,{error:result.error});return;}
+    if(result.calculation){
+      room.missileHistory=(room.missileHistory||[]).filter(r=>r.id!=='impact-'+missile.id);
+      room.missileHistory.push({id:'impact-'+missile.id,label:missile.name,characterId:missile.characterId,controller:result.calculation.controller,stage:'complete',calculation:result.calculation});
+      room.missileHistory=room.missileHistory.slice(-128);
+    }
     if(result.podInjuries)await campaignApi.save(damageCampaign);
     room.lastTick=Date.now();moveToNextTurnOrClock(room,room.activeSource||'clock');
   }
@@ -2732,7 +2753,7 @@ async function handleRoomAction(body, res, automated = false) {
     if(body.score!==undefined&&(!Number.isFinite(body.score)||Math.abs(body.score)>100000)){sendJson(res,400,{error:'Enter a valid roll score.'});return;}
     const submitted=Array.isArray(body.diceResults)?body.diceResults.slice(0,100):[];
     if(submitted.some(v=>!Number.isInteger(v)||v<1||v>100)){sendJson(res,400,{error:'Invalid dice values.'});return;}
-    let dieIndex=0;const rollDie=sides=>submitted[dieIndex++]??require('node:crypto').randomInt(1,sides+1);rollDie.submittedScore=body.score;rollDie.autoSuccess=Boolean(body.autoSuccess);
+    let dieIndex=0;const rollDie=sides=>submitted[dieIndex++]??require('node:crypto').randomInt(1,sides+1);rollDie.submittedScore=body.score;rollDie.autoSuccess=Boolean(body.autoSuccess);rollDie.submittedValues=[...submitted];rollDie.exertion=Number(body.exertion)||0;
     const pending=playerUnit?.delayedAction;
     if(playerUnit?.lastShipRoll?.id!==body.rollId){
       const queued=playerUnit?.pendingShipRolls?.find(r=>r.id===body.rollId);
@@ -2770,13 +2791,14 @@ async function handleRoomAction(body, res, automated = false) {
         try{pushLog(room,require('./ship-breach-drones').resolve(room,queued.breachDroneRoll,submitted));}catch(error){sendJson(res,409,{error:error.message});return;}
       }else if(queued?.breachCheck){
         const total=Number.isFinite(body.score)?body.score:shipSensors.fusedTotal(submitted)+(spec.bonus||0);
-        require('./ship-breaches').resolveCheck(room,playerUnit,queued,total,submitted);
+        require('./ship-breaches').resolveCheck(room,playerUnit,queued,total,submitted,{exertion});
         if(playerUnit.vacuum&&room.activeId===playerUnit.id){room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);moveToNextTurnOrClock(room,room.activeSource);}
       }else if(queued){
         if(gmAuthorized){queued.rollController='gm';if(queued.armed.delayed)queued.armed.delayed.rollController='gm';queued.armed.order.rollController='gm';}
         const retry=queued.rollSpec?.retryBonus||0;if(Number.isFinite(rollDie.submittedScore))rollDie.submittedScore-=retry;rollDie.retryBonus=retry;
-        const operator={...playerUnit,defeatedAt:null,location:queued.armed.location,timedAction:null,delayedAction:queued.armed.delayed,queuedEffects:playerUnit.queuedEffects ||= []};
-        recordShipReports(room,()=>queued.armed.system==='sensor'?shipSensors.resolveInput(room,operator,rollDie):shipCommands.resolveInput(room,operator,rollDie,queued.armed.order));
+        const operator={...playerUnit,defeatedAt:null,location:queued.armed.location,timedAction:null,delayedAction:queued.armed.delayed||{settings:queued.armed.inputSettings},queuedEffects:playerUnit.queuedEffects ||= []};
+        const resolvedCommand=recordShipReports(room,()=>queued.armed.system==='sensor'?shipSensors.resolveInput(room,operator,rollDie):shipCommands.resolveInput(room,operator,rollDie,queued.armed.order));
+        if(resolvedCommand?.calculation)queued.calculation=resolvedCommand.calculation;
         playerUnit.pendingShipRolls=playerUnit.pendingShipRolls.filter(r=>r!==queued);shipShields.refresh(room);
       }else{
         // Taking over an existing player roll also owns its follow-up rolls.
@@ -2785,11 +2807,13 @@ async function handleRoomAction(body, res, automated = false) {
         if(pending.rollBeforeDelay){
           const spec=pending.rollSpec||shipRollSpec(room,playerUnit,pending);
           const values=submitted;
-          pending.submittedRoll={score:(Number.isFinite(body.score)?body.score:shipSensors.fusedTotal(values)+spec.bonus)-(spec.retryBonus||0),values,retryBonus:spec.retryBonus||0,autoSuccess:Boolean(body.autoSuccess)};
+          pending.submittedRoll={score:(Number.isFinite(body.score)?body.score:shipSensors.fusedTotal(values)+spec.bonus)-(spec.retryBonus||0),values,exertion,retryBonus:spec.retryBonus||0,autoSuccess:Boolean(body.autoSuccess)};
           // Apply once to this roll's factor-derived console input, never damage/cooldown clocks.
           const timingDifficulty=pending.sensorOrder?shipSensors.timingDifficulty(room,pending.sensorOrder,pending.submittedRoll.score+(spec.retryBonus||0)):spec.difficulty;
           pending.rollTiming=require('./delay-rules').afterRoll(pending.remaining/pending.rate,pending.submittedRoll.score+(spec.retryBonus||0),timingDifficulty,pending.submittedRoll.autoSuccess);
           if(pending.rollTiming.seconds>0)pending.rate=pending.remaining/pending.rollTiming.seconds;
+          if(pending.transporterOrder)pending.calculation=require('./ship-transporter').calculation(pending.transporterOrder,pending);
+          if(pending.lockOrder)pending.calculation=shipLocks.calculation(pending);
           pending.awaitingRoll=false;pending.resolving=false;
         }else resolveCompletedEvent(room,{type:'delayed',unit:playerUnit,rollDie},room.activeSource);
       }
@@ -2807,6 +2831,7 @@ async function handleRoomAction(body, res, automated = false) {
       recordActionResult(playerUnit,{id:`${body.rollId}:${entering?'input':'complete'}`,label:queued?.label||pending.label,
         text:entering?`Roll submitted. Operating the console: ${pending.rollTiming.seconds.toFixed(1)} seconds${pending.rollTiming.outcome!=='No fixed difficulty'?` (${pending.rollTiming.outcome} input timing; originally ${pending.rollTiming.baseSeconds.toFixed(1)} seconds)`:''}. Outcome follows input.`:damage?`Damage confirmed: ${submitted.length?submitted.reduce((a,b)=>a+b,0)+(damage.damageBonus||0):body.score}.`:resolved?.text||'Roll submitted.',
         total:Number.isFinite(body.score)?body.score:damage?submitted.reduce((a,b)=>a+b,0)+(damage.damageBonus||0):shipSensors.fusedTotal(submitted)+(spec.bonus||0),
+        calculation:pending?.calculation||queued?.calculation||queued?.armed?.delayed?.calculation||spec.calculation,
         controller:gmAuthorized?'gm':'player',stage:entering?'input':'complete'});
     }
   }
@@ -3699,6 +3724,7 @@ async function handleRoomAction(body, res, automated = false) {
 
     room.attackResolution = null;
     room.itemResolution = null;
+    room.missileHistory = [];
     room.vehicles = [];
     room.areaEffects = [];
     room.units = [];
@@ -3759,6 +3785,7 @@ async function handleRoomAction(body, res, automated = false) {
     }
     room.attackResolution = null;
     room.itemResolution = null;
+    room.missileHistory = [];
     room.vehicles = [];
     room.areaEffects = [];
     for(const unit of room.units){unit.delayedAction=null;unit.timedAction=null;unit.delayTimer=null;unit.consoleHold=null;unit.pendingShipRolls=[];unit.pendingTimedResolutions=[];unit.queuedEffects=[];unit.travelRoute=[];}

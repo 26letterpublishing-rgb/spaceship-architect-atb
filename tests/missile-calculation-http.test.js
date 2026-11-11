@@ -1,0 +1,72 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events'),maps=require('../ship-map-core');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+test('GM-owned missile impact survives server restart, rejects other players and remains resolvable without its operator',{timeout:35000},async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sa-missile-http-'));let child,base;
+ async function start(){child=spawn(process.execPath,['server.js'],{cwd:path.resolve(__dirname,'..'),windowsHide:true,env:{...process.env,PORT:'0',DATABASE_URL:'',SA_LOCAL_DATA_DIR:dir},stdio:['ignore','pipe','pipe']});child.stderr.on("data",c=>process.stderr.write(c));base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('startup timeout')),10000);child.stdout.on('data',c=>{const url=String(c).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)?.[1];if(url){clearTimeout(timer);resolve(url);}});});}
+ async function stop(){if(child?.exitCode===null){const done=once(child,'exit');child.kill();await done;}}t.after(stop);await start();
+ const post=async(route,body,status=200)=>{const r=await fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;};
+ const demo=await post('campaign/showcase/start',{}),created=await post('campaign/create',{name:'Missile HTTP',gmCode:'missile-http'},201),code=created.campaign.code;let token=created.token;
+ await require('./helpers/combat-demo.cjs')(base,demo);
+ const backup=await fetch(`${base}/api/campaign/backup?code=${demo.code}&token=${demo.gmToken}`).then(r=>r.json());backup.campaign.code=code;backup.campaign.name='Missile HTTP';backup.campaign.showcase=false;
+ const c=backup.campaign,room=c.encounter,source=room.starships.find(s=>s.id==='showcase-pc-ship'),target=room.starships.find(s=>s.id==='showcase-npc-ship'),nova=room.units.find(u=>u.team==='pc'),character=c.characters[0],launcher=source.ship.sicInventory.find(i=>maps.definition(i.type).missileLauncher),bridge=source.ship.sicInventory.find(i=>maps.definition(i.type).bridge),placement=source.ship.placements.find(p=>p.sicId===bridge.id),seat=maps.componentDefinition(bridge).stations[0];
+ nova.location={starshipId:source.id,sicId:bridge.id,square:placement.cell+seat.y*20+seat.x,mesh:seat.mesh,stationed:true};nova.atb=100;
+ for(const u of room.units)u.speed=.1;
+ Object.assign(room,{hasEngagedClock:true,encounterEndedAt:null,activeId:nova.id,pausedForTurn:true,running:false,hardPaused:true,resumeAfterTurn:true,commandRemaining:120,commandTotal:120});room.shipPositions=[{id:source.id,q:0,r:0},{id:target.id,q:.01,r:0}];source.lockState={targets:[{targetId:target.id,systemId:source.ship.sicInventory.find(i=>maps.definition(i.type).lockOn).id,remaining:12}],reports:[],receipts:[],failures:{}};
+ await post('campaign/restore',{code,token,backup});const pc=await post('campaign/character/unlock',{code,characterId:character.id,pcCode:character.pcCode});
+ const act=body=>post('action',{roomCode:code,gmToken:token,...body}),state=(auth=token)=>fetch(`${base}/api/state?room=${code}&token=${auth}`).then(r=>r.json());
+ let s=await act({action:'weaponCommand',id:nova.id,sicId:launcher.id,targetId:target.id,ammunition:'missile-1',requestId:'gm-missile-launch'});assert.equal(s.units.find(u=>u.id===nova.id).delayedAction.rollController,'gm');
+ await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});
+ for(let i=0;i<150;i++){s=await state();if(s.missileRolls.length)break;await sleep(100);}assert.equal(s.missileRolls.length,1);assert.equal(s.rollPaused,true);const missile=s.missileRolls[0];assert.equal((await state(pc.token)).missileRolls.length,0);
+ const atb=s.units.map(u=>u.atb);await sleep(500);assert.deepEqual((await state()).units.map(u=>u.atb),atb);
+ await post('action',{roomCode:code,characterId:character.id,characterToken:pc.token,id:nova.id,action:'missileDamage',missileId:missile.id,score:2},403);
+ await sleep(400);await stop();await start();const opened=await post('campaign/open',{name:'Missile HTTP',gmCode:'missile-http'});token=opened.token;pc.token=(await post('campaign/character/unlock',{code,characterId:character.id,pcCode:character.pcCode})).token;s=await state();assert.equal(s.missileRolls[0].id,missile.id);
+ await post('action',{roomCode:code,gmToken:token,action:'missileDamage',missileId:missile.id,score:99},409);
+ await act({action:'removeUnit',id:nova.id});const before=(await state()).starships.find(s=>s.id===target.id).currentHullHp;
+ s=await act({action:'missileDamage',missileId:missile.id,score:2,diceResults:[1,1]});assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,before-10);assert.equal(s.rollPaused,false);
+ s=await act({action:'missileDamage',missileId:missile.id,score:2});assert.equal(s.starships.find(s=>s.id===target.id).currentHullHp,before-10);
+ assert.equal(s.missileHistory.length,1);assert.deepEqual(s.missileHistory[0].calculation.values,[1,1]);assert.equal(s.missileHistory[0].calculation.multiplier,5);
+ assert.equal((await state(pc.token)).missileHistory.length,0);
+ assert.ok(s.starships.every(ship=>(ship.ship.missileState?.flights||[]).every(f=>!f.calculation)));
+ const persisted=await fetch(base+'/api/campaign/backup?code='+code+'&token='+token).then(r=>r.json());assert.deepEqual(persisted.campaign.encounter.missileHistory[0].calculation.values,[1,1]);
+ await post('campaign/restore',{code,token,backup:persisted});assert.deepEqual((await state()).missileHistory[0].calculation.values,[1,1]);assert.equal((await state(pc.token)).missileHistory.length,0);
+ assert.equal(s.starships.find(s=>s.id===source.id).ship.missileAmmo[launcher.id]['missile-1'],1);
+ await act({action:'setHardPaused',paused:false});await act({action:'setRunning',running:true});const value=(await state()).units[0].atb;await sleep(500);assert.ok((await state()).units[0].atb>value);
+ await t.test('paused mixed flights retain snapshotted profiles across a real server restart',async()=>{
+  await act({action:'setHardPaused',paused:true});
+  const saved=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());const encounter=saved.campaign.encounter;
+  Object.assign(encounter,{running:false,hardPaused:true,pausedForTurn:false,activeId:null,activeAction:null,attackResolution:null});encounter.shipPositions=[{id:source.id,q:0,r:0},{id:target.id,q:100,r:0}];
+  const owner=encounter.starships.find(s=>s.id===source.id),baseFlight={sourceId:source.id,targetId:target.id,phase:'flying',position:{q:0,r:0},age:9,speed:2,acceleration:1,dice:2,masking:8};
+  owner.ship.missileState.flights=[{...baseFlight,id:'profile',name:'Missile 1',speedProfile:{...require('../missile-ammunition').catalog['missile-1'].speedProfile}},{...baseFlight,id:'legacy',name:'Missile 5',speed:1},{...baseFlight,id:'special',name:'Spread Missiles 1',speed:1},{...baseFlight,id:'torpedo',torpedo:true,speed:8}];owner.ship.missileState.cooldowns={};
+  await post('campaign/restore',{code,token,backup:saved});
+  const flightState=async()=>{const b=await fetch(`${base}/api/campaign/backup?code=${code}&token=${token}`).then(r=>r.json());return b.campaign.encounter.starships.find(s=>s.id===source.id).ship.missileState.flights;};
+  const before=await flightState();await sleep(250);assert.deepEqual(await flightState(),before);
+  await stop();await start();token=(await post('campaign/open',{name:'Missile HTTP',gmCode:'missile-http'})).token;assert.deepEqual(await flightState(),before);await sleep(250);assert.deepEqual(await flightState(),before);
+  async function advanceTo(age){
+   let flights=await flightState();
+   for(let i=0;i<20&&flights[0].age<age-1e-7;i++){
+    const prior=flights[0].age;await act({action:'step'});flights=await flightState();
+    assert.ok(flights[0].age>prior+1e-8,'manual step must make actual active-time progress');
+    assert.ok(flights[0].age-prior<=.200001,'preserve missile event-boundary stepping');
+   }
+   assert.ok(Math.abs(flights[0].age-age)<1e-6,`bounded steps reached ${flights[0].age}, expected ${age}`);return flights;
+  }
+  const after=await advanceTo(10);assert.equal(after[0].speed,3);assert.ok(Math.abs(after[0].position.q-.2)<1e-6);assert.equal(after[1].speed,1);assert.equal(after[1].speedProfile,undefined);assert.equal(after[2].speed,1);assert.equal(after[3].speed,8);
+  const beyond=await advanceTo(10.4);assert.equal(beyond[0].speed,3);assert.ok(Math.abs(beyond[0].position.q-.32)<1e-6);
+ });
+
+ await t.test('owner-only impact provenance survives reload without leaking through Campaign state',async()=>{
+ const saved=await fetch(base+'/api/campaign/backup?code='+code+'&token='+token).then(r=>r.json()),e=saved.campaign.encounter;
+ e.hardPaused=true;e.running=false;e.units.push({...nova,id:'owner-proof',characterId:character.id});
+ const src=e.starships.find(s=>s.id===source.id),dst=e.starships.find(s=>s.id===target.id);dst.currentHullHp=100;
+ src.ship.missileState.flights=[{id:'owner-impact',position:{q:100,r:0},age:1,speed:1,sourceId:source.id,targetId:target.id,characterId:character.id,controller:'player',unitId:'owner-proof',phase:'impact',name:'Owner missile',dice:2}];
+ await post('campaign/restore',{code,token,backup:saved});pc.token=(await post('campaign/character/unlock',{code,characterId:character.id,pcCode:character.pcCode})).token;
+ await post('action',{roomCode:code,characterId:character.id,characterToken:pc.token,action:'missileDamage',missileId:'owner-impact',score:5,diceResults:[2,2]},409);
+ await post('action',{roomCode:code,characterId:character.id,characterToken:pc.token,action:'missileDamage',missileId:'owner-impact',score:5,diceResults:[2,3]});
+ assert.deepEqual((await state(pc.token)).missileHistory.map(r=>r.id),['impact-owner-impact']);assert.deepEqual((await state(pc.token)).missileHistory[0].calculation.values,[2,3]);
+ assert.equal((await state('')).missileHistory.length,0);
+ const publicCampaign=await fetch(base+'/api/campaign/state?code='+code+'&token='+pc.token).then(r=>r.json());assert.ok(!JSON.stringify(publicCampaign).includes('missile-impact'));
+ await sleep(400);await stop();await start();token=(await post('campaign/open',{name:'Missile HTTP',gmCode:'missile-http'})).token;
+ pc.token=(await post('campaign/character/unlock',{code,characterId:character.id,pcCode:character.pcCode})).token;assert.deepEqual((await state(pc.token)).missileHistory[0].calculation.values,[2,3]);assert.equal((await state()).missileHistory.length,2);
+ });
+
+});

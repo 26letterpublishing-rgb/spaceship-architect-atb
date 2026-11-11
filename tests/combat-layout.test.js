@@ -11,7 +11,7 @@ test('destroyed enlarged interior closes through existing cleanup without updati
  }
 });
 function markup(records,mode='gm',units=[],view='ring'){
- const context={myUnitId:'mine',automationControlsMarkup:u=>`<button data-automate='${u.id}'>Automate NPC</button>`,state:{starships:records,units:[],log:[],shipPositions:[]},mode,visualMode:'ring',escapeHtml:s=>String(s),shipScopedLogEntries:()=>[],tacticalRingSingleMarkup:(_u,id)=>`<svg data-original-ring="${id}"></svg>`,window:{SASpaceMap:{markup:()=>'<svg data-original-space></svg>'}}};
+ const context={myUnitId:'mine',automationControlsMarkup:u=>`<button data-automate='${u.id}'>Automate NPC</button>`,state:{starships:records,sensorObserverId:records.find(s=>s.controlType==='pc')?.id,units,log:[],shipPositions:[]},mode,visualMode:'ring',escapeHtml:s=>String(s),shipScopedLogEntries:()=>[],tacticalRingSingleMarkup:(_u,id)=>`<svg data-original-ring="${id}"></svg>`,window:{SASpaceMap:{markup:()=>'<svg data-original-space></svg>'}}};
  context.visualMode=view;context.unitCard=u=>`<article data-unit-id="${u.id}"></article>`;
  vm.runInNewContext(source.slice(source.indexOf('function npcExertionMarkup('),source.indexOf('function npcCombatStatsMarkup(')),context);
  vm.runInNewContext(source.slice(source.indexOf('function shipCombatColumnsMarkup('),source.indexOf('function renderShipCombatColumns(')),context);
@@ -263,4 +263,31 @@ test('interior Fit reserves overlapping bottom controls without changing viewpor
   vm.runInNewContext(helper+fit,c);assert.equal(c.reserveInteriorControls(host),overlap?78:0);c.fitInline(host);
   const size=sizes.get('s'),rows=rotation%180?12:20;assert.ok(size*rows+32<=600-(overlap?78:0));assert.equal(viewport.clientHeight,600);assert.equal(viewport.scrollTop,0);
  }
+});
+test('clock sizing skips single-PC layout but retains multi-ship sizing and transitions',()=>{
+ const start=source.indexOf("  const columns=unitList.querySelector('.ship-combat-columns'),clock="),end=source.indexOf('  const combatSpaceMap=',start),body=source.slice(start,end);
+ let reads=0,styles=0,value='old',removes=0;const clock={get offsetHeight(){reads++;return 140;}},columns={dataset:{singlePc:'true'},style:{removeProperty(){removes++;value=null;},setProperty(k,v){assert.equal(k,'--clock-content-height');value=v;}},querySelector:s=>s==='.paired-combat-clock'?clock:{}};
+ const c={unitList:{querySelector:()=>columns},getComputedStyle:()=>{styles++;return{paddingTop:'12px',paddingBottom:'8px'};}};
+ const run=()=>vm.runInNewContext('(function(){'+body+'})()',c);
+ run();assert.equal(reads,0);assert.equal(styles,0);assert.equal(removes,0);assert.equal(value,'old');
+ columns.dataset.singlePc='false';run();assert.equal(value,'120px');assert.equal(reads,1);assert.equal(styles,1);
+ columns.dataset.singlePc='true';run();assert.equal(reads,1);assert.equal(styles,1);
+ delete columns.dataset.singlePc;run();assert.equal(value,'120px');assert.equal(reads,2);
+});
+
+test('player hides other allied interiors while preserving boarding, capture and GM access',()=>{
+ const records=[{id:'own',controlType:'pc',ship:{}},{id:'ally',controlType:'pc',ship:{}},{id:'enemy',controlType:'gm',analyzedContact:true,ship:{}},{id:'unknown',contactOnly:true,ship:{}}];
+ const ids=html=>[...html.matchAll(/data-inline-ship-map="([^"]+)"/g)].map(m=>m[1]);
+ assert.deepEqual(ids(markup(records,'player',[{id:'mine',location:{starshipId:'own'}}])),['own','enemy']);
+ assert.deepEqual(ids(markup(records,'gm')),['own','ally','enemy']);
+ assert.deepEqual(ids(markup(records,'player',[{id:'mine',location:{starshipId:'ally'}}])),['ally','enemy']);
+ assert.deepEqual(ids(markup(records,'player',[{id:'mine',location:{starshipId:'enemy'},hackingSessions:[{targetId:'ally',connected:true,control:true}]}])),['ally','enemy']);
+ assert.deepEqual(ids(markup(records,'player',[{id:'mine',location:{starshipId:'own'},hackingSessions:[{targetId:'ally',connected:false,control:true}]}])),['own','enemy']);
+ assert.equal(records.length,4);
+});
+
+test('allied docking alone reveals nothing; boarding and returning follow physical location',()=>{
+ const records=[{id:'home',controlType:'pc',ship:{},airlockState:{partnerId:'ally'}},{id:'ally',controlType:'pc',ship:{},airlockState:{partnerId:'home'}}];
+ const unit={id:'mine',location:{starshipId:'home'}};
+ for(const id of ['home','ally','home']){unit.location.starshipId=id;const html=markup(records,'player',[unit]);assert.match(html,new RegExp('data-inline-ship-map="'+id+'"'));assert.equal((html.match(/data-inline-ship-map=/g)||[]).length,1);}
 });

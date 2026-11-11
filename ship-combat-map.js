@@ -38,7 +38,18 @@
     if(!confirmHomes.has(button))confirmHomes.set(button,{parent:button.parentElement,next:button.nextSibling});
     const moving=interaction==='move';
     button.classList.toggle('interior-move-confirm',moving);
-    if(!moving){const home=confirmHomes.get(button);if(home.parent?.isConnected&&button.parentElement!==home.parent)home.parent.insertBefore(button,home.next?.parentElement===home.parent?home.next:null);button.hidden=false;button.style.removeProperty('left');button.style.removeProperty('top');return;}
+    const home=confirmHomes.get(button);
+    if(!moving){home.bottom?.remove();home.bottom=null;if(home.parent?.isConnected&&button.parentElement!==home.parent)home.parent.insertBefore(button,home.next?.parentElement===home.parent?home.next:null);button.hidden=false;button.style.removeProperty('left');button.style.removeProperty('top');return;}
+    // Retain a camera-independent confirmation for dropdown destinations. Both
+    // controls submit through the original button and its existing guards.
+    if(home.parent?.isConnected&&!home.bottom){
+      const bottom=button.ownerDocument.createElement('button');bottom.type='button';
+      bottom.className='primary';bottom.dataset.bottomConfirmMove='';bottom.dataset.uiSound='none';
+      bottom.addEventListener('click',()=>button.click());
+      home.parent.insertBefore(bottom,home.next?.parentElement===home.parent?home.next:null);
+      home.bottom=bottom;
+    }
+    if(home.bottom){home.bottom.textContent=button.textContent;home.bottom.disabled=button.disabled||moveSubmitting||!(preview?.locked&&preview.path?.length&&preview.color!=='red');home.bottom.setAttribute('aria-busy',String(moveSubmitting));}
     if(button.parentElement!==host)host.append(button);
     button.hidden=!(preview?.locked&&preview.path?.length&&preview.color!=='red');
     if(button.hidden)return;
@@ -47,11 +58,17 @@
     const v=viewport.getBoundingClientRect(),t=target.getBoundingClientRect(),h=host.getBoundingClientRect();
     const inset=parseFloat(viewport.style.getPropertyValue('--interior-bottom-inset'))||0,size=56,gap=8;
     const scale=h.width/(host.offsetWidth||h.width)||1;
-    const maxX=v.right-size-gap,maxY=v.bottom-inset-size-gap;
+    const controls=host.querySelector?.('.inline-map-move-controls')?.getBoundingClientRect();
+    const visibleBottom=controls&&controls.top>v.top&&controls.top<v.bottom?Math.min(v.bottom-inset,controls.top):v.bottom-inset;
+    const maxX=v.right-size-gap,maxY=visibleBottom-size-gap;
     const x=Math.max(v.left+gap,Math.min(maxX,t.right+gap<=maxX?t.right+gap:t.left-size-gap));
     const y=Math.max(v.top+gap,Math.min(maxY,t.top+t.height/2-size/2));
     button.style.left=(x-h.left)/scale+'px';button.style.top=(y-h.top)/scale+'px';
     button.setAttribute('aria-label',button.textContent.trim());
+  }
+  function positionLegacyConfirm(){
+    if(dialog.classList.contains('hidden'))return;
+    positionMoveConfirm(dialog.querySelector('.combat-map-panel')||dialog,confirm,grid.parentElement);
   }
   function positionInlineConfirm(host){positionMoveConfirm(host,host?.querySelector('[data-inline-confirm-move]'),host?.querySelector('.inline-map-viewport'));}
   let expandedMap = null;
@@ -74,7 +91,7 @@
     }
   // Standalone Console Debug needs only this read-only renderer, not Combat DOM/listeners.
   if(!dialog){window.SACombatMap={...window.SACombatMap,componentPreview};return;}
-  const fullRouteControls=document.createElement('div');status.before(fullRouteControls);
+  const fullRouteControls=document.createElement('div');dialog.querySelector('.combat-map-top-actions').prepend(fullRouteControls);
   const mapView = {...window.SAShipMap.loadViewPreferences(),hull:false};
   window.SAShipMap.onViewPreferences(prefs=>{Object.assign(mapView,prefs);renderInlineMaps(document,true);});
 
@@ -301,10 +318,10 @@
     const moveSpeed = Math.max(1, Number(unit.moveSpeed) || 1)*(window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId))?1:.5);
     preview = { square, mesh, path, station, locked, color: path === null ? "red" : path.length <= moveSpeed ? "green" : "yellow" };
     confirm.disabled = !locked || path === null || !path.length;
-    confirm.textContent = boardingLink(ship,{square}) ? "Board other ship" : station ? "Station" : "Confirm Move";confirm.classList.toggle("airlock-board-button",Boolean(boardingLink(ship,{square})));
+    confirm.textContent = boardingLink(ship,{square}) ? "Board other ship" : "Confirm Move";confirm.classList.toggle("airlock-board-button",Boolean(boardingLink(ship,{square})));
     status.textContent = path === null ? "No legal path reaches that location." : !path.length ? "That character is already there." : locked ? station ? `${path.length} unit route selected. Station here.` : `${path.length} unit route selected. Confirm the move.` : path.length <= moveSpeed ? `${path.length} unit${path.length === 1 ? "" : "s"}: click to select.` : `${path.length} units: click to select ${Math.ceil(path.length / moveSpeed)} automatic Move actions.`;
     renderGrid();
-    positionMoveConfirm(dialog.querySelector('.combat-map-panel')||dialog,confirm,grid.parentElement);
+    positionLegacyConfirm();
   }
 
   function boundaryMarkup(ship, layout, square) {
@@ -326,9 +343,26 @@
     return window.SACombatArena.movement(unit,coords,window.SAShipMap.gravityEnabled(ships().find(s=>s.id===unit.location?.starshipId)));
   }
 
+  function replaceLegacyGrid(markup) {
+    const previous=document.activeElement;
+    const owned=previous&&grid.contains(previous);
+    const square=previous?.dataset?.mapSquare,mesh=previous?.dataset?.mapMesh;
+    grid.innerHTML=markup;
+    // Only recover focus lost by this synchronous replacement. Never take it
+    // back from another control or an independently opened prompt.
+    if(!owned||previous.isConnected||dialog.classList.contains('hidden')||
+       (document.activeElement!==document.body&&document.activeElement!==previous))return;
+    const replacement=[...grid.querySelectorAll('[data-map-square][data-map-mesh]')]
+      .find(node=>node.dataset.mapSquare===square&&node.dataset.mapMesh===mesh&&!node.disabled);
+    if(replacement)replacement.focus({preventScroll:true});
+    else{grid.tabIndex=-1;grid.focus({preventScroll:true});}
+  }
+
   function renderGrid() {
+    // The inline/enlarged view owns its own grid; refresh this one when opened.
+    if(dialog.classList.contains("hidden"))return;
     const ship = selectedShip();
-    if (!ship) { grid.innerHTML = ""; return; }
+    if (!ship) { replaceLegacyGrid(""); return; }
     const hull = new Set(ship.ship.gridCells || []);
     const footprints = footprint(ship);
     const layout = layoutFor(ship.ship);
@@ -365,7 +399,7 @@
       const moving = movementPresentation(unit); if (!moving) return "";
       return `<i ${window.SATokenArt.attributes(unit)} data-security-droid="${Boolean(unit.securityDroid)}" data-moving-unit="${esc(unit.id)}" class="combat-token combat-moving-token ${unit.id === myUnitId ? "is-self" : ""}" data-walking="${moving.walking}" style="left:${moving.x / columns * 100}%;top:${moving.y / rows * 100}%;--crew-heading:${moving.heading}deg;--token-color:${esc(unit.color || "#39e58f")}" title="${esc(unit.characterName)}"></i>`;
     }).join("");
-    grid.innerHTML = cellMarkup + movingMarkup;
+    replaceLegacyGrid(cellMarkup + movingMarkup);
     window.SAFloorplanSnapshot?.mount(grid,ship,{fullGrid:true});
     window.SAArenaUI?.shipFog(grid,ship);
     if (preview?.path?.length) {
@@ -522,7 +556,7 @@
       : "Live interior view";
     return `<div class="combat-map-stats">${statsMarkup(record)}</div><div class="inline-map-toolbar"><span>${esc(prompt)}</span></div>
       <div class="inline-map-stage"><div class="inline-map-viewport"><div class="inline-map-orientation" style="--display-cols:${sideways?rowCount:colCount};--display-rows:${sideways?colCount:rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px"><div class="${classes}" data-display-rotation="${rotation}" data-origin-column="${minCol}" data-origin-row="${minRow}" data-hull-column="${hullBounds.column}" data-hull-row="${hullBounds.row}" data-hull-columns="${hullBounds.columns}" data-hull-rows="${hullBounds.rows}" style="--inline-cols:${colCount};--inline-rows:${rowCount};--preview-cell-size:${inlineZoom.get(record.id)||72}px">${squares.join("")}${moving}${line}</div></div></div>
-      ${isSelected && interaction === "move" ? `<div class="inline-map-move-controls">${stationChoiceMarkup(record,selected)}<div class="inline-map-actions">${routeControls()}${selected?.location?.stationed && !selected.shipAi ? `<button type="button" data-inline-get-up ${moveSubmitting || !stationExitAvailable(selected) ? "disabled" : ""}>Get Up</button>` : ""}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : station ? "Station" : "Confirm Move"}</button></div></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div><div class="inline-map-footer"><div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,expanded?'data-shared-interior-view':'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
+      ${isSelected && interaction === "move" ? `<div class="inline-map-move-controls">${stationChoiceMarkup(record,selected)}<div class="inline-map-actions">${routeControls()}${selected?.location?.stationed && !selected.shipAi ? `<button type="button" data-inline-get-up ${moveSubmitting || !stationExitAvailable(selected) ? "disabled" : ""}>Get Up</button>` : ""}<button type="button" data-inline-cancel-move ${moveSubmitting ? "disabled" : ""}>Cancel</button><button type="button" class="primary" data-inline-confirm-move ${activePreview?.locked && activePreview?.path?.length && !moveSubmitting ? "" : "disabled"} aria-busy="${moveSubmitting}">${moveSubmitting ? "Starting..." : boardingLink(record,activePreview) ? "Board other ship" : "Confirm Move"}</button></div></div>` : movingUnit ? `<span class="inline-moving-status">${esc(selected.characterName)} is moving</span>` : ""}</div><div class="inline-map-footer"><div class="inline-map-view-controls">${window.SAShipMap.viewControls(mapView,expanded?'data-shared-interior-view':'data-inline-map-view')}</div><div class="inline-map-zoom"><button type="button" data-preview-zoom="-1" aria-label="Zoom out interior" title="Zoom out interior">&#8722;</button><button type="button" data-preview-zoom="1" aria-label="Zoom in interior" title="Zoom in interior">+</button><button type="button" data-interior-fit title="Fit Ship" aria-label="Fit Ship">Fit Ship</button><button type="button" data-interior-focus title="Zoom to character">Enlarge</button><button type="button" data-expand-interior title="Enlarge ship interior" aria-label="Enlarge ship interior">&#x26F6;</button></div></div>`;
   }
 
   const inlineMarkupCache = new WeakMap();
@@ -646,6 +680,7 @@
       previous.removeDashboardListener?.();
     previous.dialog.close();
     previous.dialog.remove();
+    requestAppRender();
     previous.source?.focus({ preventScroll: true });
     renderInlineMaps();
   }
@@ -766,6 +801,7 @@
       if(currentStats&&currentStats.innerHTML!==markup)currentStats.innerHTML=markup;
       if(value&&expandedMap.dashboard)expandedMap.dashboard.contentWindow?.postMessage({type:'sa-ship-detail-update',record:value.record,characters:value.campaign.characters,partyCredits:value.campaign.shipCredits},location.origin);
       renderInlineMaps(expandedMap.dialog, force);
+      return; /* Covered inline maps refresh on close, not on each walking update. */
     }
     root.querySelectorAll?.("[data-inline-ship-map]").forEach((host) => {
       const record = ships().find((entry) => entry.id === host.dataset.inlineShipMap);
@@ -848,7 +884,7 @@
       submit.disabled = moveSubmitting || !(preview?.locked && preview?.path?.length);
       submit.setAttribute("aria-busy", String(moveSubmitting));
       submit.classList.toggle("airlock-board-button",Boolean(boardingLink(record,preview)));
-      submit.textContent = moveSubmitting ? "Starting..." : boardingLink(record,preview) ? "Board other ship" : preview?.station ? "Station" : "Confirm Move";
+      submit.textContent = moveSubmitting ? "Starting..." : boardingLink(record,preview) ? "Board other ship" : "Confirm Move";
       positionInlineConfirm(host);
     }
   }
@@ -886,11 +922,11 @@
     renderRoster();
     renderGrid();
     renderStats();
-    positionMoveConfirm(dialog.querySelector('.combat-map-panel')||dialog,confirm,grid.parentElement);
+    positionLegacyConfirm();
     stop.hidden = unit?.timedAction?.kind !== "move";
     leaveStation.hidden = Boolean(unit?.shipAi) || !unit?.location?.stationed || combatState?.activeId !== unit?.id;
     confirm.classList.toggle("airlock-board-button",Boolean(boardingLink(ship,preview)));
-    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : boardingLink(ship,preview) ? "Board other ship" : preview?.station ? "Station" : "Confirm Move";
+    confirm.textContent = mode === "gm" && interaction === "relocate" ? "Relocate" : boardingLink(ship,preview) ? "Board other ship" : "Confirm Move";
   }
 
   function open(options = {}) {
@@ -909,14 +945,16 @@
     status.textContent = interaction === "move" ? "Choose a destination." : mode === "gm" ? "Select a combatant, then choose a square to relocate them." : "View current locations and operate accessible doors.";
     dialog.classList.remove("hidden");
     render();
-    requestAnimationFrame(fitShip);
+    requestAnimationFrame(()=>requestAnimationFrame(fitShip));
   }
 
+  const legacyViewportResize=new ResizeObserver(()=>{if(!dialog.classList.contains('hidden'))requestAnimationFrame(fitShip);});
+  legacyViewportResize.observe(grid.parentElement);
   function fitShip() {
     const ship = selectedShip();
     const viewport = grid.parentElement;
     const cells = ship ? [...new Set([...(ship.ship.gridCells||[]),...window.SAShipMap.triangleCells(ship.ship),...layoutFor(ship.ship).footprint.keys()])] : [];
-    if (!viewport || !cells.length) return;
+    if (!viewport?.clientWidth || !viewport.clientHeight || !cells.length) return;
     const columns=window.SAShipMap.gridColumns(ship);
     const rows = cells.map((cell) => Math.floor(cell / columns));
     const cols = cells.map((cell) => cell % columns);
@@ -1212,6 +1250,7 @@
       const expand = host.querySelector('[data-expand-interior]');
       if (expand) return expandInterior(host, expand);
     },
+    isExpandedInteriorOpen: () => Boolean(expandedMap?.dialog?.isConnected && expandedMap.dialog.open),
     isInlineMoveSelecting: () => interaction === "move",
     render,
     renderInlineMaps,

@@ -51,13 +51,13 @@
  // Range change fires on release/committed keyboard adjustment, never on drag input.
  document.addEventListener('change',event=>{
   const input=event.target,key=input?.dataset?.volume;
-  if(event.isTrusted===false||!input?.matches?.('.audio-volume-controls input[type=range]')||!['master','game','interface'].includes(key))return;
+  if(event.isTrusted===false||!input?.matches?.('.audio-volume-controls input[type=range]')||!['master','game','interface','music'].includes(key))return;
   mix.setPreferences({[key]:Number(input.value)});mix.previewVolume(key);
  });
  const icon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"/><path class="sound-wave" d="M15 8.2a5.2 5.2 0 0 1 0 7.6M18 5.4a9.2 9.2 0 0 1 0 13.2"/><path class="mute-slash" d="m4 4 16 16"/></svg>';
  function sliders(host){
   const group=document.createElement('div');group.className='audio-volume-controls';group.setAttribute('data-ui-sound','none');
-  group.innerHTML=[['master','Master Volume'],['game','Game Sounds'],['interface','Interface Sounds']].map(([key,label])=>`<label><span>${label}</span><input type="range" min="0" max="100" step="1" data-volume="${key}" aria-label="${label}"><output data-volume-value="${key}"></output></label>`).join('')+'<p>Saved on this browser. Mute keeps your volume balance.</p>';
+  group.innerHTML=[['master','Master Volume'],['game','Game Sounds'],['interface','Interface Sounds'],['music','Music Volume']].map(([key,label])=>`<label><span>${label}</span><input type="range" min="0" max="100" step="1" data-volume="${key}" aria-label="${label}"><output data-volume-value="${key}"></output></label>`).join('')+'<p>Saved on this browser. Mute keeps your volume balance.</p>';
   group.addEventListener('input',event=>{if(!event.target.dataset.volume)return;mix.setPreferences({[event.target.dataset.volume]:Number(event.target.value)});});host.append(group);
  }
  function render(){const p=mix.preferences();for(const input of document.querySelectorAll('[data-volume]')){input.value=p[input.dataset.volume];input.style.setProperty('--volume-fill',p[input.dataset.volume]+'%');input.setAttribute('aria-valuetext',p[input.dataset.volume]+'%');}

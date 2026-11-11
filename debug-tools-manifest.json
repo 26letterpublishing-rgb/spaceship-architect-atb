@@ -9,9 +9,16 @@
     "console-layout-snapshots.json",
     "console-layout-catalog.js",
     "console-layout-store.js",
-    "console-preview-actions.js"
+    "console-preview-actions.js",
+    "music-preview.html",
+    "music-preview.js",
+    "music-preview.css",
+    "data/combat-music-mixes.json"
   ],
-  "runtimeDirectories": ["alma-snapshots"],
+  "runtimeDirectories": [
+    "alma-snapshots",
+    "debug-music"
+  ],
   "preservedProductionFiles": [
     "server.js",
     "public-assets.js",

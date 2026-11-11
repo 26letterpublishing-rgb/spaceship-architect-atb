@@ -2281,7 +2281,7 @@ function renderPlayerStarships(force = false) {
       const stats = [["Hull", window.SAHealthDisplay.track("hull", hullCurrent, hullMax, gmViewing)], ["Shield", window.SAHealthDisplay.shields(shieldRecord, gmViewing)], ["EN", power.en], ["AU", power.au], ["Defense", ship.defenseScore ?? ship.defense ?? 0], ["Movement", window.SAShipMap.propulsion(record).moveSpeed], ["Detection", window.SAShipMap.sensorStats(record).range], ["Security", window.SAShipMap.firewallStats(record)], ["Scale", ship.scaleRank ?? ship.scale ?? "--"]].map(([label, value]) => `<span><small>${label}</small><strong>${["Hull", "Shield"].includes(label) ? value : escapeHtml(value)}</strong></span>`).join("");
       const edit = gmViewing ? `<a class="player-starship-edit" href="starship.html?campaign=${encodeURIComponent(campaignState.code)}&ship=${encodeURIComponent(record.id)}&edit=1">Edit Ship</a>` : fullShipDetails?`<div><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-upgrade="${escapeAttribute(record.id)}" ${playerEncounterView?.units?.length&&!playerEncounterView.encounterEndedAt?'disabled title="Upgrades are available after combat ends."':''}>Upgrade Ship</button><button type="button" data-preview-console="${escapeAttribute(record.id)}" hidden>Toggle Console</button><button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}">System Repairs and Diagnostics</button></div>`:'';
       const diagnostics=`${gmViewing?`<label>Diagnostics Operator<select data-diagnostics-character>${crew.map(p=>`<option value="${escapeAttribute(p.id)}">${escapeHtml(campaignCharacterName(p))}</option>`).join('')}</select></label>`:''}<button type="button" data-ship-diagnostics="${escapeAttribute(record.id)}" title="Outside combat: remain inside the SIC room for 55 minutes of GM-passed time to fully restore it.">System Repairs and Diagnostics</button>${(ship.diagnostics||[]).map(job=>`<p>Diagnostics: ${Math.ceil(job.remainingMinutes)} minutes remaining</p>`).join('')}`;
-      const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>${destinationStation ? "Station" : "Confirm"}</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
+      const movementActions = (gmViewing ? "" : `<div class="player-starship-actions"><button type="button" data-player-ship-begin="${escapeAttribute(record.id)}">Move</button><button type="button" data-player-ship-confirm="${escapeAttribute(record.id)}" ${ready ? "" : "disabled"}>Confirm Move</button><button type="button" data-player-ship-cancel="${escapeAttribute(record.id)}" ${active ? "" : "disabled"}>Cancel</button></div><p class="player-starship-status">${active ? escapeHtml(starshipMoveDraft.message) : "Select Move, then choose a precise location aboard the ship."}</p>`)+diagnostics;
       return `<article class="player-starship-card" data-player-starship="${escapeAttribute(record.id)}"><header><div><h2>${escapeHtml(record.title || "Untitled Starship")} <span class="ship-construction-cost">${Number(record.constructionCost||0).toLocaleString()} cr</span></h2><p>${escapeHtml(ship.class || "Unclassified")} | ${crew.length} crew · ${crew.filter(r=>!record.surfaceAwayCharacterIds?.includes(r.id)).length} aboard</p></div>${edit}</header><div class="player-starship-view-controls">${window.SAShipMap.viewControls(playerShipMapView,'data-player-ship-view')}</div><div class="player-starship-stats">${stats}</div><div class="player-starship-map-layout"><div class="player-starship-map-viewport"><div class="player-starship-map ${viewClasses}" style="--ship-cols:${Math.max(1, maxCol - minCol + 1)};--ship-rows:${Math.max(1, maxRow - minRow + 1)}">${routePoints ? `<svg class="player-ship-move-line" viewBox="0 0 ${Math.max(1, maxCol - minCol + 1)} ${Math.max(1, maxRow - minRow + 1)}" preserveAspectRatio="none"><polyline points="${routePoints}" /></svg>` : ""}${cells}</div></div><aside class="player-starship-sidebar">${people}${movementActions}${!gmViewing&&campaignState.carryOptions?.shipId===record.id&&(campaignState.carryOptions.carryingId||campaignState.carryOptions.patients.length)?`<button type="button" data-player-ship-carry="${escapeAttribute(record.id)}">${campaignState.carryOptions.carryingId?'Place patient down':'Carry patient'}</button>`:''}</aside></div></article>`;
   }).join("");
   const current = starshipMoveDraft && dom.playerStarshipList.querySelector(`[data-player-starship="${CSS.escape(starshipMoveDraft.starshipId)}"]`);
@@ -4930,7 +4930,7 @@ function commitSkillCheckCosts() {
   return true;
 }
 
-function showSkillResult({ score, equation, outcome, newFusions = [], manual = false, diceResults = [], attributeScore = null }) {
+function showSkillResult({ score, equation, outcome, newFusions = [], manual = false, diceResults = [], attributeScore = null, calculation = null }) {
   if (!skillCheck) return;
   skillCheck.result = score;
   skillCheck.newFusions = newFusions;
@@ -4944,13 +4944,17 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultScore.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Ready':formatNumber(score);
   const damageMultiplier=skillCheck.damage?skillCheck.damageMultiplier||1:1;
   if(skillCheck.damage)dom.skillResultScore.textContent=formatNumber(score*damageMultiplier);
-  dom.skillResultEquation.textContent = damageMultiplier>1?`${equation} · ${formatNumber(score)} × ${damageMultiplier} = ${formatNumber(score*damageMultiplier)} damage`:equation;
-  const ruleLines = rollRuleExplanations();
+  dom.skillResultEquation.textContent = manual || skillCheck.damage || skillCheck.sharedDamage ? '' : equation;
+  const campaignCalculation=skillCheck.campaignRequestId ? calculation || {version:1,mode:manual?'manual':'automatic',score,lines:[equation||'No equation recorded',skillCheck.autoSuccess?'Automatic success; no dice rolled. Detailed minimum calculation unavailable.':manual?'Entered total; individual dice and applied modifiers unavailable.':'Detailed dice calculation unavailable for this result.']} : null;
+  if(campaignCalculation){dom.skillResultEquation.textContent=globalThis.SARollDisplay?.campaign(campaignCalculation)||'';dom.skillResultEquation.style.whiteSpace='pre-line';}
+  else if(dom.skillResultEquation.style?.whiteSpace==='pre-line')dom.skillResultEquation.style.whiteSpace='';
+  const ruleLines = []; // General rule descriptions and dice internals do not belong in results.
   dom.skillResultRules.hidden = ruleLines.length === 0;
   dom.skillResultRules.innerHTML = ruleLines.map((line) => `<small>${escapeHtml(line)}</small>`).join("");
-  dom.skillResultOutcome.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Outcome after input delay':outcome;
+  dom.skillResultOutcome.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Outcome after input delay':'';
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
+  dom.skillDiceResults.hidden = Boolean(campaignCalculation) && !skillCheck.damage && !skillCheck.sharedDamage;
   dom.skillDiceTypes.textContent = skillCheck.autoSuccess ? "AUTOMATIC CRITICAL SUCCESS" : manual
     ? "MANUAL ROLL"
     : diceResults.length
@@ -4978,7 +4982,7 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   const freeRule = manual ? null : availableFreeReroll();
   dom.freeRuleReroll.hidden = !freeRule;
   dom.freeRuleReroll.textContent = freeRule?.label || "Use Free Reroll";
-  skillCheck.pendingSubmission = { score, outcome, manual, diceResults, attributeScore };
+  skillCheck.pendingSubmission = { score, outcome, manual, diceResults, attributeScore, ...(campaignCalculation?{calculation:campaignCalculation}:{}) };
   dom.exitSkillResult.textContent = 'Confirm and Submit';
   dom.exitSkillResult.disabled = false;
 }
@@ -5028,7 +5032,7 @@ async function confirmSkillResult() {
   }
 }
 
-async function submitCampaignRollResult({ score, outcome, manual, diceResults }) {
+async function submitCampaignRollResult({ score, outcome, manual, diceResults, calculation }) {
   const check = skillCheck;
   const requestId = check?.campaignRequestId;
   if (!requestId || check.campaignSubmitted) return true;
@@ -5046,6 +5050,7 @@ async function submitCampaignRollResult({ score, outcome, manual, diceResults })
         outcome,
         mode: manual ? "manual" : "automatic",
         diceResults,
+        calculation,
       }),
     });
     notice("Roll result sent to the GM.", "success");
@@ -5386,15 +5391,19 @@ async function resolvePhysicalSkillRoll(results) {
   skillCheck.lastResults = [...results];
   const profile = rollRuleProfile();
   let adjustedResults = [...results];
+  const calculationTransforms=[];
   if (profile.raceId === "garmoc" && ["charisma", "intellect"].includes(profile.attributeKey)) {
     adjustedResults = adjustedResults.map((value) => Math.min(8, value));
+    calculationTransforms.push('Garmoc: cap each die at 8.');
   }
   if (profile.raceId === "everliving-brethren" && profile.attributeKey === "perception" && adjustedResults.length) {
     const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
+    calculationTransforms.push(`Everliving Brethren: discard highest die ${adjustedResults[highestIndex]} at index ${highestIndex}.`);
     adjustedResults.splice(highestIndex, 1);
   }
   if (profile.raceId === "xithx" && profile.skillName === "Stealth" && adjustedResults.length) {
     const highestIndex = adjustedResults.indexOf(Math.max(...adjustedResults));
+    calculationTransforms.push(`Xithx Stealth: discard highest die ${adjustedResults[highestIndex]} at index ${highestIndex}.`);
     adjustedResults.splice(highestIndex, 1);
   }
   const analyzed = fusionResults(adjustedResults, profile);
@@ -5450,20 +5459,22 @@ async function resolvePhysicalSkillRoll(results) {
   const score = diceTotal + skillBonus + flatBonus + unusedDiceBonus;
   const difficulty = Number(skillCheck.difficulty);
   const outcome = adjustedSkillOutcome(score, difficulty);
-  const equationParts = [`Top two: ${top.length ? top.join(" + ") : "0"}`];
-  if (!skillCheck.attributeOnly) equationParts.push(`Skill +${skillBonus}`);
+  const equationParts = [];
+  if (skillBonus) equationParts.push(`${resolved.name || "Skill"} ${skillBonus>0?"+":""}${formatNumber(skillBonus)}`);
   if (skillCheck.committedExertion) equationParts.push(`Exertion +${profile.classId === "ninja" && profile.skillName === "Stealth" ? skillCheck.committedExertion * 5 : skillCheck.committedExertion}`);
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.attributeKey === "strength") equationParts.push("Fluffy Strength -2");
   if (profile.raceId === "antropic" && character.identity.raceType === "fluffy" && profile.skillName === "Jump") equationParts.push("Fluffy Jump +5");
   if (profile.raceId === "skeder" && profile.skillName === "Jump") equationParts.push("Sked'er Jump +3");
   if (profile.raceId === "android" && profile.skillName === "Initiative") equationParts.push("Android Initiative +5");
-  if (unusedDiceBonus) equationParts.push(`Unused dice +${formatNumber(unusedDiceBonus)}`);
-  if (garmocBonusResults.length) equationParts.push(`Garmoc fusion bonus: ${garmocBonusResults.map((value) => `D20=${value}`).join(", ")}`);
+  if(profile.raceId==='epoc'&&['strength','health','dexterity','perception'].includes(profile.attributeKey)){const penalty=adjustedResults.filter(v=>v===1).length;if(penalty)equationParts.push(`Epoc -${penalty}`);}
+  if (unusedDiceBonus) equationParts.push(`Other Class +${formatNumber(unusedDiceBonus)}`);
+  const withoutGarmoc=[...skillCheck.preservedFusions.map(f=>f.value),...analyzed.fusions.map(f=>f.value),...analyzed.leftovers].sort((a,b)=>b-a).slice(0,2).reduce((a,b)=>a+b,0);
+  if(garmocBonusResults.length && diceTotal>withoutGarmoc)equationParts.push(`Garmoc +${formatNumber(diceTotal-withoutGarmoc)}`);
   if (intoxicationBonus) equationParts.push(`STILL DRUNK ${intoxicationBonus > 0 ? "+" : ""}${intoxicationBonus}`);
-  if (equipmentBonus) equationParts.push(`Equipment +${equipmentBonus}`);
+  for(const rule of equipmentRules)if(rule.bonus)equationParts.push(`${rule.label} ${rule.bonus>0?"+":""}${formatNumber(rule.bonus)}`);
   const allOnes = results.length > 0 && results.every((value) => value === 1);
   if (allOnes) {
-    equationParts.push("INPUT QUALITY: QUESTIONABLE");
+
     document.body.classList.add("dice-input-flicker");
     showRollResultToast("INPUT QUALITY: QUESTIONABLE");
     setTimeout(() => document.body.classList.remove("dice-input-flicker"), 760);
@@ -5475,6 +5486,36 @@ async function resolvePhysicalSkillRoll(results) {
     newFusions: analyzed.fusions,
     attributeScore: diceTotal,
     diceResults: [...adjustedResults, ...garmocBonusResults],
+    calculation: skillCheck.campaignRequestId ? {
+      version:1,mode:'automatic',score,
+      lines:[
+        `Skill source: ${resolved.name || 'Skill'}`,
+        ...(garmocBonusResults.length&&diceTotal>withoutGarmoc?[`Final-score exception: Garmoc +${formatNumber(diceTotal-withoutGarmoc)}`]:[]),
+        `Raw dice: ${results.map((v,i)=>`D${skillCheck.currentRollSides?.[i]||'?'}=${v}`).join(', ')||'None'}`,
+        ...calculationTransforms,
+        `Adjusted dice: ${adjustedResults.join(', ')||'None'}; rules: ${profile.raceId||'None'} / ${profile.attributeKey} / ${profile.skillName}`,
+        `Preserved fusions: ${skillCheck.preservedFusions.map(f=>`${f.sourceValue} at indices [${f.sourceIndices.join(', ')}] → ${f.value}`).join('; ')||'None'}`,
+        `New fusions (adjusted-dice indices): ${analyzed.fusions.map(f=>`${f.sourceValue} at [${f.sourceIndices.join(', ')}] → ${f.value}`).join('; ')||'None'}`,
+        `Unfused dice: ${analyzed.leftovers.join(', ')||'None'}`,
+        `Independent Garmoc D20s: ${garmocBonusResults.join(', ')||'None'}`,
+        `Sorted candidate values: ${values.join(', ')||'None'}`,
+        `Selected top two: ${top.join(' + ')||'0'} = ${diceTotal}`,
+        `${Number.isFinite(skillCheck.overrideBonus)?'Override skill bonus':'Skill bonus'}: ${skillBonus}`,
+        `Exertion: ${skillCheck.committedExertion}`,
+        ...equipmentRules.map(rule=>`Equipment ${rule.label}: ${rule.bonus}`),
+        `Equipment subtotal: ${equipmentBonus}`,
+        `Intoxication modifier: ${intoxicationBonus}`,
+        ...(profile.classId==='ninja'&&profile.skillName==='Stealth'?[`Ninja additional Exertion: ${skillCheck.committedExertion*4}`]:[]),
+        ...(profile.raceId==='antropic'&&character.identity.raceType==='fluffy'&&profile.attributeKey==='strength'?['Fluffy Strength: -2']:[]),
+        ...(profile.raceId==='antropic'&&character.identity.raceType==='fluffy'&&profile.skillName==='Jump'?['Fluffy Jump: +5']:[]),
+        ...(profile.raceId==='skeder'&&profile.skillName==='Jump'?["Sked'er Jump: +3"]:[]),
+        ...(profile.raceId==='android'&&profile.skillName==='Initiative'?['Android Initiative: +5']:[]),
+        ...(profile.raceId==='epoc'&&['strength','health','dexterity','perception'].includes(profile.attributeKey)?[`Epoc ones penalty: ${-adjustedResults.filter(v=>v===1).length}`]:[]),
+        `Flat-modifier subtotal: ${flatBonus}`,
+        `Unused-dice candidates: ${values.slice(2).join(' + ')||'0'}; applied bonus ${unusedDiceBonus}`,
+        `Final score: ${diceTotal} + ${skillBonus} + ${flatBonus} + ${unusedDiceBonus} = ${score}`,
+      ],
+    } : null,
   });
 }
 
@@ -9002,10 +9043,12 @@ function refreshPlayerShipPreview() {
   if (status) status.textContent = draft.submitting ? "Moving..." : draft.message;
   card.querySelectorAll("[data-player-ship-confirm]").forEach(button => {
     button.disabled = Boolean(draft.submitting || !ready);
-    button.textContent = draft.submitting ? "Moving..." : draft.station ? "Station" : "Confirm";
+    button.textContent = draft.submitting ? "Moving..." : "Confirm Move";
   });
   card.querySelectorAll("[data-player-ship-begin], [data-player-ship-view]").forEach(button => { button.disabled = Boolean(draft.submitting); });
   card.querySelectorAll('[data-player-ship-cancel]').forEach(button=>{button.disabled=Boolean(draft.submitting&&draft.combatUnitId);});
+  const bottom=card.querySelector('[data-player-ship-confirm]'),viewport=card.querySelector('.player-starship-map-viewport');
+  window.SAMovementConfirm?.sync(bottom,{viewport,target:card.querySelector('[data-player-ship-square="'+draft.destination+'"]'),movingElement:card.querySelector('.player-starship-map'),active:Boolean(ready&&!card.classList.contains('full-ship-details'))});
   const cells = [...card.querySelectorAll("[data-player-ship-square]")];
   cells.forEach(cell => {
     const square = Number(cell.dataset.playerShipSquare);

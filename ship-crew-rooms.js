@@ -119,7 +119,7 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
   const id=String(body.requestId||'');if(!/^[\w-]{8,100}$/.test(id))throw Error('A room command receipt is required.');
   if(String(body.kind).startsWith('fabricate-')){const access=validateAccess(room,unit,body.sicId);if(access.ship.id!==ship.id||access.definition.utility!=='science-lab')throw Error('Use this Science Lab station.');return require('./ship-fabrication').command(room,ship,body.sicId,body,campaign);}
   if(String(body.kind).startsWith('extract-')){const access=validateAccess(room,unit,body.sicId);if(access.ship.id!==ship.id||!['mining-laser','vulture-drone'].includes(access.definition.utility))throw Error('Use the extraction station.');return require('./ship-extraction').command(room,ship,unit,body,campaign);}
-  const data=state(ship),fingerprint=JSON.stringify([unit?.characterId||unit?.id,body.kind,body.sicId,body.patientId,body.skill,body.score,body.title,body.text,body.noteId,body.checked,body.enabled,body.automationMode,body.mineral,body.quantity]);
+  const data=state(ship),fingerprint=JSON.stringify([unit?.characterId||unit?.id,body.kind,body.sicId,body.patientId,body.skill,body.score,body.title,body.text,body.noteId,body.checked,body.enabled,body.automationMode,body.mineral,body.quantity,...(body.kind==='talking-points'?[body.points,body.expectedRevision]:[])]);
   const saved=data.receipts?.find(r=>r.id===id);if(saved){if(saved.fingerprint!==fingerprint)throw Error('That receipt belongs to another room command.');return {...saved.result,duplicate:true};}
   const access=validateAccess(room,unit,body.sicId,{wakeOnly:body.kind==='wake'});if(access.ship.id!==ship.id)throw Error('Wrong ship.');
   const type=access.definition.utility,details=roomData(ship,access.id),impaired=Boolean(access.item.impaired||access.item.status==='impaired'||access.item.impairmentPoints>0);
@@ -163,7 +163,13 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
     details.report={text:name+' completed '+activity.toLowerCase()+'. '+narration+' No automatic skill or attribute award.',narration,at:Date.now()};result.text=details.report.text;
   }else if(type==='library'||type==='meeting-room'||type==='science-lab'){
     if(impaired)throw Error(type==='library'?'The Library database is inaccessible while impaired.':'Repair the '+access.definition.name+' before using its shared console.');
-    if(body.kind==='note'){
+    if(body.kind==='talking-points'&&type==='meeting-room'){
+      if(!Array.isArray(body.points)||body.points.length!==5||body.points.some(p=>typeof p!=='string'||p.length>500))throw Error('Enter five talking points, up to 500 characters each.');
+      const revision=details.talkingPointsRevision||0;
+      if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision!==revision)throw Error('Talking points changed since you loaded them. Your draft is retained; reload saved points before merging and saving.');
+      details.talkingPoints=[...body.points];details.talkingPointsRevision=revision+1;
+      result.text='Talking points saved.';result.talkingPointsRevision=revision+1;
+    }else if(body.kind==='note'){
       archiveEntry(details,{title:body.title,text:body.text,author:unit.characterName||'Crew',authorId:unit.characterId||unit.id});result.text=['library','science-lab'].includes(type)?'Research entry archived.':'Briefing item posted.';
     }else if(body.kind==='check'||body.kind==='remove'){
       const note=details.notes.find(n=>n.id===body.noteId);if(!note)throw Error('Entry no longer exists.');
