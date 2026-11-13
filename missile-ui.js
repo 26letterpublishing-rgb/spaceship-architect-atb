@@ -1,17 +1,27 @@
 (function(){
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function host(){let doc=document;try{while(doc.defaultView.frameElement&&!doc.defaultView.frameElement.hasAttribute('data-explore-perspective'))doc=doc.defaultView.parent.document;}catch{}return doc;}
-  function consoleFields(view,initial,reload){
+  function mineMagazineMarkup(magazine){
+    const mines=Object.entries(magazine).filter(([id,count])=>window.SAMissileAmmo.catalog[id]?.mine&&Number.isSafeInteger(count)&&count>0);
+    return mines.length?mines.map(([id,count])=>{const round=window.SAMissileAmmo.catalog[id];return '<figure><img src="'+esc(round.image)+'" alt="'+esc(round.name)+'"><figcaption>'+esc(round.name)+' × '+count+'</figcaption></figure>';}).join(''):'<p>No mines loaded.</p>';
+  }
+  function consoleFields(view,initial,reload,unload){
     const doc=view.ownerDocument,fields=doc.createElement('div');fields.dataset.missileFields='';
-    fields.innerHTML='<label>Loaded ammunition<select data-ammunition aria-label="Loaded ammunition"></select></label><div data-flare-fields hidden></div><label data-seeker-label hidden><input type="checkbox" data-seeker> Fit Magnetic Seeker (one from storage)</label><div class="missile-magazine-row"><output data-magazine></output></div><button type="button" data-reload>Reload from Storage</button><small data-reload-reason></small>';
+    fields.innerHTML='<label>Loaded ammunition<select data-ammunition aria-label="Loaded ammunition"></select></label><div data-flare-fields hidden></div><label data-seeker-label hidden><input type="checkbox" data-seeker> Fit Magnetic Seeker (one from storage)</label><div class="missile-magazine-row"><output data-magazine></output></div><button type="button" data-reload>Reload from Storage</button><small data-reload-reason></small><button type="button" data-unload>Unload Selected</button><small data-unload-reason></small>';
     view.querySelector('[data-sacrifice]').closest('label').before(fields);
     fields.querySelector('[data-reload]').onclick=()=>reload?.();
+    fields.querySelector('[data-unload]').onclick=()=>{const ammunition=fields.querySelector('[data-ammunition]').value;unload?.({ammunition,expectedCount:Number(fields.querySelector('[data-ammunition]').selectedOptions[0]?.dataset.count)});};
+    let loadedMines=null;
+    if(initial.definition.mineLauncher){loadedMines=doc.createElement('div');loadedMines.dataset.loadedMines='';loadedMines.setAttribute('aria-label','Loaded mines');view.querySelector('.weapon-controls').append(loadedMines);}
+    let phazonStock=null;
+    if(initial.definition.phazonTorpedo){phazonStock=doc.createElement('p');phazonStock.dataset.phazonStock='';view.querySelector('.weapon-feed').prepend(phazonStock);}
     let signature='';
     function order(){return {ammunition:fields.querySelector('select').value,seeker:fields.querySelector('[data-seeker]').checked,flares:[...fields.querySelectorAll('[data-flare-row]')].map(row=>({targetId:row.querySelector('[data-flare-target]').value,result:row.querySelector('[data-coin]').value,direction:row.querySelector('[data-direction]').value===''?null:Number(row.querySelector('[data-direction]').value)}))};}
     function update(state,unit,access,ready,busy){
       if(access.definition.phazonTorpedo){updateTorpedo(state,unit,access,ready,busy);return;}
       const magazine=window.SAMissileAmmo.magazine(access.ship,access.id),choices=Object.entries(magazine).filter(([,count])=>count>0),select=fields.querySelector('[data-ammunition]'),key=JSON.stringify(choices);
-      if(signature!==key){const old=select.value;select.innerHTML=choices.map(([id,count])=>`<option value="${esc(id)}">${esc(window.SAMissileAmmo.catalog[id]?.name||id)} (${count})</option>`).join('')||'<option value="">Empty magazine</option>';if(choices.some(([id])=>id===old))select.value=old;signature=key;}
+      if(signature!==key){const old=select.value;select.innerHTML=choices.map(([id,count])=>`<option value="${esc(id)}" data-count="${count}">${esc(window.SAMissileAmmo.catalog[id]?.name||id)} (${count})</option>`).join('')||'<option value="">Empty magazine</option>';if(choices.some(([id])=>id===old))select.value=old;signature=key;}
+      if(loadedMines){const html=mineMagazineMarkup(magazine);if(loadedMines.innerHTML!==html)loadedMines.innerHTML=html;}
       const round=window.SAMissileAmmo.catalog[select.value],flares=fields.querySelector('[data-flare-fields]'),observer=access.controlSource||access.ship;
       flares.hidden=!round?.flares;fields.querySelector('[data-seeker-label]').hidden=!round?.mine||round.web;fields.querySelector('[data-seeker]').disabled=!(window.SAMissileAmmo.storage(access.ship)['magnetic-seeker']>0);if(fields.querySelector('[data-seeker]').disabled)fields.querySelector('[data-seeker]').checked=false;
       const contacts=Object.values(observer.sensorState?.contacts||{}).filter(c=>c.level==='detected'&&c.isMissile&&c.missilePhase==='flying');
@@ -23,6 +33,8 @@
       const target=view.querySelector('[data-target]'),targetId=target.selectedOptions[0]?.dataset.ship||target.value,lock=window.SAShipWeapons.weaponLock(state,unit,access.ship,targetId,access.controlled&&!access.remotePilot),cooldown=access.ship.ship.missileState?.cooldowns?.[access.id]||0;
       const pending=unit.delayedAction;
       const stored=Object.entries(window.SAMissileAmmo.storage(access.ship)).filter(([id])=>!window.SAMissileAmmo.catalog[id]?.seeker&&Boolean(window.SAMissileAmmo.catalog[id]?.mine)===Boolean(access.definition.mineLauncher)).reduce((n,[id,v])=>n+v,0),reloadReason=access.remote||access.controlled?'Station physically at the launcher to reload.':!ready||busy||state.rollPaused?'Available on your turn after current actions finish.':window.SAMissileAmmo.used(access.ship,access.id)>=access.definition.capacity?'Magazine full.':!stored?'No missiles in storage.':'';
+      const local=!access.remote&&!access.controlled,unloadReason=!local?'Station physically at the launcher to unload.':access.blocked?'Launcher unavailable.':busy||unit.delayedAction||unit.timedAction||unit.delayTimer||unit.consoleHold||state.rollPaused||(!state.practice&&!ready)?'Available after current actions finish, during your combat turn.':!round?'Magazine empty.':'';
+      fields.querySelector('[data-reload]').hidden=!local;fields.querySelector('[data-unload]').hidden=!local;fields.querySelector('[data-unload]').disabled=Boolean(unloadReason);fields.querySelector('[data-unload-reason]').textContent=unloadReason;
       fields.querySelector('[data-reload]').disabled=Boolean(reloadReason);fields.querySelector('[data-reload-reason]').textContent=`Storage: ${stored} rounds. ${reloadReason}`;
       fields.querySelector('[data-magazine]').textContent=`MAGAZINE ${window.SAMissileAmmo.used(access.ship,access.id)} / ${access.definition.capacity}`;
       view.querySelector('[data-fire]').textContent=round?.flares?'Deploy Missile Flares':`Launch ${round?.name||'Missile'}`;
@@ -35,11 +47,12 @@
       const valid=round?.mine?true:round?.flares?order().flares.length===3&&order().flares.every(f=>f.result&&(f.result==='tails'||Number.isInteger(f.direction))&&contacts.some(c=>c.id===f.targetId)):lock;
       view.querySelector('[data-fire]').disabled=Boolean(busy||!ready||!round||cooldown>0||!valid||state.rollPaused);
       const reason=view.querySelector('[data-fire-reason]');if(reason){reason.textContent=busy?'Submitting launch...':!ready?'Available on your turn after current actions finish.':!round?'Magazine empty. Reload from storage at the launcher.':cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} seconds.`:!valid?(round.flares?'Complete the flare targets and dice results.':'Lock onto the target first.'):state.rollPaused?'Finish the pending dice roll.':'';reason.hidden=!view.querySelector('[data-fire]').disabled;reason.style.display=reason.hidden?'none':'block';}
-      if(round?.mine){view.querySelector('[data-warning]').textContent=cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:'Deploy on your current hex. Maximum three mines per hex. Your ship is immune.';view.querySelector('[data-formula]').textContent=round.description;}
+      if(round?.mine){for(const selector of ['[data-component-summary]','[data-target-status]']){const hint=view.querySelector(selector);if(hint)hint.textContent="Deploy on the launching ship's current hex. No target or Lock-On required.";}view.querySelector('[data-warning]').textContent=cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:'Deploy on your current hex. Maximum three mines per hex. Your ship is immune.';view.querySelector('[data-formula]').textContent=round.description;}
       select.disabled=busy||Boolean(pending);
     }
     function updateTorpedo(state,unit,access,ready,busy){
       fields.hidden=true;const target=view.querySelector('[data-target]'),id=target.selectedOptions[0]?.dataset.ship||target.value,lock=window.SAShipWeapons.weaponLock(state,unit,access.ship,id,access.controlled&&!access.remotePilot),stock=Number(access.ship.ship.minerals?.Phazon)||0,cooldown=access.ship.ship.missileState?.cooldowns?.[access.id]||0,au=(access.ship.auState?.available||0),a=window.SAShipTargets.point(state,access.ship.id),b=window.SAShipTargets.point(state,id),range=a&&b?window.SAShipDistances.hexDistance(a,b):Infinity,impaired=access.item.impaired||access.item.impairmentPoints||access.item.status==='impaired';
+      if(phazonStock)phazonStock.textContent=`Phazon in storage: ${stock} / 1 per torpedo`;
       const reason=busy?'Submitting launch…':!ready?'Available on your turn.':state.rollPaused?'Finish pending dice.':cooldown>0?`Launcher cycling: ${cooldown.toFixed(1)} active seconds.`:!lock?'Acquire a target Lock-On.':range>24?'Target exceeds 24 units.':stock<1?'One Phazon required.':au<8?'8 AU required.':'';
       view.querySelector('[data-fire]').textContent='Launch Phazon Torpedo';view.querySelector('[data-fire]').disabled=Boolean(reason);view.querySelector('[data-warning]').textContent=reason||'Target locked. Torpedo follows until impact or 24 units traveled.';view.querySelector('[data-formula]').textContent=(impaired?'3D8':'3D10 ×2')+' damage to shields or Hull. Speed 8 units / 12 active seconds. Cannot be shot down.';view.querySelector('[data-au]').textContent=`${au} AU / LAUNCH 8 AU · Phazon ${stock}`;view.querySelector('[data-input-text]').textContent=unit.delayedAction?.missileOrder?'Launch input in progress':reason||'Launcher ready';const hint=view.querySelector('[data-fire-reason]');if(hint){hint.textContent=reason;hint.hidden=!reason;hint.style.display=reason?'block':'none';}
     }

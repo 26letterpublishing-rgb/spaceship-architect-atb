@@ -302,3 +302,20 @@ body dialog.shield-console-dialog .shield-operations input{font-family:Orbitron,
 
 /* Bridge power contents sit at the bottom; oversized content retains its scroll area. */
 .ship-navigation-dialog:not(.navigation-planner):not(.cockpit-layout):not(.map-focus) .pilot-power{align-self:end;height:max-content;max-height:100%;min-height:0;overflow:auto}
+
+/* Center Bridge/Cockpit Hold and Resume within their existing desktop action column. */
+@media(min-width:901px){.ship-navigation-dialog:not(.navigation-planner) footer>[data-hold]{align-self:center}}
+
+/* Shield ALMA activity relocation only; preserve the existing controls and art. */
+/* Decorative orbit motion never transforms the functional integrity circle or text. */
+.shield-console-dialog .shield-decorative-ring{transform-box:view-box;transform-origin:150px 105px;animation:shield-orbit-collapse 8s ease-in-out infinite}
+.shield-console-dialog .shield-decorative-ring-b{animation-duration:10s;animation-delay:-3s}
+.shield-console-dialog .shield-decorative-ring-c{animation-duration:12s;animation-delay:-7s}
+@keyframes shield-orbit-collapse{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.12)}}
+.shield-console-dialog:not([open]) .shield-decorative-ring,.shield-console-dialog.is-powered-off .shield-decorative-ring,.shield-console-dialog[data-field=burst] .shield-decorative-ring{animation:none;transform:none}
+@media(prefers-reduced-motion:reduce){.shield-console-dialog .shield-decorative-ring{animation:none;transform:none}}
+@media(min-width:901px){
+ body dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-field{height:calc(75% - 12px)!important;align-self:start}
+ body dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shield-activity{grid-column:2!important;grid-row:2/4!important;align-self:end;height:25%!important;overflow:auto}
+ body dialog.shield-console-dialog.shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-seat{grid-column:3!important;grid-row:3!important;align-self:center;justify-content:center;align-items:center}
+}

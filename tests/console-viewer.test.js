@@ -21,8 +21,8 @@ const vm=require('node:vm');
 test('all Console catalog entries have independent visual fixtures and real station routes',()=>{
  const v=require('../console-viewer'),maps=require('../ship-map-core'),stations=require('../station-access');
  const expected=Object.entries(maps.catalog).filter(([,d])=>d.shipControl||d.shield||d.sensor||d.weapon||d.lockOn||d.utility||d.hacking).map(([id])=>id);
- assert.deepEqual(v.catalog.map(e=>e.id),expected);assert.equal(new Set(expected).size,131);
- for(const e of v.catalog){assert.ok(e.subroute);if(['sensor','lock'].includes(e.route))continue;const a=v.visualFixture(e.id),b=v.visualFixture(e.id);assert.equal(stations.access(a,a.units[0],'preview').item.type,e.id);assert.equal(a.visualOnly,true);power(a,false);assert.equal(b.starships[0].ship.sicInventory[0].disabled,undefined);power(a,true);assert.equal(a.starships[0].ship.sicInventory[0].status,'online');}
+ assert.deepEqual(v.catalog.filter(e=>!e.baseType).map(e=>e.id),expected);assert.deepEqual(v.catalog.filter(e=>e.baseType).map(e=>[e.id,e.baseType]),[['science-lab-printer','science-lab'],['science-lab-processor','science-lab']]);assert.equal(new Set(expected).size,131);
+ for(const e of v.catalog){assert.ok(e.subroute);if(['sensor','lock'].includes(e.route))continue;const a=v.visualFixture(e.id),b=v.visualFixture(e.id);assert.equal(stations.access(a,a.units[0],'preview').item.type,e.baseType||e.id);assert.equal(a.visualOnly,true);power(a,false);assert.equal(b.starships[0].ship.sicInventory[0].disabled,undefined);power(a,true);assert.equal(a.starships[0].ship.sicInventory[0].status,'online');}
 });
 const mixerSource=fs.readFileSync(require.resolve('../audio-mix'),'utf8');
 function audioFixture(){
@@ -79,4 +79,25 @@ test('Warp preview loads the existing travel effect and reads private viewer aud
  const win={SABrowserStorage:{local:{getItem(){reads++;return 'on';}}},addEventListener(){}};
  const context={window:win,document:{hidden:false,addEventListener(){}},matchMedia:()=>({matches:false,addEventListener(){}}),setInterval:fn=>{fn();return 1;},cancelAnimationFrame(){},requestAnimationFrame(){return 1;},ResizeObserver:class{observe(){}disconnect(){}},performance:{now:()=>0},Math};
  Object.defineProperty(context,'localStorage',{get(){personalReads++;throw Error('Personal storage must not be accessed');}});vm.runInNewContext(source,context);assert(reads>0);assert.equal(personalReads,0);assert.equal(typeof win.SAWarpEffects.update,'function');let normalReads=0;const normal={...context,window:{addEventListener(){}},localStorage:{getItem(){normalReads++;return 'on';}}};vm.runInNewContext(source,normal);assert(normalReads>0,'Production fallback still reads its existing storage');
+});
+
+test('Mine Launcher visual fixture loads mines while missile fixture stays unchanged',()=>{const {visualFixture}=require('../console-viewer');for(const [type,ammo]of [['mine-launcher','space-mine-1'],['missile-launcher-1','missile-1']]){const s=visualFixture(type).starships[0].ship;assert.deepEqual(s.missileAmmo,{preview:{[ammo]:3}});assert.deepEqual(s.missileStorage,{[ammo]:10});}assert.equal(require('../missile-ammunition').catalog['space-mine-1'].mine,true);});
+
+test('ordinary pilot Preview routes only Hold and Resume through the local adapter',async()=>{
+ const vm=require('node:vm'),source=fs.readFileSync(require.resolve('../console-viewer.js'),'utf8'),viewer=require('../console-viewer'),state=viewer.visualFixture('cockpit-1'),demo=require('../console-preview-actions').create(state),before=structuredClone(state.shipPositions);
+ const c={shieldDemo:null,devastationDemo:null,cleanserDemo:null,blackHoleDemo:null,navigationDemo:null,localDemo:null,pilotHoldDemo:demo,visual:true};vm.createContext(c);vm.runInContext(source.slice(source.indexOf(' const action=async body=>'),source.indexOf(' root.SACombatBridge=')).replace('const action=','this.action='),c);
+ for(let n=0;n<2;n++){await c.action({action:'playerCombatAction',kind:'holdConsole'});assert.equal(state.units[0].consoleHold,true);await c.action({action:'playerCombatAction',kind:'resumeConsole'});assert.equal(state.units[0].consoleHold,false);}
+ await assert.rejects(c.action({action:'playerCombatAction',kind:'moveStarship',destination:{q:3,r:2}}),/unavailable/);assert.deepEqual(state.shipPositions,before);await assert.rejects(c.action({action:'shipCommand',kind:'holdConsole'}),/unavailable/);
+ c.pilotHoldDemo=null;await assert.rejects(c.action({action:'playerCombatAction',kind:'holdConsole'}),/unavailable/);
+});
+
+test('Probe visual samples use owned docked and deployed contacts without executing orders',()=>{
+ const {visualFixture}=require('../console-viewer'),sensors=require('../ship-sensors'),a=visualFixture('probe-launcher'),b=visualFixture('probe-launcher'),owner=a.starships[0],data=owner.ship.probeState;
+ const docked=data.probes['preview-docked-probe'],deployed=data.probes['preview-deployed-probe'];
+ assert.equal(docked.phase,'docked');assert.equal(deployed.phase,'holding');assert.notEqual(docked.id,deployed.id);assert.equal(deployed.linked,true);
+ assert.equal(deployed.ownerId,owner.id);assert.equal(deployed.launcherId,'preview');assert.equal(data.receipts.length,0);assert.equal(a.units[0].delayedAction,undefined);assert.match(data.reports[0].text,/SIMULATED.*No launch command/);assert.ok(Number.isFinite(Date.parse(data.reports[0].at)));
+ const view=sensors.view(a,owner.id);assert.ok(view.starships.some(s=>s.id===deployed.id&&s.probeOwnerId===owner.id));assert.ok(!view.starships.some(s=>s.id===docked.id));
+ assert.equal(owner.ship.sicInventory.filter(i=>i.attachTo==='preview').length,2);
+ deployed.position.q=99;assert.equal(b.starships[0].ship.probeState.probes['preview-deployed-probe'].position.q,3);
+ assert.equal(visualFixture('missile-launcher-1').starships[0].ship.probeState,undefined);
 });

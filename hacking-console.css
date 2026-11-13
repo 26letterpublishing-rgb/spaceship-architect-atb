@@ -11,6 +11,10 @@ body dialog.hacking-console .hacking-targets :is(label,p){overflow-wrap:anywhere
 .hacking-console button,.counter-hack-swap button{border:1px solid #6ea89b;border-radius:4px;background:#204d41;color:#fff;padding:9px 13px;font:700 14px Arial;min-height:38px}
 .hacking-console button:disabled{opacity:.45}.hacking-console [data-error]{color:#ff8491;grid-column:1/-1}
 .hacking-slots,.hacking-palette{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
+@media(min-width:901px){
+ .hacking-console .hacking-board>[data-board-title],.hacking-console .hacking-board>[data-board-status]{text-align:center}
+ .hacking-console .hacking-board>.hacking-palette,.hacking-console .hacking-board>.hacking-slots{justify-content:center}
+}
 .hacking-slots label{width:48px;margin:0;text-align:center}.hacking-slots select{width:48px;font-size:21px;height:44px}
 .hacking-palette button{width:42px;height:42px;border-radius:4px;background:hsl(var(--letter-hue) 38% 24%);border:2px solid hsl(var(--letter-hue) 68% 70%);font-size:20px;padding:0}
 .hacking-history{display:flex;flex-wrap:wrap;gap:10px;padding:8px 0;border-bottom:1px solid #345046;margin:0}
@@ -25,3 +29,13 @@ body dialog.hacking-console .hacking-targets :is(label,p){overflow-wrap:anywhere
 .hacking-console .console-defense{font-size:15px;line-height:1.2}.hacking-slots select{padding:4px!important}
 @media(max-width:900px){.shared-console-layout.hacking-console .hacking-targets{order:2;display:block}.shared-console-layout.hacking-console .hacking-board{order:3;min-height:260px!important}.hacking-console header>div{min-width:0;max-width:100%}.hacking-console [data-selector]{display:flex;flex-wrap:wrap}.hacking-console .station-console-select{width:100%;min-width:0}.hacking-console .hacking-actions button{flex:1 1 120px}.hacking-console [data-error]{order:4}}
 @media(max-width:900px){.shared-console-layout.hacking-console .shared-power{max-height:none!important}.hacking-console .shared-power>h3:first-child{display:none}}
+/* ALMA password text enlargement; retain existing controls and panel geometry. */
+@media(min-width:901px){
+ .hacking-console .hacking-board>[data-board-title]{font-size:24px}
+ .hacking-console .hacking-board>[data-board-status]{font-size:18px}
+ .hacking-console .hacking-board .hacking-palette button{font-size:24px}
+ .hacking-console .hacking-board .hacking-slots select{font-size:24px}
+ .hacking-console .hacking-board .hacking-slots label>span{font-size:14px}
+ .hacking-console .hacking-board .hacking-history code{font-size:20px}
+ .hacking-console .hacking-board .hacking-history>span,.hacking-console .hacking-board .hacking-history>b{font-size:18px}
+}

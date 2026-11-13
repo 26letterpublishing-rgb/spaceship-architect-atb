@@ -36,7 +36,7 @@ function advance(room,seconds){
   const flight=o.gunOrb,fraction=flight.remaining>0?Math.min(1,seconds/flight.remaining):1;
   o.q+=(flight.target.q-o.q)*fraction;o.r+=(flight.target.r-o.r)*fraction;flight.remaining=Math.max(0,flight.remaining-seconds);
   if(flight.remaining<=1e-8){o.q=flight.target.q;o.r=flight.target.r;o.kind='black-hole';o.name='Temporary Black Hole '+o.id.slice(-6).toUpperCase();o.intensity=flight.intensity;o.gunDecay={remaining:15};delete o.gunOrb;delete o.pullCycle;
-   for(const ship of room.starships||[]){const p=room.shipPositions?.find(p=>p.id===ship.id);if(!p||maps.gravityFieldActive(ship)||ship.dockedIn||ship.escapedAt||ship.ship.warpState?.phase==='traveling')continue;const hex=distances.roundHex(p);if(hex.q===o.q&&hex.r===o.r){ship.currentHullHp=ship.ship.currentHullHp=0;ship.navigation=null;}}
+   require('./black-hole-impact').arrival(room,o);
   }return true;
  });
 }

@@ -44,6 +44,13 @@
     // Do not pull hidden fields into a public presentation or repeat thresholds.
     return [[...new Set(sources)].join(' · '),[...new Set(delay)].join(' · ')].filter(Boolean).join('\n');
   }
+  function campaignDice(result){
+    const line=result?.calculation?.lines?.find(line=>line.startsWith('Raw dice: '));
+    const dice=line?.slice(10).split(', ').map(part=>part.match(/^D(\d+|\?)=(\d+(?:\.\d+)?)$/));
+    if(dice?.length&&dice.every(Boolean))return {types:'DICE: '+dice.map(d=>'D'+d[1]).join('  |  '),values:'VALUES: '+dice.map(d=>d[2]).join('  |  ')};
+    const values=result?.diceResults;
+    return Array.isArray(values)&&values.length&&values.every(Number.isFinite)?{types:'DICE: Types unavailable',values:'VALUES: '+values.join('  |  ')}:null;
+  }
   function message(note){
     const text=String(note?.message||'');
     if(note?.kind!=='prompt-result')return text;
@@ -52,5 +59,5 @@
     const head=(at<0?text:text.slice(0,at)).replace(/\. Dice: [^\n]*\./,'');
     return at<0?head:[head.trim(),campaign({lines:text.slice(at+marker.length).trim().split('\n')})].filter(Boolean).join('\n');
   }
-  const api={campaign,ship,message};if(typeof module==='object'&&module.exports)module.exports=api;else root.SARollDisplay=api;
+  const api={campaign,ship,message,campaignDice};if(typeof module==='object'&&module.exports)module.exports=api;else root.SARollDisplay=api;
 })(typeof globalThis==='object'?globalThis:this);

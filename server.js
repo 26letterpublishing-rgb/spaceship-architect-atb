@@ -277,6 +277,7 @@ function createRoom(requestedCode = "", snapshot = null, register = true) {
     room.running = false;
     room.hardPaused = true;
   }
+  require('./ship-offline-events').reset(room.starships);
   if (register) {
     rooms.set(code, room);
     clients.set(code, new Set());
@@ -442,6 +443,7 @@ function publicState(room) {
   for(const ship of room.starships)ship.incomingLocks=room.starships.flatMap(other=>(other.lockState?.targets||[]).filter(t=>t.targetId===ship.id).map(()=>({shipId:other.id,breakDifficulty:shipLocks.breakDifficulty(other,ship.id),title:ship.sensorState?.contacts?.[other.id]?.level==='detected'?other.title:'Unknown attacker'})));
   for(const ship of room.starships){ship.defenseScore=shipSensors.defense(room,ship);ship.evasionRemaining=Math.max(0,...(ship.commandSystems?.evasions||[]).map(e=>e.remaining??20));}
   migrateRoomDelays(room);
+  require('./ship-offline-events').ready(room.starships);
   const command = commandState(room);
   return {
     revision: ++stateSequence,
@@ -1146,6 +1148,7 @@ function restoreUndoSnapshot(room) {
   room.arena=snapshot.arena?require('./combat-arena').normalize(snapshot.arena):null;room.fog=clone(snapshot.fog||{enabled:false,explored:{},forced:{},memory:{}});
   room.threshold = snapshot.threshold;
   room.starships = clone(snapshot.starships || []);
+  require('./ship-offline-events').reset(room.starships);
   room.shipDistances = clone(snapshot.shipDistances || []);
   room.planetaryEvent = clone(snapshot.planetaryEvent||null);
   room.cleanserScars = clone(snapshot.cleanserScars||[]);
@@ -1205,7 +1208,7 @@ function visibleEncounter(data, viewer) {
   data={...data,hackingDice,starships:data.starships.map(s=>({...s,ship:{...s.ship,fieldState:s.ship.fieldState?{...s.ship.fieldState,hackAlertRolls:undefined}:undefined}}))};
   data = { ...data, accessRole: viewer?.gm ? 'gm' : viewer?.characterId ? 'character' : 'spectator' };
   const notices=require('./fleet-status').project(data,{role:viewer?.gm?'gm':'character',characterId:viewer?.characterId});
-  data={...data,fleetNotices:{critical:notices.critical,lockedShips:notices.lockedShips,lockLosses:notices.lockLosses,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
+  data={...data,fleetNotices:{sicOffline:notices.sicOffline,critical:notices.critical,lockedShips:notices.lockedShips,lockLosses:notices.lockLosses,damagedSystems:notices.damagedSystems,activity:notices.activity,detections:notices.detections,intrusions:notices.intrusions}};
   data.crewRoomRolls=(data.crewRoomRolls||[]).filter(r=>viewer?.gm||(viewer?.characterId&&r.characterId===viewer.characterId&&r.controller!=='gm'));
   data.starships=data.starships.map(s=>viewer?.gm||viewer?.spectator&&s.controlType==='pc'||s.crewCharacterIds?.includes(viewer?.characterId)||data.units.some(u=>u.characterId===viewer?.characterId&&u.location?.starshipId===s.id)?s:{...s,ship:{...s.ship,atmosphereState:undefined,cloakState:undefined,crewRoomState:undefined,fabricationState:undefined,fieldState:undefined,droneState:undefined,probeState:undefined}});
   data.missileHistory=(data.missileHistory||[]).filter(r=>viewer?.gm||(viewer?.characterId&&r.characterId===viewer.characterId&&r.controller!=='gm'));
@@ -2715,12 +2718,13 @@ async function handleRoomAction(body, res, automated = false) {
   }
 
   if (action === 'weaponCommand') {
-    const result=shipWeapons.queue(room,playerUnit,body);
+    const result=body.kind==='unload-missiles'?shipMissiles.unload(room,playerUnit,body):shipWeapons.queue(room,playerUnit,body);
     if(!result.ok){sendJson(res,409,{error:result.error});return;}
     if(!result.duplicate){
       const source=room.activeSource;
+      if(result.unloaded)playerUnit.atb=Math.max(0,playerUnit.atb-room.threshold);
       room.activeId=null;room.pausedForTurn=false;clearActiveCommand(room);
-      pushLog(room,`${playerUnit.characterName} committed ${result.reload?"a missile reload":"a weapon firing order"}.`,{starshipId:result.ship.id});
+      pushLog(room,`${playerUnit.characterName} committed ${result.unloaded?"an ammunition unload":result.reload?"a missile reload":"a weapon firing order"}.`,{starshipId:result.ship.id});
       moveToNextTurnOrClock(room,source);
     }
   }

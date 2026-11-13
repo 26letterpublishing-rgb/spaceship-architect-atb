@@ -22,6 +22,17 @@ function state(ship){const data=ship.ship.missileState ||= {};data.flights||=[];
 const pending=room=>targets.flights(room).some(m=>m.phase==='impact');
 function reconcile(room){let count=0;for(const m of targets.flights(room)){if(!['impact','flying'].includes(m.phase)||!m.targetId)continue;const target=targets.find(room,m.targetId);if(!target||target.currentHullHp<=0||target.escapedAt||target.ship.warpState?.phase==='traveling'){m.phase='expired';m.endedAt=Date.now();count++;}}return count;}
 function report(ship,text,extra={}){const r={id:require('node:crypto').randomUUID(),at:new Date().toISOString(),text,...extra};const s=sensors.knowledge(ship);s.reports=[r,...s.reports].slice(0,40);if(extra.impact||extra.missileLaunch){ship.weaponState||={receipts:[],reports:[]};ship.weaponState.reports=[r,...ship.weaponState.reports].slice(0,40);}return r;}
+function unload(room,unit,body,{outsideCombat=false}={}){
+  const access=stations.access(room,unit,body.sicId);
+  if(!access||access.blocked||access.remote||access.controlled||!access.definition.missileLauncher||access.definition.phazonTorpedo||access.ship.id!==unit?.location?.starshipId||body.starshipId&&body.starshipId!==access.ship.id)return {ok:false,error:'Station physically at this launcher to unload.'};
+  const ship=access.ship,receipt=String(body.requestId||''),data=state(ship),fingerprint=JSON.stringify([unit.id,access.id,body.ammunition,body.expectedCount]);
+  if(!/^[\w-]{8,100}$/.test(receipt))return {ok:false,error:'Invalid unloading receipt.'};
+  const prior=data.unloadReceipts?.find(r=>r.id===receipt);
+  if(prior)return prior.fingerprint===fingerprint?{ok:true,duplicate:true,ship,unloaded:prior.count}:{ok:false,error:'That receipt belongs to another unloading request.'};
+  if(!outsideCombat&&room.activeId!==unit.id||unit.delayedAction||unit.timedAction||unit.delayTimer||unit.consoleHold||unit.shieldRestabilizing||room.rollPaused||room.activeAction||room.units.some(u=>u.delayedAction?.missileOrder?.sicId===access.id&&u.delayedAction.missileOrder.shipId===ship.id))return {ok:false,error:'Finish the current action and unload during your turn.'};
+  if(ship.currentHullHp<=0||ship.escapedAt||ship.ship.warpState?.phase==='traveling')return {ok:false,error:'The launcher ship is unavailable.'};
+  try{const count=ammo.unload(ship,access.id,body.ammunition,body.expectedCount);data.unloadReceipts=[...(data.unloadReceipts||[]),{id:receipt,fingerprint,count}].slice(-256);report(ship,'Unloaded '+count+' '+ammo.catalog[body.ammunition].name+' into storage.',{operatorId:unit.id});return {ok:true,ship,unloaded:count};}catch(error){return {ok:false,error:error.message};}
+}
 function queue(room,unit,body,input){
   const access=stations.access(room,unit,body.sicId);
   if(!access||access.blocked||!access.definition.missileLauncher||(!access.definition.phazonTorpedo&&impaired(access.item)))return {ok:false,error:'Use an undamaged Missile Launcher at an accessible station.'};
@@ -151,11 +162,13 @@ function resolveDamage(room,id,total,campaign,evidence){
     shields.refresh(room);const damage=total*(m.torpedo?m.damageMultiplier:target.currentShieldHp>0?1:5),before={hull:target.currentHullHp,shield:target.currentShieldHp};shields.damage(room,target.id,damage);
     const result={hullDamage:before.hull-target.currentHullHp,shieldDamage:before.shield-target.currentShieldHp};
     const item=target.ship.sicInventory.find(i=>i.id===m.targetSicId),componentHit=Boolean(result.hullDamage&&item&&target.ship.placements.some(p=>p.sicId===item.id));
+    const offline=require('./ship-offline-events'),wasOnline=offline.capture(target,item);
     result.impairments=0;
     if(componentHit&&stations.online(item)){
       result.impairments=Math.floor(result.hullDamage/Math.max(1,maps.effectiveThreshold(target,item)||1));
       if(result.impairments){const previous=Number(item.impairmentPoints)||(item.impaired?1:0);item.impairmentPoints=Math.min(4,previous+result.impairments);item.impaired=true;if(item.impairmentPoints>=4||maps.definition(item.type).destroyedOnImpairment)item.status='destroyed';if(item.type==='escape-pods')podInjuries=require('./ship-field-utilities').hurtPod(room,target,item,item.impairmentPoints-previous,campaign);}
     }
+    offline.record(target,item,wasOnline);
     const parts=[result.shieldDamage>0?`${result.shieldDamage} shield damage`:null,result.hullDamage>0?`${result.hullDamage} hull damage`:null].filter(Boolean);
     const text=`${m.name}: ${total} rolled; ${parts.join(', ')||'no damage'}.${componentHit?` ${m.componentName||'Targeted SIC'} damaged${result.impairments?`: ${result.impairments} impairment(s)`:''}.`:''}`;
     remember(m.torpedo?m.damageMultiplier:before.shield>0?1:5,parts.join(', ')||'No damage.');
@@ -167,4 +180,4 @@ function resolveDamage(room,id,total,campaign,evidence){
   for(const other of targets.flights(room))if(other.phase==='impact'&&room.starships.find(s=>s.id===other.targetId)?.currentHullHp<=0){other.phase='expired';other.endedAt=Date.now();}
   return {ok:true,podInjuries,calculation};
 }
-module.exports={ROUND,state,pending,queue,resolveInput,nextEvent,advance,resolveDamage,reconcile};
+module.exports={ROUND,state,pending,queue,unload,resolveInput,nextEvent,advance,resolveDamage,reconcile};

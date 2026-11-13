@@ -3,16 +3,7 @@ const maps=require('./ship-map-core'),stations=require('./station-access'),power
 const skillCatalog=require('./skill-catalog'),vrSimulations=require('./vr-simulations');
 const TREATMENT_SECONDS=60, RECOVERY_SECONDS=300;
 const VR_D4_LIMIT_TENTHS=40, VR_MAX_TENTHS=60;
-const GYM_NARRATIONS=Object.freeze([
-  '{character} finished the workout and went looking for a drink.',
-  'Is it leg day? {character} is still checking the schedule.',
-  '{character} completed the circuit. The equipment requested a break.',
-  '{character} challenged gravity to a rematch. Gravity declined to comment.',
-  '{character} counted every repetition, including the dramatic pause.',
-  '{character} stretched. The ship did not become any roomier.',
-  '{character} earned a respectful beep from the exercise console.',
-  '{character} declared the cooldown the best part of the workout.'
-]);
+const gymReport=require('./gym-report'),{GYM_NARRATIONS}=gymReport;
 const activePhases=new Set(['preparing','recovering']);
 const state=ship=>ship.ship.crewRoomState ||= {rooms:{},receipts:[],down:{}};
 function roomData(ship,id){const s=state(ship);s.rooms||={};s.receipts||=[];s.down||={};return s.rooms[id] ||= {notes:[],jobs:[],supplies:0};}
@@ -158,9 +149,7 @@ function command(room,unit,body,{campaign,gm=false,outsideCombat=false}={}){
   }else if(type==='gym'){
     if(impaired)throw Error('Repair the Gym before using its equipment.');
     if(body.kind!=='exercise')throw Error('Choose an exercise.');
-    const activity=['Strength circuit','Endurance workout','Stretching'].includes(body.text)?body.text:'Stretching';
-    const name=unit.characterName||'Crew',narration=GYM_NARRATIONS[randomInt(GYM_NARRATIONS.length)].replaceAll('{character}',()=>name);
-    details.report={text:name+' completed '+activity.toLowerCase()+'. '+narration+' No automatic skill or attribute award.',narration,at:Date.now()};result.text=details.report.text;
+    details.report=gymReport.report(unit.characterName,body.text,randomInt(GYM_NARRATIONS.length),Date.now());result.text=details.report.text;
   }else if(type==='library'||type==='meeting-room'||type==='science-lab'){
     if(impaired)throw Error(type==='library'?'The Library database is inaccessible while impaired.':'Repair the '+access.definition.name+' before using its shared console.');
     if(body.kind==='talking-points'&&type==='meeting-room'){
@@ -295,6 +284,7 @@ function inspect(room,campaign,unit,sicId,gm){
   const changed=reconcile(room,campaign);
   const details=roomData(access.ship,sicId),presentation=access.definition.utility==='vr-training-room'&&details.trainingSkill?{...details,simulation:vrSimulations.title(details.trainingSkill,details.simulation)}:details;
   return {extraction:['mining-laser','vulture-drone'].includes(access.definition.utility)?require('./ship-extraction').inspect(room,access.ship,sicId):null,fabrication:access.definition.utility==='science-lab'?require('./ship-fabrication').inspect(room,access.ship,sicId):null,changed,shipId:access.ship.id,sicId,type:access.definition.utility,name:access.definition.name,details:presentation,impaired:impairment(access.item),hibernationUnavailable:access.definition.utility==='hibernation-chamber'?hibernationUnavailable(room,access.ship,unit.location?.square):'',shipMinerals:{...access.ship.ship.minerals},gm,outsideCombat:Boolean(room.outsideCombat),
+    ...(access.definition.utility==='hibernation-chamber'?{hibernationRoster:require('./hibernation-roster').roster(access.ship.id,[...(access.ship.crewCharacterIds||[]),...(access.ship.crewNpcUnitIds||[])],actors(room,campaign).map(a=>({id:a.id,name:a.name,loc:a.unit?a.unit.location:a.loc,vacuum:a.unit?.vacuum,hibernating:Object.entries(state(access.ship).rooms||{}).some(([id,d])=>d.hibernation?.phase==='sleeping'&&d.hibernation.occupantId===a.id&&maps.installedItems(access.ship).some(i=>i.id===id&&i.type==='hibernation-chamber')&&inside(access.ship,id,a))})))}:{}),
     occupants:actors(room,campaign).filter(a=>inside(access.ship,sicId,a)).map(a=>({id:a.id,name:a.name})),
     patients:actors(room,campaign).filter(a=>inside(access.ship,sicId,a)&&!a.mechanical).map(a=>({id:a.id,name:a.name,hp:a.hp,maximum:a.maximum,downSeconds:state(access.ship).down?.[a.id]||0,busy:inTreatment(room,a.id)})),
     attributes:[...skillCatalog.groups,...(Object.keys(record?.character.skills||{}).some(name=>!skillCatalog.names.includes(name))?[{key:'other',label:'Other skills'}]:[])],

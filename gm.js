@@ -1683,6 +1683,7 @@ function renderCampaign() {
 }
 
 function receiveCampaign(next) {
+  window.SACampaignMusic?.update(next,{select:async musicSong=>{const result=await api('/api/campaign/settings',{code,token,musicSong});receiveCampaign(result.campaign);}});
   window.SACharacterLifecycle?.update(arguments[0]);
   window.SAInterfaceNotices?.setCombatActive(next.combatActive);
   const objects=next.spaceObjects||[];
@@ -3068,7 +3069,7 @@ function notifyPromptResults(next){
  for(const entry of entries){
   if(entry.result.cancelled||entry.result.gmNotification)continue;
   const person=next.characters.find(c=>c.id===entry.id);
-  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true,reputation:entry.result.reputation,allowOutsideCombat:true,promptResult:{score:entry.result.score,outcome:entry.result.outcome||'Result'},onResolve:action=>api('/api/campaign/roll/notification',{code:next.code,token,requestId:entry.request.id,characterId:entry.id,action}),details:`${entry.request.attribute} + ${entry.request.skill||'—'}\nResult: ${entry.result.score}\nDifficulty: ${entry.request.difficulty??'None'}\nOutcome: ${entry.result.outcome||'—'}\n${campaignCalculationDetails(entry.result)}`});
+  window.SAResultFeedback?.push(`prompt:${next.code}:${entry.key}`,`${characterName(person)} — Roll result`,`${entry.request.attribute}${entry.request.skill?' + '+entry.request.skill:''}: ${entry.result.score}${entry.result.outcome?' · '+entry.result.outcome:''}`,{topLayer:true,reputation:entry.result.reputation,allowOutsideCombat:true,dice:window.SARollDisplay.campaignDice(entry.result),promptResult:{score:entry.result.score,outcome:entry.result.outcome||'Result'},onResolve:action=>api('/api/campaign/roll/notification',{code:next.code,token,requestId:entry.request.id,characterId:entry.id,action}),details:`${entry.request.attribute} + ${entry.request.skill||'—'}\nResult: ${entry.result.score}\nDifficulty: ${entry.request.difficulty??'None'}\nOutcome: ${entry.result.outcome||'—'}\n${campaignCalculationDetails(entry.result)}`});
  }
 }
 

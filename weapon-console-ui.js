@@ -36,15 +36,17 @@
     if(family!=='rapid-laser'||initial.definition.phazonTorpedo){
       window.SAConsoleCommon.namedHeader(view,initial.definition.name,initial.ship.title);
     }
-    if(family==='beam-laser')get('[data-leave]').remove();
+    if(family==='beam-laser'){get('[data-leave]').remove();get('.weapon-controls').append(firing);}
     const enlarge=host.createElement('button');enlarge.type='button';enlarge.className='weapon-enlarge-map';enlarge.textContent='Enlarge Map';enlarge.onclick=()=>window.SASpaceMap.enlarge(get('[data-map] .space-map'),enlarge);get('.weapon-plot h3').append(enlarge);
     if(initial.definition.phazonTorpedo){view.classList.add('phazon-torpedo-console');view.style.backgroundImage='url(torpedo-console.webp)';}
     const devastation=initial.definition.devastation;
-    if(devastation){const box=host.createElement('section');box.className='devastation-status';box.innerHTML='<strong data-dev-status role="status"></strong><progress data-dev-progress max="1" value="0" aria-label="Weapon charge or cooldown"></progress><p data-dev-upkeep></p><button data-dev-charge>Begin Charging</button><button data-dev-release>Release Charge</button><small data-dev-reason></small>';get('.weapon-controls').prepend(box);
+    if(devastation){const box=host.createElement('section');box.className='devastation-status';box.innerHTML='<strong data-dev-status role="status"></strong><p data-dev-upkeep></p><button data-dev-charge>Begin Charging</button><button data-dev-release>Release Charge</button><small data-dev-reason></small>';get('.weapon-controls').prepend(box);
+      const meter=host.createElement('div');meter.className='devastation-meter';meter.innerHTML='<div data-dev-progress role="progressbar" aria-label="Weapon charge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">'+Array.from({length:12},()=>'<span aria-hidden="true"></span>').join('')+'</div><small data-dev-meter-label></small>';get('.weapon-plot').insertBefore(meter,get('[data-target-status]'));
+
       for(const [selector,kind]of [['[data-dev-charge]','devastation-charge'],['[data-dev-release]','devastation-discharge']])get(selector).onclick=async()=>{if(busy)return;busy=true;try{await bridge.utilityAction({id:unit.id,starshipId:initial.ship.id,sicId,kind,receipt:crypto.randomUUID()});}catch(e){get('[data-error]').textContent=e.message;}finally{busy=false;redraw();}};
     }
 
-    const missile=initial.definition.missileLauncher?window.SAMissileUI.console(view,initial,async()=>{if(busy)return;busy=true;try{await bridge.action({action:"weaponCommand",id:unit.id,sicId,kind:"reload-missiles",requestId:crypto.randomUUID()},"resolve",{throwOnError:true});}catch(error){get("[data-error]").textContent=error.message;}finally{busy=false;redraw();}}):null;
+    const missile=initial.definition.missileLauncher?window.SAMissileUI.console(view,initial,async()=>{if(busy)return;busy=true;try{await bridge.action({action:"weaponCommand",id:unit.id,sicId,kind:"reload-missiles",requestId:crypto.randomUUID()},"resolve",{throwOnError:true});}catch(error){get("[data-error]").textContent=error.message;}finally{busy=false;redraw();}},async selection=>{if(busy)return;busy=true;redraw();try{await bridge.action({action:'weaponCommand',id:unit.id,starshipId:initial.ship.id,sicId,kind:'unload-missiles',...selection,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});get('[data-error]').textContent='';}catch(error){get('[data-error]').textContent=error.message;}finally{busy=false;redraw();}}):null;
     const repeater=family==='ballistic-rail-repeater',rail=repeater||family==='ballistic-rail-cannon',manualOnly=rail||initial.definition.manualOnly;
     get('[data-target]').setAttribute('aria-label','Weapon target');get('[data-input]').setAttribute('aria-label','Weapon input');
     get('header small').textContent=`${initial.remote?'REMOTE':'LOCAL'} FIRE CONTROL / ${unit.characterName}`;
@@ -132,7 +134,12 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       if(devastation){const ds=window.SADevastation.system(access.ship,sicId),why=window.SADevastation.reason(state,access.ship,access.item),operable=window.SADevastation.available(state,access.ship,access.item),canCommand=state.practice||ready;
         get('.devastation-status').dataset.phase=ds.phase;
         get('[data-dev-status]').textContent=ds.phase==='ready'?'weapon ready to fire':ds.phase==='charging'?'CHARGING / '+Math.ceil(ds.remaining)+' SEC':ds.phase==='cooldown'?'COOLING DOWN / '+Math.ceil(ds.remaining)+' SEC':'CHARGE EMPTY';
-        get('[data-dev-progress]').value=ds.phase==='ready'?1:ds.phase==='charging'?1-ds.remaining/access.definition.chargeSeconds:ds.phase==='cooldown'?1-ds.remaining/access.definition.cooldownSeconds:0;
+        const fraction=Math.max(0,Math.min(1,ds.phase==='ready'?1:ds.phase==='charging'?1-ds.remaining/access.definition.chargeSeconds:ds.phase==='cooldown'?1-ds.remaining/access.definition.cooldownSeconds:0));
+        const progress=get('[data-dev-progress]'),meter=get('.devastation-meter'),label=ds.phase==='cooldown'?'Cooldown':ds.phase==='ready'?'Charge ready':ds.phase==='charging'?'Charging':'Charge empty';
+        meter.dataset.phase=ds.phase;meter.style.setProperty('--dev-pulse-seconds',(1.8-1.2*fraction).toFixed(3)+'s');
+        progress.setAttribute('aria-label',ds.phase==='cooldown'?'Weapon cooldown':'Weapon charge');progress.setAttribute('aria-valuenow',String(Math.round(fraction*100)));progress.setAttribute('aria-valuetext',label+' / '+Math.round(fraction*100)+'%');
+        [...progress.children].forEach((cell,i)=>cell.classList.toggle('filled',i<Math.floor(fraction*12+1e-8)));
+        get('[data-dev-meter-label]').textContent=label+' / '+Math.round(fraction*100)+'%';
         get('[data-dev-upkeep]').textContent=access.definition.chargeAu+' AU / 12 seconds · '+access.definition.chargeSeconds+' sec charge · '+access.definition.cooldownSeconds+' sec cooldown';
         get('[data-dev-charge]').disabled=busy||!canCommand||!operable||ds.phase!=='idle'||available<access.definition.chargeAu;
         get('[data-dev-release]').disabled=busy||!canCommand||!['charging','ready'].includes(ds.phase);

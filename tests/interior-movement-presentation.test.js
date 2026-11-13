@@ -99,3 +99,12 @@ test('hidden legacy map skips DOM rebuild and geometry, then refreshes when open
  c.renderGrid();c.positionLegacyConfirm();assert.equal(clears,0);assert.equal(reads,0);assert.equal(positions,0);
  hidden=false;c.renderGrid();c.positionLegacyConfirm();assert.equal(clears,1);assert.equal(reads,1);assert.equal(positions,1);
 });
+
+
+test('enlarged interior awaits movement presentation in its actual owner document',()=>{
+ const source=fs.readFileSync(require.resolve('../ship-combat-map.js'),'utf8');
+ const expansion=source.slice(source.indexOf('  async function expandInterior('),source.indexOf('    if(!host.isConnected)return;',source.indexOf('  async function expandInterior(')));
+ assert.match(expansion,/await Promise\.all/);
+ assert.ok(expansion.includes('link[rel="stylesheet"][href*="movement-controls.css"]'));
+ assert.match(expansion,/doc\.head\.append\(copy\)/);
+});

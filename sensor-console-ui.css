@@ -127,3 +127,18 @@ body dialog.sensor-console.combat-order-dialog.map-focus [data-map]{height:auto!
  body dialog.sensor-console.combat-order-dialog.map-focus>main{display:block!important;height:auto!important}
  body dialog.sensor-console.combat-order-dialog.map-focus [data-map]{height:clamp(180px,35dvh,360px)!important}
 }
+
+/* ALMA action palette; retain existing dimensions and interaction states. */
+.sensor-console .sensor-controls button:is([data-order=area],[data-order=hex]){background-color:#ff944d;border-color:#ff944d;color:#07121a}
+.sensor-console .sensor-controls button[data-order=analysis]{background-color:#28d7ff;border-color:#28d7ff;color:#07121a}
+.sensor-console .sensor-controls button[data-order=life]{background-color:#ff66cf;border-color:#ff66cf;color:#07121a}
+.sensor-console .sensor-controls button[data-order=share]{background-color:#ffd05a;border-color:#ffd05a;color:#07121a}
+
+/* Sensors report terminal; leave alert colors, graphics and interactive controls intact. */
+body dialog.sensor-console:not(.probe-console) .sensor-reports{background:#000!important;color:#80ff9c}
+.sensor-console:not(.probe-console) .sensor-reports :is(h3,[data-reports]){font-family:Orbitron,sans-serif;color:#80ff9c}
+.sensor-console:not(.probe-console) .sensor-reports [data-reports]{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.sensor-console:not(.probe-console) .sensor-reports :is(time,small){font-size:13px;color:inherit}
+.sensor-console:not(.probe-console) [data-sensor-terminal-tail]::after{content:'';display:inline-block;width:.6em;height:1em;margin-left:.15em;vertical-align:-.15em;background:#80ff9c;pointer-events:none;animation:sensor-terminal-cursor 1s steps(1,end) infinite}
+@keyframes sensor-terminal-cursor{0%,100%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.sensor-console:not(.probe-console) [data-sensor-terminal-tail]::after{animation:none;opacity:1}}

@@ -123,7 +123,16 @@
       submit.style.left=(rect.left-parent.left+pos.x)+'px';submit.style.top=(rect.top-parent.top+pos.y)+'px';
     }
     const confirmCamera=new MutationObserver(positionConfirm);confirmCamera.observe(svg,{attributes:true,attributeFilter:['viewBox']});
-    begin.onclick=()=>{if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{if(compact){rememberDismissal();dialog.close();return;}planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
+    let moveHint=null;
+    const clearMoveHint=()=>{moveHint?.cancel();moveHint=null;};
+    function hintMove(){
+      if(compact||!/^bridge-\d+$/.test(selected.item.type)||planning||submitting||begin.hidden||begin.disabled)return;
+      clearMoveHint();
+      const reduced=host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const emphasis={boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'};
+      moveHint=begin.animate(reduced?[emphasis,emphasis]:[{},emphasis,{}],{duration:reduced?700:400,iterations:reduced?1:2});
+    }
+    begin.onclick=()=>{clearMoveHint();if(form.querySelector('.pilot-chart').classList.contains('command-page'))form.querySelector('[data-command-page]')?.click();planning=true;redraw();if(!host.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches)form.querySelector('.pilot-chart').animate([{boxShadow:'inset 0 0 0 3px #6affab',backgroundColor:'#236341'},{boxShadow:'inset 0 0 0 0 transparent',backgroundColor:'transparent'}],{duration:700});};cancel.onclick=()=>{if(compact){rememberDismissal();dialog.close();return;}planning=false;locked=false;destination=null;q.value=r.value='';redraw();};
     let alertStart=null,lastTick=-1,auWarningUntil=0,chargeSound=null,lastContacts='';
     const hold=host.createElement('button');hold.type='button';hold.dataset.hold='';leave.after(hold);if(!compact)leave.remove();
     const auWarning=host.createElement('small');auWarning.dataset.auWarning='';auWarning.setAttribute('role','status');form.querySelector('[data-recharge]').parentElement.after(auWarning);
@@ -238,7 +247,7 @@
       const nav=seat.ship.navigation;
       form.querySelector('[data-flight]').textContent=seat.ship.ship.warpState?.phase==='traveling'?'IN WARP':seat.ship.ship.warpState?.phase==='activating'?'WARP ACTIVATION':nav&&nav.phase!=='stopped'?`${nav.phase==='drift'?'DRIFT':'UNDERWAY'} / ${nav.speed}`:'HOLDING POSITION';
       const fleet=state.starships.map(s=>{
-        if(s.contactOnly)return `<div><strong>${esc(s.title)}</strong><small>${s.contactLevel==='unknown'?'Unresolved signal':'Detected / analysis required'}</small></div>`;
+        if(s.contactOnly)return `<div><strong>${esc(s.title)}</strong><small>${s.contactLevel==='unknown'?'Unresolved signal':s.contactLevel==='last-known'?'Last known / detection lost':'Detected / analysis required'}</small></div>`;
         const hull=Number(s.maximumHullHp??s.ship?.maximumHullHp??s.ship?.gridCells?.length)||0,shield=Number(s.maximumShieldHp??s.ship?.maximumShieldHp)||0;
         return `<div><strong>${esc(s.title)}${s.id===seat.ship.id?' · '+s.currentHullHp+'/'+s.maximumHullHp+' HP':''}</strong>${window.SAHealthDisplay.hull(s,bridge.mode()==='gm')}${window.SAHealthDisplay.shields(s,bridge.mode()==='gm')}</div>`;
       }).join('');
@@ -275,7 +284,7 @@
       destination=waypoints.at(-1)||null;locked=!!destination;q.value=destination?.q??'';r.value=destination?.r??'';
       for(const b of form.querySelectorAll('[data-route-mode]'))b.setAttribute('aria-pressed',String(b.dataset.routeMode===routeMode));redraw();
     };
-    svg.addEventListener('click',e=>select(e,true));
+    svg.addEventListener('click',e=>{if(!planning)hintMove();select(e,true);});
     svg.addEventListener('pointermove',e=>select(e,false));
     form.querySelector('.pilot-chart').addEventListener('pointerleave',()=>{if(!locked&&!submitting){destination=null;q.value='';r.value='';redraw();}});
     form.querySelector('[data-boosts]').addEventListener('click',e=>{
@@ -294,7 +303,7 @@
     dialog.addEventListener('keydown',bridge.resumeAudio);
     dialog.addEventListener('cancel',event=>{if(!event.defaultPrevented)rememberDismissal();});
     dialog.addEventListener('mapfocuschange',()=>{requestAnimationFrame(()=>{resizeMap();redraw();});});
-    const timer=setInterval(redraw,200),cleanup=()=>{clearInterval(timer);mapObserver.disconnect();confirmCamera.disconnect();chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
+    const timer=setInterval(redraw,200),cleanup=()=>{clearMoveHint();clearInterval(timer);mapObserver.disconnect();confirmCamera.disconnect();chargeSound?.stop();chargeSound=null;window.removeEventListener('pagehide',cleanup);dialog.remove();activeDialog=null;setTimeout(()=>bridge.requestRender(),0);};
     dialog.addEventListener('close',cleanup,{once:true});window.addEventListener('pagehide',cleanup,{once:true});redraw();requestAnimationFrame(()=>{window.SASpaceMap.mountCamera(svg,cameraKey);redraw();});
   }
   function sync(unit){

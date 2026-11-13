@@ -4,6 +4,15 @@
   if (typeof module === 'object' && module.exports) module.exports = factory;
   if (root) root.SABrowserStorage = factory(root);
 }(typeof window === 'undefined' ? null : window, function(root) {
+  // Debug roll frames may use their explicitly ephemeral same-origin host.
+  // Check before touching native storage or opening IndexedDB.
+  try {
+    const parent=root.parent;
+    if(new URLSearchParams(root.location.search).has('shipRoll')&&parent&&parent!==root&&parent.location.origin===root.location.origin){
+      const provider=parent.SABrowserStorage;
+      if(provider?.memoryOnly===true&&provider.ready&&typeof provider.ready.then==='function'&&['getItem','setItem','removeItem'].every(key=>typeof provider.local?.[key]==='function'))return provider;
+    }
+  } catch { /* Normal durable initialization remains the fallback. */ }
   const native = root.localStorage, session = root.sessionStorage;
   const copies = new Map(), pending = new Map();
   const archiveKey = key => /^sa-(?:character-)?campaign-(?:cache|full-backup)-v1-/.test(key);

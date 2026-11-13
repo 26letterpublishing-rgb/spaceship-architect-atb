@@ -1,4 +1,4 @@
-// Vacuum and rescue use active encounter time only. Opening a door never rolls invisibly.
+// Vacuum and automatic rescue use active encounter time; manual rescue is explicit. Opening a door never rolls invisibly.
 const {randomUUID,randomInt}=require('node:crypto');
 const maps=require('./ship-map-core'),doors=require('./ship-doors'),hex=require('./ship-distances');
 const directions={top:{q:0,r:-1},right:{q:1,r:0},bottom:{q:0,r:1},left:{q:-1,r:0}};
@@ -57,15 +57,22 @@ function resolveRepairInner(room,unit,roll){const pending=unit.delayedAction,ord
   if(!hole||hole.sealed||unit.location?.starshipId!==ship.id||doors.roomKey(ship,unit.location.square)!==doors.roomKey(ship,hole.square))return ship&&report(ship,'Breach repair cancelled: the opening is sealed or the operator left the room.',values,total);
   if(total>=spec.difficulty){hole.sealed=true;return report(ship,`${unit.characterName} sealed the hull breach. Life Support can restore the room’s atmosphere.`,values,total);}return report(ship,`${unit.characterName} could not seal the hull breach. Next attempt: difficulty ${Math.max(0,20-hole.attempts)}.`,values,total);
 }
+function canRescue(room,ship,unit,item){
+  return Boolean(unit?.vacuum&&ship?.currentHullHp>0&&data(ship).airlocks?.length&&maps.installedItems(ship).some(i=>(i.type==='manipulation-arm'||item?.type==='tractor-beam'&&i.type==='tractor-beam')&&(!item||i.id===item.id)&&maps.operational(i)&&(item?.type!=='tractor-beam'||!(i.impaired||i.status==='impaired'||i.impairmentPoints>0)))&&hex.hexDistance(hex.roundHex(hex.positions(room.starships,room.shipPositions).find(p=>p.id===ship.id)),unit.vacuum.position)<=(item?.type==='tractor-beam'?2:0));
+}
+function rescue(room,ship,unit,item){
+  if(!canRescue(room,ship,unit,item))return false;
+  const s=data(ship),a=s.airlocks[0],l=maps.buildLayout(s),side=l.sides.find(d=>d.name===a.side),inside=a.square-(side?.offset||0),square=l.hull.has(inside)&&!l.footprint.get(inside)?.blocked?inside:a.square;
+  unit.location={starshipId:ship.id,square,mesh:4,stationed:false};unit.vacuum=null;
+  if(unit.characterId)(ship.characterLocations||={})[unit.characterId]={...unit.location};return true;
+}
 function advance(room,seconds,campaign){const messages=[];if(!(seconds>0))return messages;
   for(const unit of room.units||[]){const v=unit.vacuum;if(!v)continue;
     const damage=Math.max(0,Math.floor((seconds+2-v.damageRemaining)/2));v.damageRemaining=2-((seconds+2-v.damageRemaining)%2);if(!require('./breathing').independent(campaign?.characters?.find(c=>c.id===unit.characterId)?.character||unit))unit.currentHp=Math.max(0,(Number(unit.currentHp)||0)-damage);
     const drift=Math.max(0,Math.floor((seconds+12-v.driftRemaining)/12));v.driftRemaining=12-((seconds+12-v.driftRemaining)%12);v.position.q+=v.direction.q*drift;v.position.r+=v.direction.r*drift;
     const record=campaign?.characters?.find(c=>c.id===unit.characterId);if(record){record.character.health||={};record.character.health.current=unit.currentHp;}
-    const rescuer=(room.starships||[]).find(s=>s.currentHullHp>0&&data(s).airlocks?.length&&maps.installedItems(s).some(i=>i.type==='manipulation-arm'&&maps.operational(i))&&hex.hexDistance(hex.roundHex(hex.positions(room.starships,room.shipPositions).find(p=>p.id===s.id)),v.position)===0);
-    if(rescuer){const s=data(rescuer),a=s.airlocks[0],l=maps.buildLayout(s),side=l.sides.find(d=>d.name===a.side),inside=a.square-(side?.offset||0),square=l.hull.has(inside)&&!l.footprint.get(inside)?.blocked?inside:a.square;unit.location={starshipId:rescuer.id,square,mesh:4,stationed:false};unit.vacuum=null;
-      if(unit.characterId)(rescuer.characterLocations||={})[unit.characterId]={...unit.location};messages.push(`${rescuer.title} retrieved ${unit.characterName} with its Manipulation Arm, beside the airlock.`);
-    }
+    const rescuer=(room.starships||[]).find(s=>canRescue(room,s,unit));
+    if(rescuer&&rescue(room,rescuer,unit))messages.push(`${rescuer.title} retrieved ${unit.characterName} with its Manipulation Arm, beside the airlock.`);
   }return messages;
 }
-module.exports={hazards,state,distance,reconcile,rollSpec,resolveCheck,canRemote,operate,queueRepair,resolveRepair,advance};
+module.exports={hazards,state,distance,reconcile,rollSpec,resolveCheck,canRemote,operate,queueRepair,resolveRepair,canRescue,rescue,advance};

@@ -113,3 +113,10 @@ test('Sensors control refinement reuses focus control and removes only movement 
  assert.doesNotMatch(controls,/overflow|grid-template|font-size|data-leave/);
  for(const [,selectors]of controls.matchAll(/([^{}]+)\{[^{}]*\}/g))if(!selectors.includes('@media'))for(const selector of selectors.trim().split(','))assert.ok(selector.startsWith('dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console)'),selector);
 });
+
+test('Sensors AU label retains an eight-pixel column gap and natural wrapping',()=>{
+ assert.match(block,/align-content:start;gap:1px 8px;padding:4px!important;line-height:1\.25/);
+ assert.match(block,/grid-template-columns:minmax\(min-content,1fr\) minmax\(0,max-content\)/);
+ assert.match(block,/\.shared-power>\[data-common-au\]\{grid-column:2;grid-row:3;white-space:normal\}/);
+ assert.match(block,/\.shared-power>h3:nth-of-type\(2\)\{grid-column:1;align-self:center\}/);
+});

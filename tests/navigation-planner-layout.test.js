@@ -30,3 +30,5 @@ test('repeat submit during the same pending request cannot issue a second order'
  const c=submission(true);let finish,count=0;c.bridge.action=()=>{count++;return new Promise(resolve=>finish=resolve);};
  const first=c.form.onsubmit({preventDefault(){}});await c.form.onsubmit({preventDefault(){}});assert.equal(count,1);finish();await first;assert.equal(c.dialog.closed,1);
 });
+
+test('desktop Bridge and Cockpit Hold center in the existing flex action column',()=>{const css=fs.readFileSync(require.resolve('../ship-navigation-ui.css'),'utf8');assert.match(css,/@media\(min-width:901px\)\{\.ship-navigation-dialog:not\(\.navigation-planner\) footer>\[data-hold\]\{align-self:center\}\}/);});

@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('Rail Cannon ammunition stays visible and updates in both debug hosts without enabling other weapon AU outputs',{timeout:120000},async t=>{const r=await promisify(execFile)(process.execPath,[require.resolve('../scripts/playtest-rail-ammo-display.cjs')],{timeout:110000});assert.equal(r.stderr,'');t.diagnostic(r.stdout.trim());});

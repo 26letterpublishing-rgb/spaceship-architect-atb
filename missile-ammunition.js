@@ -15,6 +15,14 @@
   const used=(ship,id)=>Object.values(magazine(ship,id)).reduce((sum,n)=>sum+(Number.isSafeInteger(n)&&n>0?n:0),0);
   const storage=ship=>(ship.ship||ship).missileStorage||{};
   function load(ship,id,capacity,type){const item=(ship.ship||ship).sicInventory?.find(i=>i.id===id),isMine=item?.type==='mine-launcher';const data=ship.ship||ship;let free=Number.isSafeInteger(capacity)?Math.max(0,capacity-used(data,id)):0,loaded=0;data.missileAmmo||={};data.missileAmmo[id]||={};data.missileStorage||={};for(const key of type?[type]:Object.keys(catalog)){if(!catalog[key]||catalog[key].seeker||Boolean(catalog[key].mine)!==isMine)continue;const count=Math.min(free,Math.max(0,Number(data.missileStorage[key])||0));if(!count)continue;data.missileStorage[key]-=count;data.missileAmmo[id][key]=(data.missileAmmo[id][key]||0)+count;free-=count;loaded+=count;}return loaded;}
+  function unload(ship,id,type,expectedCount){
+    const data=ship.ship||ship,item=data.sicInventory?.find(i=>i.id===id),round=catalog[type];
+    if(!item||['__proto__','constructor','prototype'].includes(id)||!round||round.seeker||Boolean(round.mine)!==(item.type==='mine-launcher'))throw Error('Choose loaded ammunition for this launcher.');
+    const count=magazine(ship,id)[type],stored=storage(ship)[type]??0;
+    if(!Number.isSafeInteger(count)||count<1||count!==expectedCount)throw Error('Loaded ammunition changed. Select the loaded type again.');
+    if(!Number.isSafeInteger(stored)||stored<0||stored+count>1000000)throw Error('Ammunition storage is full or invalid.');
+    data.missileStorage||={};data.missileStorage[type]=stored+count;delete data.missileAmmo[id][type];return count;
+  }
   function purchase(ship,type,count,definitions){const data=ship.ship||ship,round=catalog[type];if(!round||!Number.isSafeInteger(count)||count<1||count>10000)throw Error('Choose ammunition and a whole quantity from 1 to 10000.');if(!data.allowCreditDebt&&Number(data.groupCredits||0)<round.price*count)throw Error('Not enough Group Credits.');if((storage(data)[type]||0)+count>1000000)throw Error('Ammunition storage is full.');data.groupCredits-=round.price*count;data.missileStorage||={};data.missileStorage[type]=(data.missileStorage[type]||0)+count;let loaded=0;for(const item of data.sicInventory||[]){const d=definitions(item.type);if(d.missileLauncher&&!d.phazonTorpedo&&Number.isSafeInteger(d.capacity)&&!round.seeker&&Boolean(d.mineLauncher)===Boolean(round.mine)&&(data.placements||[]).some(p=>p.sicId===item.id))loaded+=load(data,item.id,d.capacity,type);}return {loaded,stored:storage(data)[type]};}
-  return {catalog,magazine,used,storage,load,purchase,speedDescription};
+  return {catalog,magazine,used,storage,load,unload,purchase,speedDescription};
 }));

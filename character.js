@@ -30,9 +30,9 @@ import { GEAR, gearById } from "./gear-data.js?v=20260814-items-1";
 import { RACE_LORE } from "./race-lore-data.js?v=20260830-race-lore-1";
 import "./character-storage.js?v=20260907-demo-isolation-1";
 
-await window.SABrowserStorage.ready;
+const characterStorageProvider = await window.SACharacterStorage.readyProvider(window);
 // All character persistence in Explore Features stays out of the personal library.
-const localStorage = window.SACharacterStorage.selectStorage(window.SABrowserStorage.local, window.sessionStorage, location.search);
+const localStorage = window.SACharacterStorage.selectStorage(characterStorageProvider.local, window.sessionStorage, location.search);
 
 const {
   DRAMA_CARD_COST = 4,
@@ -2434,6 +2434,7 @@ function refreshCampaignRollPrompt() {
 }
 
 function receiveCampaignState(nextState) {
+  window.SACampaignMusic?.update(nextState);
   window.SAInterfaceNotices?.setCombatActive(nextState.combatActive);
   const walkClockOffset=Number.isFinite(nextState.serverNow)?nextState.serverNow-Date.now():0;
   for(const record of nextState.starships||[])record.walkClockOffset=walkClockOffset;
@@ -4954,7 +4955,7 @@ function showSkillResult({ score, equation, outcome, newFusions = [], manual = f
   dom.skillResultOutcome.textContent = PAGE_PARAMS.has('shipRoll')&&!skillCheck.immediateResult?'Outcome after input delay':'';
   dom.skillResultOutcome.className = outcome.toLowerCase().replaceAll(" ", "-");
   const resultSides = skillCheck.currentRollSides || [];
-  dom.skillDiceResults.hidden = Boolean(campaignCalculation) && !skillCheck.damage && !skillCheck.sharedDamage;
+  dom.skillDiceResults.hidden = false; // Preserve the original top display of the dice rolled.
   dom.skillDiceTypes.textContent = skillCheck.autoSuccess ? "AUTOMATIC CRITICAL SUCCESS" : manual
     ? "MANUAL ROLL"
     : diceResults.length
@@ -9863,7 +9864,7 @@ if(PAGE_PARAMS.has('shipRoll')){
       diceRoller.rollPool({sides:request.sides,values:request.values,presentation:request.simulated&&request.diceFlood?'avalanche':null,color:request.damage?null:0x666a70,damage:request.damage,fusion:!request.damage,title:request.title,subtitle:(request.simulated?'Damage roll • ':'Automatic roll • ')+request.name,onSettled:values=>{
         if(skillCheck!==check)return;
         diceRoller.stop();document.body.classList.remove('skill-roll-active');dom.skillCheckModal.hidden=false;
-        showSkillResult({score:request.score,equation:values.join(' | '),outcome:request.damage?'Damage':'Result',diceResults:values});
+        showSkillResult({score:request.score,equation:'',outcome:request.damage?'Damage':'Result',diceResults:values});
         dom.skillResultScore.textContent=formatNumber(request.displayScore??request.score);
         dom.skillResultOutcome.textContent=request.simulated?'Planetary Cleanser damage':'Automatic result — no input needed';
         dom.exitSkillResult.textContent='Confirming automatically';dom.exitSkillResult.disabled=true;

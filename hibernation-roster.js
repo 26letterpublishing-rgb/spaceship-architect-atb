@@ -1,0 +1,5 @@
+(function(root){'use strict';
+ function roster(shipId,crewIds,people){const crew=new Set(crewIds||[]),seen=new Set();return (people||[]).filter(p=>{if(!p.id||seen.has(p.id))return false;seen.add(p.id);const l=p.loc;return l?.starshipId===shipId&&Number.isInteger(l.square)&&!p.vacuum&&!l.escapePodId&&!['surface','exterior','boarding','escape-pod'].includes(l.environment)&&(crew.has(p.id)||p.hibernating===true);}).map(p=>({id:p.id,name:p.name||'Crew',crewed:crew.has(p.id),hibernating:p.hibernating===true}));}
+ function preview(state,details){const ship=state.starships[0],unit=state.units[0],id=unit.characterId||unit.id;return roster(ship.id,[id],[{id,name:unit.characterName,loc:unit.location,hibernating:details?.hibernation?.phase==='sleeping'},{id:'simulated-passenger-sleeper',name:'Simulated sleeping passenger',loc:{...unit.location},hibernating:true}]);}
+ const api={roster,preview};if(typeof module==='object')module.exports=api;else root.SAHibernationRoster=api;
+})(typeof window==='object'?window:globalThis);

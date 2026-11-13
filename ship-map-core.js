@@ -1004,7 +1004,10 @@
     const points=Math.min(4,Math.max(Number(cell.item.impairmentPoints)||0,cell.item.impaired||cell.item.status==='impaired'?1:0));
     if(!points&&cell.item.status!=='destroyed')return '';
     const destroyed=points>=4||cell.item.status==='destroyed';
-    return `<span class="sa-sic-impairment ${destroyed?'is-destroyed':''}" data-impairments="${points}" style="--impairment-period:${[0,2.8,1.8,1][Math.min(points,3)]||1}s" role="img" aria-label="${destroyed?'Destroyed SIC':points+' SIC impairment'+(points===1?'':'s')}"></span>`;
+    const callout=!destroyed&&cell.offset===0&&!(cell.exterior&&definition(cell.type).mixed)?`<svg class="sa-sic-impairment-callout" viewBox="0 0 5.5 2" aria-hidden="true"><path d="M.6 .5 L1.6 1.5 H5" fill="none" stroke="currentColor" stroke-width=".07"/><text x="1.7" y="1.35" font-size=".55" fill="currentColor" stroke="#070e14" stroke-width=".1" paint-order="stroke">IMPAIRED ${points}</text></svg>`:'';
+    const bottomLeft=(cell.column||0)===0&&(cell.row||0)===(cell.height||1)-1;
+    const marks=points&&bottomLeft&&!(cell.exterior&&definition(cell.type).mixed)?'<span class="sa-sic-impairment-count" role="img" aria-label="'+points+' SIC impairment'+(points===1?'':'s')+'">'+Array.from({length:points},()=>'<i class="sa-sic-bullet-hole" aria-hidden="true"></i>').join('')+'</span>':'';
+    return `<span class="sa-sic-impairment ${destroyed?'is-destroyed':''}" data-impairments="${points}" style="--impairment-period:${[0,2.8,1.8,1][Math.min(points,3)]||1}s" role="img" aria-label="${destroyed?'Destroyed SIC':points+' SIC impairment'+(points===1?'':'s')}"></span>${callout}${marks}`;
   }
   function roomOxygen(record,square){const ship=record.ship||record,value=ship.atmosphereState?.cells?.[square];return Number.isFinite(value)?Math.max(0,Math.min(100,value)):100;}
   const atmosphereLabels=new WeakMap();

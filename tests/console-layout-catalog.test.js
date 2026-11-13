@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const api=require('../console-layout-editor'),store=require('../console-layout-store'),catalog=require('../alma-snapshots/catalog.json'),legacy=require('../console-layout-snapshots.json'),viewer=require('../console-viewer');
-test('all 131 current SIC Console variants have real independent measured snapshots',()=>{
- assert.equal(catalog.entries.length,viewer.catalog.length);assert.equal(catalog.entries.length,131);assert.equal(catalog.consoleTypes.length,58);
+test('all 133 current SIC Console variants have real independent measured snapshots',()=>{
+ assert.equal(catalog.entries.length,viewer.catalog.length);assert.equal(catalog.entries.length,133);assert.equal(catalog.consoleTypes.length,58);
  assert.deepEqual(catalog.entries.map(e=>e.id),viewer.catalog.map(e=>e.id));
  for(const e of catalog.entries){const b=require('../'+e.snapshot);assert.equal(b.consoleId,e.consoleType);assert.equal(b.baselineId,catalog.baselines[e.id].baselineId);assert(b.boxes.length>=2);assert.match(b.background,/^data:image\/(png|jpeg);base64,/);api.validate(api.fresh(b),b);for(const s of b.boxes){assert(s.label);assert.match(s.image,/^data:image\/(png|jpeg);base64,/);}assert.equal(e.url.includes('stage=1'),true);}
  assert.equal(catalog.baselines['warp-drive-1'].baselineId,legacy.baselineId);assert.deepEqual(catalog.baselines['warp-drive-1'].boxes.map(({image,...b})=>b),legacy.boxes.map(({image,...b})=>b));

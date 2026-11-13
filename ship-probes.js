@@ -79,7 +79,7 @@
     if(kind==='inhibitOff'&&(!p.inhibitor||p.inhibitor==='off'))return 'Inhibitor is already off.';
     return '';
   }
-  function destroy(owner,p,text){p.phase='destroyed';p.destination=null;p.bugActive=false;p.inhibitor='off';for(const item of owner.ship.sicInventory.filter(i=>i.id===p.sicId||i.attachTo===p.sicId)){item.impaired=true;item.impairmentPoints=Math.max(1,item.impairmentPoints||0);item.status='destroyed';}report(owner,text);}
+  function destroy(owner,p,text){const offline=typeof module==='object'&&module.exports?require('./ship-offline-events'):null;p.phase='destroyed';p.destination=null;p.bugActive=false;p.inhibitor='off';for(const item of owner.ship.sicInventory.filter(i=>i.id===p.sicId||i.attachTo===p.sicId)){const wasOnline=offline?.capture(owner,item);item.impaired=true;item.impairmentPoints=Math.max(1,item.impairmentPoints||0);item.status='destroyed';offline?.record(owner,item,wasOnline);}report(owner,text);}
   function reconcile(room){
     for(const owner of room.starships||[]){
       const items=maps.installedItems(owner).filter(i=>maps.definition(i.type).probe);

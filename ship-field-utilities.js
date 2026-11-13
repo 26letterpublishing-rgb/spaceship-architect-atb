@@ -29,6 +29,15 @@ function releaseDocked(room,ship,docked,sicId){
  const reason='docked:'+ship.id+':'+sicId;state(docked).dockedIn=null;docked.escapedAt=null;place(room,docked,next);for(const person of room.units||[])resumeUnit(person,reason);
  return next;
 }
+function rescueTargets(room,access,gm){
+  if(!['manipulation-arm','tractor-beam'].includes(access.definition.utility))return [];
+  const observer=access.controlSource||access.ship,breaches=require('./ship-breaches');
+  return (room.units||[]).filter(u=>breaches.canRescue(room,access.ship,u,access.item)).flatMap(u=>{
+    const id=u.vacuum.id,contact=observer.sensorState?.contacts?.[id]||room.knownContacts?.[observer.id]?.[id],own=u.vacuum.sourceShipId===observer.id;
+    if(!id||!gm&&!own&&contact?.level!=='detected')return [];
+    return [{id,kind:'floating-character',name:gm||own?u.characterName:(contact.title||'Drifting character'),distance:distances.hexDistance(distances.roundHex(point(room,access.ship.id)),u.vacuum.position)}];
+  });
+}
 function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance=false}={}){
   try{
     for(const vessel of room.starships||[])vessel.characterLocations ||= structuredClone(campaign?.starships.find(s=>s.id===vessel.id)?.characterLocations||{});
@@ -43,7 +52,11 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
     const target=room.starships.find(s=>s.id===body.targetId),range=target?distances.hexDistance(point(room,ship.id),point(room,target.id)):Infinity;
     const detectable=visibleTarget(room,access,target,gm,outsideCombat);
     let text='';
-    if(body.kind==='collect-object'&&(type==='tractor-beam'||type==='manipulation-arm')){
+    if(body.kind==='rescue-character'&&(type==='manipulation-arm'||type==='tractor-beam')){
+      const candidate=rescueTargets(room,access,gm).find(t=>t.id===body.targetId),person=candidate&&(room.units||[]).find(u=>u.vacuum?.id===candidate.id);
+      if(!person||!require('./ship-breaches').rescue(room,ship,person,access.item))throw Error('That character is no longer available within this recovery system\'s range.');
+      text='Rescued '+candidate.name+' beside the airlock aboard '+ship.title+'.';
+    }else if(body.kind==='collect-object'&&(type==='tractor-beam'||type==='manipulation-arm')){
       const object=room.spaceObjects?.find(o=>o.id===body.targetId&&!o.collectedBy);
       if(!object)throw Error('That object is no longer available.');
       if(object.kind==='planet')throw Error('Planets and planetary debris cannot be collected.');
@@ -59,10 +72,10 @@ function command(room,unit,body,{gm=false,outsideCombat=false,campaign,clearance
       object.collectedBy=ship.id;object.collectedAt=Date.now();
       if(type==='manipulation-arm'&&impaired(access.item))details.cooldown=24;
       text='Recovered '+object.quantity+' '+(object.kind==='mineral'?object.mineral:object.name)+' aboard '+ship.title+'.';
-    }else if(body.kind==='rescue-pod'&&(type==='docking-bay'||type==='manipulation-arm')){
+    }else if(body.kind==='rescue-pod'&&(type==='docking-bay'||type==='manipulation-arm'||type==='tractor-beam')){
       if(impaired(access.item))throw Error('Repair the recovery system first.');
       const source=room.starships.find(s=>s.ship.fieldState?.pods?.some(p=>p.id===body.targetId&&!p.recovered)),pod=source?.ship.fieldState.pods.find(p=>p.id===body.targetId);
-      if(!pod||distances.hexDistance(point(room,ship.id),pod)>1e-6)throw Error('Move into the escape pod hex before recovery.');
+      if(!pod||distances.hexDistance(point(room,ship.id),pod)>(type==='tractor-beam'?2:1e-6))throw Error(type==='tractor-beam'?'Move within two units of the escape pod before recovery.':'Move into the escape pod hex before recovery.');
       if(!gm&&source.id!==ship.id)throw Error('The GM must approve recovery and crew transfer from another ship.');
       const p=ship.ship.placements.find(p=>p.sicId===access.id),cell=maps.placementSquares(ship.ship,access.item,p).find(c=>ship.ship.gridCells.includes(c));
       const people=require('./ship-crew-rooms').actors(room,campaign);
@@ -169,7 +182,7 @@ function advance(room,seconds=0){
 function inspect(room,unit,sicId,gm=false){
   const access=validate(room,unit,sicId),ship=access.ship;
   return {gm,controlled:Boolean(access.controlled),cargo:state(ship).cargo||[],details:system(ship,sicId),report:state(ship).report?.text||'Utility ready.',
-    targets:(room.spaceObjects||[]).filter(o=>!o.collectedBy&&o.kind!=='planet'&&['tractor-beam','manipulation-arm'].includes(access.definition.utility)).map(o=>({id:o.id,name:o.name+' / '+o.quantity,distance:distances.hexDistance(point(room,ship.id),o)})).concat(room.starships.filter(s=>s.id!==ship.id&&visibleTarget(room,access,s,gm)).map(s=>({id:s.id,name:s.title,distance:distances.hexDistance(point(room,ship.id),point(room,s.id))})).concat(room.starships.filter(s=>gm||s.id===ship.id).flatMap(s=>(s.ship.fieldState?.pods||[]).filter(p=>!p.recovered).map(p=>({id:p.id,name:'Escape Pod / Distress Beacon',distance:distances.hexDistance(point(room,ship.id),p)}))))),
+    targets:rescueTargets(room,access,gm).concat((room.spaceObjects||[]).filter(o=>!o.collectedBy&&o.kind!=='planet'&&['tractor-beam','manipulation-arm'].includes(access.definition.utility)).map(o=>({id:o.id,name:o.name+' / '+o.quantity,distance:distances.hexDistance(point(room,ship.id),o)})).concat(room.starships.filter(s=>s.id!==ship.id&&visibleTarget(room,access,s,gm)).map(s=>({id:s.id,name:s.title,distance:distances.hexDistance(point(room,ship.id),point(room,s.id))})).concat(room.starships.filter(s=>gm||s.id===ship.id).flatMap(s=>(s.ship.fieldState?.pods||[]).filter(p=>!p.recovered).map(p=>({id:p.id,kind:'escape-pod',name:'Escape Pod / Distress Beacon',distance:distances.hexDistance(point(room,ship.id),p)})))))),
     passengers:(room.units||[]).filter(u=>u.location?.starshipId===ship.id&&maps.buildLayout(ship.ship).footprint.get(Number(u.location.square))?.sicId===sicId).map(u=>({id:u.characterId||u.id,name:u.characterName})),
     capacity:bayCapacity(room,ship,sicId),docked:bayOccupants(room,ship,sicId).map(s=>s.title).join(', ')||null};
 }

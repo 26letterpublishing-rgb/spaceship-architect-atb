@@ -39,3 +39,12 @@ test('Reduced overflow refresh updates matching guide metadata without changing 
  a.boxes[0]={...box,overflow:{bottom:0}};assert.equal(refreshImages(a,b,{allowReducedOverflow:true}).guides[0].overflow.bottom,0);
  a.guides[0].w=81;assert.throws(()=>refreshImages(a,b,{allowReducedOverflow:true}),/Guide geometry mismatch/);
 });
+
+const {warpDistanceFallback}=require('../transit-console-ui');
+test('unmapped combat and Debug retain distance planning without bypassing usable map privacy',()=>{
+ const active={hasEngagedClock:true},map={role:'character',starmaps:{maps:[{id:'m'}],positions:{s:{mapId:'m',q:0,r:0}},navigation:{allowed:{galaxy:true}}}};
+ assert.equal(warpDistanceFallback(null,'s',active),true);assert.equal(warpDistanceFallback(map,'s',active),false);
+ assert.equal(warpDistanceFallback({...map,starmaps:{...map.starmaps,positions:{}}},'s',active),true);
+ assert.equal(warpDistanceFallback({...map,starmaps:{...map.starmaps,navigation:{allowed:{galaxy:false}}}},'s',active),true);
+ assert.equal(warpDistanceFallback(null,'s',{hasEngagedClock:true,encounterEndedAt:1}),false);assert.equal(warpDistanceFallback(null,'s',{}),false);assert.equal(warpDistanceFallback(null,'s',{debugConsole:true}),true);
+});

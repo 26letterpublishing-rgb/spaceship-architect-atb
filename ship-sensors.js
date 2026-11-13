@@ -159,6 +159,7 @@
     room.sensorMode ||= (room.starships || []).some(ship => (ship.ship?.sicInventory || []).some(item => maps.definition(item.type).sensor));
     for (const observer of room.starships || []) {
       const state = knowledge(observer), sensor = installed(observer);
+      const priorDetected=Object.entries(state.contacts).filter(([,contact])=>contact.level==='detected').map(([id,contact])=>({id,title:contact.title,visualOnly:Boolean(contact.visualOnly)}));
       sweepState(room,observer);
       for (const id of Object.keys(state.contacts)) if (!targets.find(room,id)) delete state.contacts[id];
       for (const target of targets.all(room)) {
@@ -187,6 +188,12 @@
         else if (mask <= 30) {state.contacts[target.id] = { id:target.id,level:'unknown',title:'Unknown Object',position:approximate(point(room,target.id)),uncertainty:5 };if(!contact)report(observer,{unknownDetected:true,targetId:target.id,text:'Unknown Object Detected!!'});}
       }
       syncDroneContacts(room,observer);
+      for(const prior of priorDetected){
+        const current=state.contacts[prior.id];
+        if(current?.level==='detected')continue;
+        const reason=prior.visualOnly?'visual contact lost':current?.level==='last-known'?(sensor?'outside current sensor coverage':'no operational Sensors'):'contact no longer detected';
+        report(observer,{contactLost:true,targetId:prior.id,text:`Contact lost: ${prior.title||'Previously detected contact'} — ${reason}.${current?.level==='last-known'?' Last known location retained.':''} Detect again before Lock-On.`});
+      }
     }
   }
   function fusedTotal(values) {
@@ -454,6 +461,21 @@
       hull:{current:target.currentHullHp,maximum:target.maximumHullHp},shield:{current:target.currentShieldHp,maximum:target.maximumShieldHp,layers:health.shieldLayers(target)},
       components:layout.sicInventory.filter(i=>stations.online(i)).map(i=>({type:i.type,name:(maps.definition(i.type).name||i.type)+(lastKnown.includes(i.id)?' (last known, unconfirmed)':'')}))});
   }
+  function liveAnalyzedImpairments(layout,target){
+    const result=copy(layout);
+    if(!target?.ship)return result;
+    const actual=new Map((target.ship.sicInventory||[]).map(item=>[item.id,item]));
+    const installed=new Set((target.ship.placements||[]).map(p=>p.sicId));
+    for(const item of result.sicInventory||[]){
+      const current=actual.get(item.id);
+      if(!current||!installed.has(item.id)||current.type!==item.type)continue;
+      item.impairmentPoints=Math.min(4,Math.max(0,Number(current.impairmentPoints)||(current.impaired||current.status==='impaired'?1:0)));
+      item.impaired=Boolean(current.impaired||current.status==='impaired'||item.impairmentPoints>0);
+      if(current.status==='destroyed'||current.status==='impaired')item.status=current.status;
+      else if(item.status==='destroyed'||item.status==='impaired')delete item.status;
+    }
+    return result;
+  }
   function view(state, observerId) {
     if(observerId&&state.sensorObserverId===observerId)return state;
     const observer = state.starships.find(s => s.id === observerId), data = observer ? knowledge(observer) : null;
@@ -468,7 +490,7 @@
         isCloaked:contact.level==='detected'&&Boolean(contact.cloaked),
         analysisHealth:analysis?{hull:analysis.hull?copy(analysis.hull):undefined,shield:analysis.shield?copy(analysis.shield):undefined,at:analysis.at}:undefined,
         shieldConditions:analysis?copy(contact.shieldConditions||analysis.shield?.layers?.map(layer=>condition(layer.current,layer.maximum))||[]):undefined,
-        ship:analysis?copy(analysis.layout):{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:publicContact(contact)});
+        ship:analysis?liveAnalyzedImpairments(analysis.layout,state.starships.find(s=>s.id===contact.id)):{gridCells:[],placements:[],sicInventory:[],doorStates:{}},contact:publicContact(contact)});
       positions.push({...contact.position,id:contact.id});
     }
     const units = state.units.filter(u => u.location?.starshipId === observerId || u.vacuum?.sourceShipId === observerId);
@@ -509,5 +531,5 @@
     const lower=kind==='analysis'?contact?.analysisLowerBound:contact?.scanLowerBound;
     return {value,label:Number.isFinite(value)?`Difficulty ${value}`:Number.isFinite(lower)?`Difficulty at least ${lower}`:'Difficulty unknown'};
   }
-  return {calculationSources,publicCalculation,detect,report,installed,inputSettings,pulseRange,nextEvent,masking,defense,rangeAgainst,refresh,advance,sweepState,fusedTotal,skill,automaticScan,scanChecks,timingDifficulty,outsideHex,queue,resolveInput,resolveReport,view,knowledge,analysis,difficulty};
+  return {liveAnalyzedImpairments,calculationSources,publicCalculation,detect,report,installed,inputSettings,pulseRange,nextEvent,masking,defense,rangeAgainst,refresh,advance,sweepState,fusedTotal,skill,automaticScan,scanChecks,timingDifficulty,outsideHex,queue,resolveInput,resolveReport,view,knowledge,analysis,difficulty};
 }));

@@ -581,6 +581,7 @@ function normalizeCampaign(raw) {
   campaign.settings = campaign.settings && typeof campaign.settings === "object" ? campaign.settings : {};
   campaign.settings.commandWindowBonus = Math.round(boundedNumber(campaign.settings.commandWindowBonus, 0, 3600));
   campaign.settings.hideRoomCode = Boolean(campaign.settings.hideRoomCode);
+  campaign.settings.musicSong = ['contact','onslaught','eldritch'].includes(campaign.settings.musicSong)?campaign.settings.musicSong:'contact';
   campaign.characters = Array.isArray(campaign.characters) ? campaign.characters : [];
   campaign.characters = campaign.characters.map((record) => ({
     id: String(record?.id || record?.character?.id || uid("character")),
@@ -1022,6 +1023,7 @@ class CampaignApi {
     const session=this.session(token,campaign.code),combat=!this.canPassTime(campaign.code),room=combat?this.liveEncounter(campaign.code):null;
     const ships=room?.starships||campaign.starships;
     OXYGEN.sync(ships,OXYGEN.people(campaign,room));
+    require("./ship-offline-events").ready(ships);
     const paused=Boolean(room&&(!room.running||room.hardPaused||room.holdPaused||room.pausedForTurn||room.attackResolution||room.itemResolution||room.units.some(u=>u.delayedAction?.awaitingRoll||u.pendingShipRolls?.length)));
     return {notices:require('./fleet-status').project(room||{starships:ships,units:[],encounterEndedAt:true},session),ships:OXYGEN.project(ships,{gm:session?.role==='gm',characterId:session?.role==='character'?session.characterId:null,paused}),combat};
   }
@@ -1594,6 +1596,7 @@ class CampaignApi {
         sendJson(res, 400, { error: "A valid campaign backup and a new GM Code are required." });
         return true;
       }
+      require("./ship-offline-events").reset(restored.starships);
       if (!await this.store.create(restored)) {
         sendJson(res, 409, { error: `Campaign ${restored.code} already exists. Open it and use Restore This Campaign instead.` });
         return true;
@@ -2129,6 +2132,16 @@ class CampaignApi {
       }catch(error){sendJson(res,409,{error:error.message});}
       return true;
     }
+    if(path==='/api/campaign/starship/unload'&&req.method==='POST'){
+      const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
+      if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only the assigned character or GM may unload this launcher.'});return true;}
+      if(!this.canPassTime(code)){sendJson(res,409,{error:'Use the combat console during combat.'});return true;}
+      const room=transitRoom(campaign),unit=room.units.find(u=>u.characterId===characterId&&u.location?.starshipId===record.id);
+      const result=require('./ship-missiles').unload(room,unit,body,{outsideCombat:true});
+      if(!result.ok){sendJson(res,409,{error:result.error});return true;}
+      if(!result.duplicate){record.updatedAt=new Date().toISOString();await this.save(campaign);}
+      sendJson(res,200,{campaign:this.state(campaign,token)});return true;
+    }
     if(path==='/api/campaign/starship/utility'&&req.method==='POST'){
       const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
       if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only the assigned character or GM may operate this station.'});return true;}
@@ -2144,17 +2157,29 @@ class CampaignApi {
       sendJson(res,200,{starship:publicStarship(record,{campaign,gm:Boolean(this.gmSession(token,code))}),campaign:this.state(campaign,token)});return true;
     }
     if(path==='/api/campaign/starship/power'&&req.method==='POST'){
-      const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
-      if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only registered crew or the GM may operate this station.'});return true;}
-      if(!this.canPassTime(code)){sendJson(res,409,{error:'Use SIC Maintenance during your combat turn.'});return true;}
-      if(Number(campaign.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot operate a station.'});return true;}
-      if(!['off','on','restart'].includes(body.kind)){sendJson(res,400,{error:'Choose a power operation.'});return true;}
-      const loc=record.characterLocations?.[characterId],cell=loc&&SHIP_MAP.buildLayout(record.ship).footprint.get(loc.square);
-      const unit={id:characterId,characterId,location:{...loc,starshipId:record.id,sicId:cell?.sicId}};
-      const result=require('./ship-maintenance').queue({starships:[record],units:[unit],activeId:unit.id},unit,{...body,requestId:body.requestId});
-      if(!result.ok){sendJson(res,409,{error:result.error});return true;}
-      this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});await this.save(campaign);
-      sendJson(res,200,{campaign:this.state(campaign,token)});return true;
+      const previous=this.saveQueues.get(code)||Promise.resolve();
+      const queued=previous.catch(()=>{}).then(async()=>{
+        if(this.campaignCache.get(code)!==campaign){sendJson(res,409,{error:'The campaign changed. Refresh before changing SIC power.'});return;}
+        const next=clone(campaign);
+        const record=next.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
+        if(!record?.crewCharacterIds.includes(characterId)||(!this.gmSession(token,code)&&!this.characterSession(token,code,characterId))){sendJson(res,403,{error:'Only registered crew or the GM may operate this station.'});return true;}
+        if(!this.canPassTime(code)){sendJson(res,409,{error:'Use SIC Maintenance during your combat turn.'});return true;}
+        if(Number(next.characters.find(c=>c.id===characterId)?.character.health?.current)<=0){sendJson(res,409,{error:'An unconscious character cannot operate a station.'});return true;}
+        if(!['off','on','restart'].includes(body.kind)){sendJson(res,400,{error:'Choose a power operation.'});return true;}
+        const loc=record.characterLocations?.[characterId],cell=loc&&SHIP_MAP.buildLayout(record.ship).footprint.get(loc.square);
+        const unit={id:characterId,characterId,location:{...loc,starshipId:record.id,sicId:cell?.sicId}};
+        const result=require('./ship-maintenance').queue({starships:[record],units:[unit],activeId:unit.id},unit,{...body,requestId:body.requestId});
+        if(!result.ok){sendJson(res,409,{error:result.error});return true;}
+        try{await this.save(next,{broadcast:false},true);}
+        catch(error){require('./ship-offline-events').discard(result.offlineEventId);throw error;}
+        Object.assign(campaign,next);
+        this.environmentTicks.set(code,{at:Date.now(),saved:Date.now(),active:true});
+        require("./ship-offline-events").publish(result.offlineEventId);await this.broadcast(code,campaign);
+        sendJson(res,200,{campaign:this.state(campaign,token)});
+      });
+      this.saveQueues.set(code,queued);
+      try{await queued;}finally{if(this.saveQueues.get(code)===queued)this.saveQueues.delete(code);}
+      return true;
     }
     if (path === "/api/campaign/starship/diagnostics" && req.method === "POST") {
       const record=campaign.starships.find(s=>s.id===body.starshipId),characterId=String(body.characterId||'');
@@ -2606,6 +2631,7 @@ class CampaignApi {
         return true;
       }
       await this.checkpoint(campaign,'Before campaign file replacement',this.liveEncounter(code)||campaign.encounter);
+      require("./ship-offline-events").reset(restored.starships);
       restored.backupKey = campaign.backupKey;
       // Backups omit transient demo metadata. Preserve the destination's mode
       // so restoring Explore updates its active campaign instead of a shadow
@@ -3081,7 +3107,9 @@ class CampaignApi {
         sendJson(res, 403, { error: "GM authorization is required." });
         return true;
       }
+      if(body.musicSong!==undefined&&!['contact','onslaught','eldritch'].includes(body.musicSong)){sendJson(res,400,{error:'Choose a known song.'});return true;}
       campaign.settings ||= { commandWindowBonus: 0, hideRoomCode: false };
+      if(body.musicSong!==undefined)campaign.settings.musicSong=body.musicSong;
       if (body.commandWindowBonus !== undefined) {
         campaign.settings.commandWindowBonus = Math.round(boundedNumber(body.commandWindowBonus, 0, 3600));
       }

@@ -8,10 +8,12 @@
     node ? require('./ship-shields') : root.SAShipShields,
     node ? require('./ship-sensors') : root.SAShipSensors,
     node ? require('./ship-locks') : root.SAShipLocks,
-    node ? require('./ship-targets') : root.SAShipTargets);
+    node ? require('./ship-targets') : root.SAShipTargets,
+    node ? () => require('./ship-devastation') : () => root.SADevastation,
+    node ? () => require('./ship-relays') : () => root.SAShipRelays);
   if (node) module.exports = api;
   if (root) root.SAShipWeapons = api;
-}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, power, shields, sensors, locks, targets) {
+}(typeof window !== 'undefined' ? window : null, function(maps, stations, distances, delays, power, shields, sensors, locks, targets, getDevastation, getRelays) {
   const skill = unit => Math.max(0, Number(unit.weaponSystemsSkill ?? (unit.team === 'npc' ? unit.mentalSkill : 0)) || 0);
   const bars = value => value >= 6 ? 4 : value >= 5 ? 3 : value >= 3 ? 2 : value >= 1 ? 1 : 0;
   function settings(unit, tier=1) {
@@ -86,7 +88,7 @@
     const access = stations.access(room,unit,body.sicId);
     if (!access || access.blocked || access.kind !== 'weapon') return {ok:false,error:'Operate this weapon from an available station or working cockpit or bridge.'};
     if(access.definition.missileLauncher)return require('./ship-missiles').queue(room,unit,body,settings(unit,access.definition.tier));
-    const devastation=access.definition.devastation?require('./ship-devastation'):null;
+    const devastation=access.definition.devastation?getDevastation():null;
     if(maps.cloaked(access.ship))return {ok:false,error:'Deactivate Cloaking before firing weapons.'};
     const data = state(access.ship), receipt = String(body.requestId || '');
     if (!/^[\w-]{8,100}$/.test(receipt)) return {ok:false,error:'Invalid firing receipt.'};
@@ -155,7 +157,7 @@
     if (!access || access.blocked || access.seat.key !== order.station || !target || ship.escapedAt || target.escapedAt || ship.ship.warpState?.phase==='traveling' || target.ship.warpState?.phase==='traveling' || ship.currentHullHp <= 0 || target.currentHullHp <= 0 || (!rail&&power.output(ship,room.units).en < 1)) {
       post({text:rail?'Rail cannon input interrupted. Committed Iron was consumed.':'Laser input interrupted. Committed AU was consumed.'}); return;
     }
-    if(access.definition.devastation){const dev=require('./ship-devastation'),why=dev.reason(room,ship,access.item);if(why){post({text:'Devastation shot cancelled: '+why});return;}}
+    if(access.definition.devastation){const dev=getDevastation(),why=dev.reason(room,ship,access.item);if(why){post({text:'Devastation shot cancelled: '+why});return;}}
     const spec = pending.rollSpec || rollSpec(room,unit,order);
     const rolled=[];
     const total = locked ? 0 : Number.isFinite(attackRoll.submittedScore) ? attackRoll.submittedScore : sensors.fusedTotal(spec.sides.map(s=>{const value=attackRoll(s);rolled.push(value);return value;})) + spec.bonus;
@@ -173,8 +175,8 @@
     calculation.gmLines=[`Defense ${defense}; range defense addition ${(order.range??spec.range)*(access.definition.rangeDefensePerUnit||0)}.`];
     locks.refresh(room);
     if(locked&&!weaponLock(room,unit,ship,target.id,order.captured)){post({text:'Shot cancelled: controlled target lock was lost during input. Committed AU was consumed.'});return;}
-    if(access.definition.devastation)require('./ship-devastation').fire(ship,access.id);
-    require('./ship-relays').fired(room,ship,target,order.sicId);
+    if(access.definition.devastation)getDevastation().fire(ship,access.id);
+    getRelays().fired(room,ship,target,order.sicId);
     const hit = locked || total >= defense;
     const maximum = access.item.impaired || access.item.status === 'impaired' ? 1 : 4;
     const reflection=hit&&access.definition.weaponFamily==='ripple-cannon'?reflector(room,target):null;
@@ -214,11 +216,13 @@
     if(ionBlocked){}else if(order.reflection){if(order.reflection.impaired)shields.damage(room,target.id,damage,{damageType:order.damageType});shields.damage(room,ship.id,damage,{damageType:order.damageType});}else if(!blockedByShields){if(target.isMissile||target.isDrone||target.isProbe){if(targets.hit(room,target.id,damage))target.currentHullHp=0;}else shields.damage(room,target.id,damage,{bypassShield:order.shieldPiercing,ignoreReduction:order.ignoreReduction,damageType:order.damageType});}
     const hullDamage=Math.max(0,beforeHull-target.currentHullHp),shieldDamage=Math.max(0,beforeShield-(target.currentShieldHp||0));
     const lock=controlledLocks(unit,ship,target.id,order.captured),item=target.ship.sicInventory.find(i=>i.id===order.targetSicId);
+    const offline=typeof module==='object'&&module.exports?require('./ship-offline-events'):null,wasOnline=offline?.capture(target,item);
     let impairments=0,podInjuries=0;
     if(hullDamage&&item&&!order.reflection&&locks.hasComponent(lock,item.id)&&stations.online(item)){
       impairments=Math.floor(hullDamage/Math.max(1,maps.effectiveThreshold(target,item)||1))+(order.extraImpairment||0);
       if(impairments){const previous=Number(item.impairmentPoints)||(item.impaired?1:0);item.impairmentPoints=Math.min(4,previous+impairments);item.impaired=true;if(item.impairmentPoints>=4||maps.definition(item.type).destroyedOnImpairment)item.status='destroyed';if(item.type==='escape-pods')podInjuries=require('./ship-field-utilities').hurtPod(room,target,item,item.impairmentPoints-previous,campaign);}
     }
+    offline?.record(target,item,wasOnline);
     const componentHit=Boolean(hullDamage&&item&&locks.hasComponent(lock,item.id)&&!order.reflection),knownItem=sensors.analysis(ship,target.id)?.layout?.sicInventory?.find(i=>i.id===item?.id),componentName=componentHit&&knownItem?maps.definition(knownItem.type).name:null;
     unit.delayedAction=null;
     const entry={id:pending.id,at:new Date().toISOString(),weaponFamily:order.weaponFamily,text:`${shotName(order)}: ${order.reflection?'REFLECTED; ':''}${damage} rolled; ${ionBlocked?'Ionic Force Displacers nullified the hit. ':''}${shieldDamage} shield damage, ${hullDamage} hull damage.${componentHit?` ${componentName||'Targeted SIC'} damaged${impairments?`: ${impairments} impairment(s)`: ''}.`:''}${order.reflection?` Attacker took ${sourceHull-ship.currentHullHp} hull and ${sourceShield-(ship.currentShieldHp||0)} shield damage.`:''}`,damage,dice:values,hit:true,impact:hullDamage+shieldDamage>0,targetId:target.id,operatorId:unit.id,hullDamage,shieldDamage,impairments,total:order.total,defense:order.defense};

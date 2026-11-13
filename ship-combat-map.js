@@ -720,7 +720,7 @@
     source.disabled=true;source.setAttribute('aria-busy','true');
     try {
       // A hosted stylesheet can arrive much later than its dialog markup.
-      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"],link[rel="stylesheet"][href*="ship-floorplan-snapshot.css"],link[rel="stylesheet"][href*="combat-arena.css"],link[rel="stylesheet"][href*="token-art.css"]')].map(link=>{
+      await Promise.all([...document.querySelectorAll('link[rel="stylesheet"][href*="ship-combat-map.css"],link[rel="stylesheet"][href*="ship-map-presentation.css"],link[rel="stylesheet"][href*="ship-floorplan-snapshot.css"],link[rel="stylesheet"][href*="combat-arena.css"],link[rel="stylesheet"][href*="token-art.css"],link[rel="stylesheet"][href*="movement-controls.css"]')].map(link=>{
         const existing=[...doc.querySelectorAll('link[rel="stylesheet"]')].find(candidate=>candidate.href===link.href);
         if(existing?.sheet)return Promise.resolve();
         return new Promise((resolve,reject)=>{

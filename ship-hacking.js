@@ -5,6 +5,7 @@ const stations = require('./station-access');
 const sensors = require('./ship-sensors');
 const distances = require('./ship-distances');
 const maintenance = require('./ship-maintenance');
+const offline=require('./ship-offline-events');
 
 const state = room => room.hackingPrivate ||= {secrets:{},sessions:[],receipts:[]};
 const skill = unit => Math.max(0,Number(unit.hackingSkill ?? (unit.team==='npc'?unit.mentalSkill:0))||0);
@@ -132,14 +133,15 @@ function command(room,unit,body) {
       }else if(body.kind==='off'){
         if(!session.solved||!session.control||!session.connected)throw Error('Capture this SIC before turning it off.');
         const target=room.starships.find(s=>s.id===session.targetId),item=itemAt(target,session.sicId);
-        item.disabled=true;item.status='powered-down';item.bootRemaining=0;
+        const wasOnline=offline.capture(target,item);item.disabled=true;item.status='powered-down';item.bootRemaining=0;offline.record(target,item,wasOnline);
         result.text=`${maps.definition(item.type).name} turned off. Registered crew must enter its room to restart it.`;
       }else if(body.kind==='impair'){
         if(!session.solved||!session.connected)throw Error('Solve the password before forcing impairment.');
         const target=room.starships.find(s=>s.id===session.targetId),item=itemAt(target,session.sicId);
-        item.impaired=true;if(item.status==='online')item.status='impaired';
+        const wasOnline=offline.capture(target,item);item.impaired=true;if(item.status==='online')item.status='impaired';
         if(item.unstable)item.impairmentPoints=Math.min(3,maintenance.points(item)+1);
         else item.impairmentPoints=Math.max(1,Math.min(3,maintenance.points(item)));
+        offline.record(target,item,wasOnline);
         result.text='SIC impairment applied; no hull damage or station destruction.';
       }else throw Error('Choose a hacking operation.');
       result.spent=true;

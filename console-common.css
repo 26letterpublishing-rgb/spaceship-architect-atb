@@ -340,10 +340,10 @@ dialog:is([data-console-owner],[data-catalog-snapshot]) [data-hold]{width:72px!i
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .console-defense{margin:0;white-space:nowrap}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) [data-selector]{flex:0 0 auto;flex-wrap:nowrap;max-width:none}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .station-console-select{min-width:0;width:220px;min-height:36px!important;padding:5px 28px 5px 8px!important}
- dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:max-content;grid-template-rows:max-content max-content minmax(0,1fr) max-content max-content max-content max-content minmax(0,1fr) max-content;align-content:start;gap:1px;padding:4px!important;line-height:1.25}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power{display:grid;grid-template-columns:minmax(min-content,1fr) minmax(0,max-content);grid-auto-rows:max-content;grid-template-rows:max-content max-content minmax(0,1fr) max-content max-content max-content max-content minmax(0,1fr) max-content;align-content:start;gap:1px 8px;padding:4px!important;line-height:1.25}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>*{grid-column:1/-1}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>h3:nth-of-type(2){grid-column:1;align-self:center}
- dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-au]{grid-column:2;grid-row:3;white-space:nowrap}
+ dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power>[data-common-au]{grid-column:2;grid-row:3;white-space:normal}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-power p{margin:0;gap:1px;padding-bottom:2px}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .shared-au-cells{height:24px}
  dialog.sensor-console.shared-console-layout[data-console-owner]:not(.combat-order-dialog):not(.probe-console) .console-service-panel{padding:2px!important;gap:2px}
@@ -470,3 +470,30 @@ body dialog:is(.weapon-console,.lock-console).weapon-named-header>header>[data-s
 [data-console-owner] .console-defense:has(+.console-system-condition:not([hidden])){display:inline-block;margin-right:8px}
 [data-console-owner] .console-system-condition{display:inline-block;vertical-align:top;margin-top:0}
 .sensor-console:not(.probe-console) .console-system-condition{margin-top:0}
+
+/* Existing Surveillance and Repair Drone header controls align right on desktop. */
+@media(min-width:901px){dialog:is(.surveillance-console,.drone-console)>header>[data-selector]{margin-left:auto}}
+
+/* Keep existing Shield/Hacking selector and mute on one desktop header row. */
+@media(min-width:901px){dialog.shield-console-dialog>header>[data-console-switch],dialog.hacking-console>header>[data-selector]{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;min-width:0}dialog.shield-console-dialog>header>[data-console-switch] .station-console-select,dialog.hacking-console>header>[data-selector] .station-console-select{min-width:0;max-width:250px}dialog.shield-console-dialog>header>[data-console-switch] [data-sound],dialog.hacking-console>header>[data-selector] [data-sound]{flex-shrink:0}}
+
+/* Shared Security Droid / Sensor Lure header uses the existing mute control. */
+@media(min-width:901px){dialog.illusion-droid-console>header>[data-selector]{margin-left:auto}}
+
+/* Relay Pulse exposes the existing shared sound control beside its selector. */
+@media(min-width:901px){dialog.relay-pulse-console>header>[data-selector]{margin-left:auto}}
+
+/* Lock-On Triangulator uses the same existing header sound control. */
+@media(min-width:901px){dialog.triangulator-console>header>[data-selector]{margin-left:auto}}
+
+/* Remote Controller and Receiver share the existing sound control. */
+@media(min-width:901px){dialog.remote-console>header>[data-selector]{margin-left:auto}}
+
+/* Hull Breach Repair Drone shares the existing header sound control. */
+@media(min-width:901px){dialog.breach-drone-console>header>[data-selector]{margin-left:auto}}
+
+/* Gravity uses the existing shared header sound control. */
+@media(min-width:901px){dialog.gravity-console>header>[data-selector]{margin-left:auto}}
+
+/* Cloaking shares the existing header sound control. */
+@media(min-width:901px){dialog.cloak-console>header>[data-selector]{margin-left:auto}}

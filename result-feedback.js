@@ -26,11 +26,12 @@
     // A popover stays above dialogs without moving the page or resizing consoles.
     const observer=new win.MutationObserver(records=>{if(records.some(r=>r.type==='attributes'&&r.target.tagName==='DIALOG')){if(rail.matches(':popover-open'))rail.hidePopover();for(const banner of criticalBanners)if(banner.matches(':popover-open'))banner.hidePopover();schedule();}else if(records.some(r=>r.type==='childList'))schedule();});
     observer.observe(doc.documentElement,{subtree:true,attributes:true,attributeFilter:['open'],childList:true});
+    const ownsDismiss=button=>Boolean(button?.matches?.('.notice-dismiss,[data-critical-dismiss]')&&typeof button._noticeDismiss==='function'&&(rail.contains(button)||[...criticalBanners].some(b=>b.contains(button))));
     // Only our local dismiss controls bypass Console action guards; no game action does.
-    doc.addEventListener('click',event=>{const button=event.target.closest?.('.notice-dismiss,[data-critical-dismiss]');if(button&&button._noticeDismiss&&(rail.contains(button)||[...criticalBanners].some(b=>b.contains(button)))){event.preventDefault();event.stopImmediatePropagation();button._noticeDismiss();}},true);
+    doc.addEventListener('click',event=>{const button=event.target.closest?.('.notice-dismiss,[data-critical-dismiss]');if(ownsDismiss(button)){event.preventDefault();event.stopImmediatePropagation();button._noticeDismiss();}},true);
     win.addEventListener('sa-perspective-visibility',()=>{schedule();if(!critical.active)critical.resume?.();});
     doc.addEventListener('visibilitychange',schedule);
-    const api={mount(node,key=''){if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail)rail.append(node);schedule();return node;},mountCritical(node){criticalBanners.add(node);refresh();},removeCritical(node){criticalBanners.delete(node);node.remove();},refresh,schedule,remove(node){node?.remove();refresh();}};
+    const api={ownsDismiss,mount(node,key=''){if(key){const old=[...rail.children].find(n=>n.dataset.noticeKey===key);if(old&&old!==node)old.remove();node.dataset.noticeKey=key;}if(node.parentElement!==rail)rail.append(node);schedule();return node;},mountCritical(node){criticalBanners.add(node);refresh();},removeCritical(node){criticalBanners.delete(node);node.remove();},refresh,schedule,remove(node){node?.remove();refresh();}};
     win.addEventListener('pagehide',()=>observer.disconnect(),{once:true});win.SAInterfaceNoticeHost=api;return api;
   }
   function critical(key,message,type='danger'){
@@ -61,7 +62,7 @@
       critical.close=close;const button=doc.createElement('button');button.type='button';button.textContent='×';button.setAttribute('aria-label','Dismiss alert');button.setAttribute('data-critical-dismiss','');button._noticeDismiss=close;button.onclick=close;if(item.type==='combat-start'){button.setAttribute('aria-label','Dismiss All hands on deck');button.dataset.uiSound='none';}banner.append(track,button);noticeHost().mountCritical(banner);
       const reduce=win.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const width=track.clientWidth,length=text.scrollWidth;
-      const ms=reduce?Math.max(8000,2000+text.textContent.trim().split(/\s+/).length/3*1000):(width+length)/115*1000;
+      const ms=item.type==='combat-start'?10000:reduce?Math.max(8000,2000+text.textContent.trim().split(/\s+/).length/3*1000):(width+length)/115*1000;
       if(!reduce){text.animate([{transform:`translateX(${width}px)`},{transform:`translateX(${-length}px)`}],{duration:ms,easing:'linear',fill:'forwards'});}
       // Close exactly when the trailing text reaches the left edge; no extra fade.
       timer=setTimeout(close,ms);
@@ -90,7 +91,7 @@
     else if(!waitingNode.matches(':popover-open'))waitingNode.showPopover();
   }
   function stored(key){try{return sessionStorage.getItem(key);}catch{return false;}}
-  function push(key,title,message,{topLayer=false,reputation=null,details=null,allowOutsideCombat=false,promptResult=null,onResolve=null}={}){
+  function push(key,title,message,{topLayer=false,reputation=null,details=null,dice=null,allowOutsideCombat=false,promptResult=null,onResolve=null}={}){
     const storageKey='sa-result:'+key;if(seen.has(key)||stored(storageKey))return;seen.add(key);
     if(!isCombatActive()&&!allowOutsideCombat){try{sessionStorage.setItem(storageKey,'1');}catch{}return;}
     const doc=host();
@@ -120,7 +121,7 @@
     if(details||reputation){
       const view=doc.createElement('button');view.type='button';view.textContent='View Results';view.className='notice-action';view.onclick=()=>{
         view.disabled=true;if(promptResult)void settle('view');
-        const dialog=doc.createElement('dialog');dialog.className='notification-result-detail';const h=doc.createElement('h2');h.textContent=title;const p=doc.createElement('p');p.textContent=details||message;dialog.append(h,p);
+        const dialog=doc.createElement('dialog');dialog.className='notification-result-detail';const h=doc.createElement('h2');h.textContent=title;const p=doc.createElement('p');p.textContent=details||message;dialog.append(h);if(dice){const strip=doc.createElement('div'),types=doc.createElement('span'),values=doc.createElement('strong');strip.className='skill-dice-results';types.textContent=dice.types;values.textContent=dice.values;strip.append(types,values);dialog.append(strip);}dialog.append(p);
         if(reputation&&window.SAReputationUI){const block=doc.createElement('div');block.innerHTML=window.SAReputationUI.comparison(reputation);dialog.append(block);}
         const done=doc.createElement('button');done.textContent='Close';done.onclick=()=>dialog.close();dialog.append(done);dialog.onclose=()=>{dialog.remove();view.disabled=false;};doc.body.append(dialog);dialog.showModal();
       };card.append(view);

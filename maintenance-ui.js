@@ -31,7 +31,7 @@
         if(unavailable(kind)){error.textContent='This operation is not currently available.';refresh();return;}
         if(!bridge.confirmGmPlayerAction(bridge.state().units.find(u=>u.id===unit.id),kind))return;
         if(kind==='off'&&!doc.defaultView.confirm('Power off this SIC? Its functions will become unavailable immediately.'))return;
-        busy=true;view.querySelectorAll('button').forEach(b=>b.disabled=true);
+        busy=true;view.querySelectorAll('button').forEach(b=>{if(!doc.defaultView.SAInterfaceNoticeHost?.ownsDismiss?.(b))b.disabled=true;});
         try{await bridge.action({action:'shipMaintenance',id:unit.id,sicId:item.id,kind,requestId:crypto.randomUUID()},'resolve',{throwOnError:true});view.close();}
         catch(e){error.textContent=e.message;busy=false;close.disabled=false;refresh();}
       };view.append(button);

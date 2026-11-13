@@ -6,6 +6,10 @@
 .sa-sic-impairment.is-destroyed{animation:none;background:repeating-linear-gradient(135deg,#791727 0 5px,#16090c 5px 10px);opacity:.7}
 @keyframes sa-sic-warning{0%,100%{opacity:.08}50%{opacity:.48}}
 @media(prefers-reduced-motion:reduce){.sa-sic-impairment{animation:none;opacity:.3}}
+.sa-sic-impairment-callout{position:absolute;left:0;top:0;width:132px;height:48px;overflow:visible;z-index:16;transform-origin:14.4px 12px;transform:rotate(var(--label-rotation,0deg));color:#ff656d;pointer-events:none;animation:sa-sic-callout-warning 1.8s ease-in-out infinite}
+.hard-paused .sa-sic-impairment-callout{animation-play-state:running!important}
+@keyframes sa-sic-callout-warning{0%,100%{opacity:1}50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.sa-sic-impairment-callout{animation:none;opacity:1}}
 .map-view-controls,.combat-map-view-controls,.player-starship-view-controls,.inline-map-toolbar>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px 10px!important}
 .map-view-controls label,.combat-map-view-controls label,.player-starship-view-controls label,.inline-map-toolbar label{min-width:0;white-space:normal;font-size:11px!important;line-height:1.2}
 .map-view-controls span{font-size:10px!important;white-space:normal}
@@ -222,3 +226,8 @@
 .map-in-warp{position:relative;isolation:isolate;background-image:none!important;overflow:hidden}.warp-map-background{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#02060b}.warp-map-background::before{content:'';position:absolute;inset:-650px;background:url('star-background.jpg') repeat;opacity:.7;animation:warp-map-drift 35s linear infinite}.warp-map-background i{position:absolute;left:var(--star-x);top:var(--star-y);width:2px;height:44px;transform:rotate(var(--warp-angle));background:linear-gradient(transparent,#d5f6ff);animation:warp-map-star var(--speed) var(--delay) linear infinite}@keyframes warp-map-drift{to{transform:translate(var(--warp-x),var(--warp-y))}}@keyframes warp-map-star{from{translate:0 0;opacity:0}20%{opacity:.7}to{translate:var(--warp-x) var(--warp-y);opacity:0}}@media(prefers-reduced-motion:reduce){.warp-map-background::before,.warp-map-background i{animation:none}}
 
 .sa-hover-pod.sa-land-wheel{background:none;clip-path:none}.sa-hover-pod.sa-land-wheel img{display:block}.sa-hover-pod.sa-land-wheel i{display:none}
+
+/* One small mark per actual impairment, at the SIC footprint's bottom-left. */
+.sa-sic-impairment-count{position:absolute;left:3px;bottom:3px;z-index:17;display:none;gap:2px;pointer-events:none;line-height:0}
+.show-labels .sa-sic-impairment-count{display:flex}
+.sa-sic-bullet-hole{display:block;width:8px;height:8px;flex:none;border-radius:50%;background:radial-gradient(circle at 52% 52%,#080b0e 0 38%,#363f47 42% 55%,#b0b7bc 60% 69%,#444c53 74% 82%,transparent 86%);box-shadow:0 1px 1px #0009}

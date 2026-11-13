@@ -316,10 +316,9 @@ function positionTurnControls(){
   controls.forEach((control,index)=>{
     if(!control)return;
     const x=index?(right?innerWidth-42:0):(right?rect.left-42:rect.right);
-    control.style.setProperty('left',Math.max(0,Math.min(innerWidth-42,x))+'px','important');
-    control.style.setProperty('top',y+'px','important');
-    control.style.setProperty('right','auto','important');control.style.setProperty('bottom','auto','important');
-    control.style.setProperty('height','82px','important');control.style.setProperty('min-height','82px','important');
+    for(const [property,value] of Object.entries({left:Math.max(0,Math.min(innerWidth-42,x))+'px',top:y+'px',right:'auto',bottom:'auto',height:'82px','min-height':'82px'})){
+      if(control.style.getPropertyValue(property)!==value||control.style.getPropertyPriority(property)!=='important')control.style.setProperty(property,value,'important');
+    }
   });
 }
 const activeName = document.querySelector("#activeName");
@@ -1400,6 +1399,34 @@ function shipCombatColumnsMarkup(units, includeMap=true) {
   }).join("")}${emptyActivity}</div>`;
 }
 
+let shipClockLayout=null,shipClockFontsBound=false;
+function syncShipClockHeight(columns,clock){
+  if(!shipClockFontsBound){document.fonts?.addEventListener?.('loadingdone',()=>{if(shipClockLayout){shipClockLayout.dirty=true;syncShipClockHeight(shipClockLayout.columns,shipClockLayout.clock);}});shipClockFontsBound=true;}
+  if(!columns||!clock||columns.dataset.singlePc==='true'){
+    shipClockLayout?.observer?.disconnect();shipClockLayout=null;return;
+  }
+  if(shipClockLayout?.columns!==columns||shipClockLayout.clock!==clock){
+    shipClockLayout?.observer?.disconnect();
+    const entry={columns,clock,dirty:true,signature:null,sizes:new WeakMap(),observer:null};shipClockLayout=entry;
+    if(typeof ResizeObserver==='function'){
+      entry.observer=new ResizeObserver(entries=>{
+        let changed=false;
+        for(const item of entries){const size=item.contentRect.width+':'+(item.target===clock?item.contentRect.height:'');if(entry.sizes.get(item.target)!==size){entry.sizes.set(item.target,size);changed=true;}}
+        if(changed&&shipClockLayout===entry){entry.dirty=true;requestAnimationFrame(()=>{if(columns.isConnected&&shipClockLayout===entry)syncShipClockHeight(columns,clock);});}
+      });
+      entry.observer.observe(columns);entry.observer.observe(clock);
+    }
+  }
+  const entry=shipClockLayout,lane=columns.querySelector('.ship-lane-atb');
+  const signature=clock.innerHTML+'|'+(lane?.className||'')+'|'+innerWidth+'|'+innerHeight;
+  if(!entry.dirty&&entry.signature===signature)return;
+  entry.dirty=false;entry.signature=signature;
+  columns.style.removeProperty('--clock-content-height');
+  const style=lane&&getComputedStyle(lane),padding=style?parseFloat(style.paddingTop)+parseFloat(style.paddingBottom):0;
+  columns.style.setProperty('--clock-content-height',Math.max(0,clock.offsetHeight-padding)+'px');
+}
+
+
 function renderShipCombatColumns() {
   // A modal interior covers this dashboard; state/turn processing continues outside this renderer.
   if(window.SACombatMap?.isExpandedInteriorOpen?.()){window.SACombatMap.renderInlineMaps();return;}
@@ -1416,32 +1443,34 @@ function renderShipCombatColumns() {
     restoreCombatControls();
     unitList.replaceChildren(next);
   } else {
-    // Keep map controls mounted while live ATB updates arrive.
-    [...current.children].forEach((lane, index) => {
-      const replacement = next.children[index];
-      if (lane.matches('.combat-space-map,.shared-interior-controls,.paired-combat-clock')) {
-        return;
-      }
-      if(lane.classList.contains('empty-contact-activity')){window.SALiveDOM.render(lane,replacement.innerHTML);return;}
-      lane.dataset.shipSide=replacement.dataset.shipSide;
-      lane.dataset.shipRow=replacement.dataset.shipRow;
-      lane.style.cssText=replacement.style.cssText;
-      for (const selector of [".ship-lane-atb", ".ship-lane-log", ".ship-crew-status"]) {
-        const target = lane.querySelector(selector);
-        const source = replacement.querySelector(selector);
-        if (target.innerHTML !== source.innerHTML) {
-          const scroller = selector === ".ship-crew-status" ? target : target.querySelector('.ship-lane-bars') || target.querySelector(":scope > div");
-          const scrollTop = scroller?.scrollTop || 0;
-          window.SALiveDOM.render(target, source.innerHTML);
-          const updatedScroller = selector === ".ship-crew-status" ? target : target.querySelector('.ship-lane-bars') || target.querySelector(":scope > div");
-          if (updatedScroller) updatedScroller.scrollTop = scrollTop;
-        }
+    // Capture scroll positions before any lane changes can invalidate layout.
+    const lanes=[],sections=[];
+    [...current.children].forEach((lane,index)=>{
+      const replacement=next.children[index];
+      if(lane.matches('.combat-space-map,.shared-interior-controls,.paired-combat-clock'))return;
+      if(lane.classList.contains('empty-contact-activity')){if(lane.innerHTML!==replacement.innerHTML)sections.push({target:lane,html:replacement.innerHTML});return;}
+      lanes.push({lane,replacement});
+      for(const selector of ['.ship-lane-atb','.ship-lane-log','.ship-crew-status']){
+        const target=lane.querySelector(selector),source=replacement.querySelector(selector);
+        if(target.innerHTML===source.innerHTML)continue;
+        const scroller=selector==='.ship-crew-status'?target:target.querySelector('.ship-lane-bars')||target.querySelector(':scope > div');
+        sections.push({target,html:source.innerHTML,selector,scrollTop:scroller?.scrollTop||0});
       }
     });
+    for(const {lane,replacement} of lanes){
+      for(const key of ['shipSide','shipRow'])if(lane.dataset[key]!==replacement.dataset[key])lane.dataset[key]=replacement.dataset[key];
+      if(lane.style.cssText!==replacement.style.cssText)lane.style.cssText=replacement.style.cssText;
+    }
+    for(const section of sections)window.SALiveDOM.render(section.target,section.html);
+    for(const {target,selector,scrollTop} of sections){
+      if(!selector)continue;
+      const scroller=selector==='.ship-crew-status'?target:target.querySelector('.ship-lane-bars')||target.querySelector(':scope > div');
+      if(scroller)scroller.scrollTop=scrollTop;
+    }
   }
   mountPairedCombatControls();
   const columns=unitList.querySelector('.ship-combat-columns'),clock=columns?.querySelector('.paired-combat-clock');
-  if(clock&&columns.dataset.singlePc!=='true'){columns.style.removeProperty('--clock-content-height');const lane=columns.querySelector('.ship-lane-atb'),style=lane&&getComputedStyle(lane);const padding=style?parseFloat(style.paddingTop)+parseFloat(style.paddingBottom):0;columns.style.setProperty('--clock-content-height',Math.max(0,clock.offsetHeight-padding)+'px');}
+  syncShipClockHeight(columns,clock);
   const combatSpaceMap=unitList.querySelector('.combat-space-map');
   const combatSpaceSvg=window.SASpaceMap.update(combatSpaceMap,state.starships,state.shipPositions);
   window.SASpaceMap.mountCamera(combatSpaceSvg,window.SASpaceMap.cameraIdentity('combat'));
@@ -1770,7 +1799,7 @@ window.SACombatBridge = {
   action: async (...args)=>{
     if(!state?.practice)return action(...args);
     const body=args[0],unit=state.units.find(u=>u.id===body.id);
-    const route={shipMaintenance:'power',operateCombatDoor:'door',operateAirlock:'airlock'}[body.action];if(!route)throw new Error('Combat actions are unavailable outside combat.');
+    const route=body.action==='weaponCommand'&&body.kind==='unload-missiles'?'unload':{shipMaintenance:'power',operateCombatDoor:'door',operateAirlock:'airlock'}[body.action];if(!route)throw new Error('Combat actions are unavailable outside combat.');
     const response=await campaignRequest('/api/campaign/starship/'+route,{method:'POST',body:JSON.stringify({...body,starshipId:unit.location.starshipId,code:currentRoomCode,token:mode==='gm'?gmCampaignToken:campaignCharacterToken,characterId:unit.characterId||campaignCharacterId})});
     receiveCampaignUpdate(response.campaign);return response;
   },

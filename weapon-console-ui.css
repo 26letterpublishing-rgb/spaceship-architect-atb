@@ -43,3 +43,31 @@ body dialog.weapon-console[data-weapon-family="ballistic-rail-repeater"] .weapon
 body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls h3{font-family:Orbitron,Arial,sans-serif;font-size:18px;line-height:1.5}
 body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls :is(label,p){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
 body dialog.weapon-console[data-weapon-family="ion-disruptor"] .weapon-controls :is(select,input){font-family:Orbitron,Arial,sans-serif;font-size:16px}
+.weapon-console[data-weapon-family="rapid-laser"] .weapon-power-choices{grid-template-columns:minmax(0,1fr)}
+
+/* Devastation's requested map-bottom charge display; other weapon families retain their meters. */
+.weapon-console[data-weapon-family="devastation-laser"] .devastation-meter{flex:0 0 auto;align-self:center;width:90%;margin:10px auto 0;text-align:center}
+.weapon-console .devastation-meter [data-dev-progress]{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:5px;height:40px}
+.weapon-console .devastation-meter [data-dev-progress]>span{background:#240c15;border:1px solid #a2374e}
+.weapon-console .devastation-meter [data-dev-progress]>.filled{background:#d93658;border-color:#ff7f78;box-shadow:0 0 4px #aa173344}
+.weapon-console .devastation-meter:is([data-phase="charging"],[data-phase="ready"]) .filled{animation:devastation-cell-pulse var(--dev-pulse-seconds,1.8s) ease-in-out infinite}
+.weapon-console .devastation-meter [data-dev-meter-label]{display:block;margin-top:4px;color:#f2bbc6;line-height:15px}
+@keyframes devastation-cell-pulse{0%,100%{filter:brightness(.8);box-shadow:0 0 4px #aa173344}50%{filter:brightness(1.25);box-shadow:0 0 12px #ef305666}}
+@media(prefers-reduced-motion:reduce){.weapon-console .devastation-meter .filled{animation:none!important;filter:none}}
+
+.weapon-console [data-loaded-mines]{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-bottom:4px}
+.weapon-console [data-loaded-mines] figure{margin:0;flex:0 1 90px;min-width:0;text-align:center}
+.weapon-console [data-loaded-mines] img{display:block;width:64px;height:64px;object-fit:contain;margin:0 auto 4px}
+.weapon-console [data-loaded-mines] figcaption{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+
+/* Beam ALMA report placement; other weapon families retain their layouts. */
+@media(min-width:901px){
+ body dialog.weapon-console[data-weapon-family="beam-laser"].shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-plot{height:calc(100% - 142px)!important;align-self:start}
+ body dialog.weapon-console[data-weapon-family="beam-laser"].shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-feed{grid-column:2!important;grid-row:2/4!important;align-self:end;height:130px!important;overflow:auto!important}
+ body dialog.weapon-console[data-weapon-family="beam-laser"].shared-console-layout[data-console-owner]:not(.combat-order-dialog) .shared-seat{grid-column:3!important;grid-row:3!important;align-self:center;justify-content:center;align-items:center}
+ body dialog.weapon-console[data-weapon-family="beam-laser"].shared-console-layout[data-console-owner]:not(.combat-order-dialog) .weapon-processor{overflow:visible!important}
+}
+/* Rail Cannon stores ammunition in the existing output; it is not a duplicate AU meter. */
+body dialog.weapon-console[data-weapon-family="ballistic-rail-cannon"].shared-console-layout .weapon-controls [data-au]{display:block}
+/* Repeater ammunition shares the existing output, independently of the AU panel. */
+body dialog.weapon-console[data-weapon-family="ballistic-rail-repeater"].shared-console-layout .weapon-controls [data-au]{display:block}

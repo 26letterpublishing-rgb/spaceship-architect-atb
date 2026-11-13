@@ -38,5 +38,24 @@
       removeItem: key => session.removeItem(prefix + key),
     };
   }
-  return { selectStorage, repair };
+  async function readyProvider(view) {
+    let provider = view.SABrowserStorage;
+    // Roll-only frames receive their character and saved dice from their host.
+    // Reuse that host's hydrated storage instead of loading every archive again.
+    if (new URLSearchParams(view.location.search).has('shipRoll')) {
+      try {
+        const host = view.parent;
+        if (host && host !== view && host.location.origin === view.location.origin) {
+          const candidate = host.SABrowserStorage;
+          if (candidate?.ready && typeof candidate.ready.then === 'function' &&
+              ['getItem', 'setItem', 'removeItem'].every(key => typeof candidate.local?.[key] === 'function')) {
+            provider = candidate;
+          }
+        }
+      } catch { /* Cross-origin or inaccessible hosts retain this frame's provider. */ }
+    }
+    await provider.ready;
+    return provider;
+  }
+  return { selectStorage, repair, readyProvider };
 }));

@@ -66,7 +66,8 @@ function command(room,unit,body){
 function hit(room,id,damage){
  const entry=entries(room).find(e=>e.drone.id===id&&['repairing','returning'].includes(e.drone.phase));
  if(!entry||damage<maps.definition(entry.item.type).threshold)return false;
- entry.drone.phase='destroyed';entry.item.impaired=true;entry.item.impairmentPoints=Math.max(1,entry.item.impairmentPoints||0);entry.item.status='destroyed';return true;
+ const offline=require('./ship-offline-events'),wasOnline=offline.capture(entry.owner,entry.item);
+ entry.drone.phase='destroyed';entry.item.impaired=true;entry.item.impairmentPoints=Math.max(1,entry.item.impairmentPoints||0);entry.item.status='destroyed';offline.record(entry.owner,entry.item,wasOnline);return true;
 }
 function repairTargets(room,owner){
  if(!alive(owner)||power.output(owner,room.units).en<power.demand(owner)||!maps.installedItems(owner).some(i=>maps.definition(i.type).repairDrone&&stations.online(i)&&!i.impaired&&!(i.impairmentPoints>0)&&i.status!=='impaired'))return [];

@@ -6,7 +6,7 @@ const resolverSource=characterSource.slice(characterSource.indexOf('function res
 const skillContext={};vm.runInNewContext(resolverSource+'\nthis.resolve=resolveSkill;',skillContext);
 const acceptsSharedSkill=skill=>skillContext.resolve({skills:Object.fromEntries(require('../skill-catalog').names.map(name=>[name,{tenths:0}])),customSkills:[]},'base:'+skill);
 async function setup(type,details={}){
-  const nodes=new Map(),created=[],requests=[],messages=[],listeners=new Map(),alerts=[];
+  const nodes=new Map(),created=[],requests=[],messages=[],listeners=new Map(),alerts=[],help=[];
   const element=tag=>({tag,dataset:{},listeners:new Map(),value:'',checked:true,disabled:false,hidden:false,children:[],contentWindow:{postMessage:body=>messages.push(body)},
     setAttribute(){},append(...children){this.children.push(...children);},remove(){},showModal(){this.open=true;},close(){this.open=false;for(const f of this.listeners.get('close')||[])f();this.onclose?.();},
     addEventListener(event,fn){this.listeners.set(event,[...(this.listeners.get(event)||[]),fn]);},
@@ -16,11 +16,11 @@ async function setup(type,details={}){
   const unit={id:'u',characterId:'pc',characterName:'Test PC'},ship={id:'s',ship:{crewRoomState:{report:{text:'Another room had a drink order.'}},sicInventory:[]}},state={practice:true,units:[unit],starships:[ship]};
   const info={details,impaired:type==='bar',gm:false,hibernationUnavailable:'',patients:[],skills:[],attributes:[]};
   let failure=false;
-  const window={...win,SACombatBridge:{state:()=>state,soundIcon:()=>'',requestRender(){},consoleTick(){},crewRoomRequest:async body=>{requests.push(body);if(body.kind==='inspect')return {result:info};if(failure){failure=false;throw Error('Temporary network failure');}return {result:{text:'Confirmed'}};}},SAStationAccess:{access:()=>({definition:{name:type,utility:type,crewRoom:true,image:'room.webp'},item:{},ship})},SAShipMap:{installedItems:()=>[]},SAShipNavigationUI:{mountSelector(){},remember(){},toggleHold:async()=>{}},SAConsoleCommon:{standby:()=>'',updateSound(){}},alert:x=>alerts.push(x)};
+  const window={...win,SAActionHelp:{attach:(node,key)=>help.push({node,key})},SACombatBridge:{state:()=>state,soundIcon:()=>'',requestRender(){},consoleTick(){},crewRoomRequest:async body=>{requests.push(body);if(body.kind==='inspect')return {result:info};if(failure){failure=false;throw Error('Temporary network failure');}return {result:{text:'Confirmed'}};}},SAStationAccess:{access:()=>({definition:{name:type,utility:type,crewRoom:true,image:'room.webp'},item:{},ship})},SAShipMap:{installedItems:()=>[]},SAShipNavigationUI:{mountSelector(){},remember(){},toggleHold:async()=>{}},SAConsoleCommon:{standby:()=>'',updateSound(){}},alert:x=>alerts.push(x)};
   const context={window,document:doc,location:{href:'http://localhost/index.html',origin:'http://localhost'},URL,crypto,setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../crew-room-console.js'),'utf8'),context);await window.SACrewRoomConsole.open(unit,type);assert.deepEqual(alerts,[]);
   const click=async selector=>{for(const fn of nodes.get(selector)?.listeners.get('click')||[])fn();await flush();};
-  return {nodes,created,requests,messages,listeners,info,click,failNext:()=>{failure=true;},close:()=>created.find(e=>e.tag==='dialog').close()};
+  return {nodes,created,requests,messages,listeners,info,help,click,failNext:()=>{failure=true;},close:()=>created.find(e=>e.tag==='dialog').close()};
 }
 
 test('impaired Bar opens the established character dice iframe and retries the same D6 result and receipt',async()=>{
@@ -42,3 +42,5 @@ test('hibernation console keeps manual wake available, blocks a second sleep and
 test('fresh room status never borrows another room’s latest report',async()=>{
   const f=await setup('hibernation-chamber');assert.match(f.nodes.get('[data-records]').textContent,/Chamber ready/);assert.doesNotMatch(f.nodes.get('[data-records]').textContent,/drink order/);f.close();
 });
+
+test('Ship AI mounts existing help without configuring or replacing settings controls',async()=>{const f=await setup('ship-ai',{name:'Navigator',enabled:true});assert.equal(f.help.length,1);assert.equal(f.help[0].key,'shipAi');assert.equal(f.help[0].node,f.nodes.get('.crew-room-controls>h3'));assert.equal(f.requests.filter(r=>r.kind==='configure').length,0);f.nodes.get('[data-ai-name]').value='Guide';f.nodes.get('[data-ai-enabled]').checked=false;await f.click('[data-ai-save]');const request=f.requests.find(r=>r.kind==='configure');assert.equal(request.text,'Guide');assert.equal(request.enabled,false);f.close();});

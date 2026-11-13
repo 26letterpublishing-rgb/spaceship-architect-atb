@@ -4,7 +4,7 @@
 .crew-room-scene>img{position:static!important;width:min(100%,290px);height:70%;min-height:140px;object-fit:contain}
 .crew-room-scene h3{margin:8px 0;color:#b8edd3}.crew-room-scene p{font-size:13px;text-align:center;margin:0}
 .crew-room-console[data-operating=true] .crew-room-scene img{animation:crew-room-pulse 2s ease-in-out infinite}
-.crew-room-console[data-room-type=medbay][data-operating=true] .crew-room-animation{position:absolute;inset:20% 15%;border-top:3px solid #87ebc0;animation:medical-scan 2s ease-in-out infinite}
+
 .crew-room-controls label{display:grid;gap:5px;font-size:13px;margin:9px 0}.crew-room-controls input,.crew-room-controls select,.crew-room-controls textarea{box-sizing:border-box;width:100%;min-width:0;background:#102a32;border:1px solid #729b9c;color:#f1f5f3;padding:8px;font:14px Arial}
 .crew-room-controls button{width:100%;margin:5px 0}.crew-room-controls output{display:block;font-size:13px;line-height:1.5;margin:7px 0;color:#bde9d5}
 .crew-room-console[data-room-type=bar] .crew-room-scene{background:radial-gradient(ellipse at 50% 30%,#57352b,#112228 80%)!important}
@@ -46,7 +46,7 @@ dialog.crew-room-console[data-room-type=science-lab].shared-console-layout[data-
 
 .science-confirm{background:#0b2332;color:#eefaff;border:1px solid #55cfee;border-radius:8px;padding:24px;max-width:min(460px,90vw)}.science-confirm p{white-space:pre-line;line-height:1.6}.science-confirm button{background:#13577a;color:white;border:1px solid #8bd7ec;padding:10px 20px;margin:8px}.science-confirm::backdrop{background:#0008}
 
-.crew-room-console .crew-room-scene>img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;min-height:0!important;object-fit:cover!important}.crew-room-scene h3,.crew-room-scene p{position:relative;z-index:2;background:#06151cc9;padding:7px 12px;max-width:90%}.crew-room-scene h3{margin-top:auto}.crew-room-scene p{margin-bottom:14px}.crew-room-console[data-room-type=vr-training-room] .crew-room-animation{position:absolute;inset:0;background:linear-gradient(transparent 45%,#54dfff33 50%,transparent 55%);background-size:100% 180%;animation:medical-scan 5s linear infinite;pointer-events:none}.crew-room-console[data-room-type=medbay] .crew-room-animation{position:absolute;inset:15%;border-top:2px solid #8effd970;animation:medical-scan 4s ease-in-out infinite;pointer-events:none}
+.crew-room-console .crew-room-scene>img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;min-height:0!important;object-fit:cover!important}.crew-room-scene h3,.crew-room-scene p{position:relative;z-index:2;background:#06151cc9;padding:7px 12px;max-width:90%}.crew-room-scene h3{margin-top:auto}.crew-room-scene p{margin-bottom:14px}.crew-room-console[data-room-type=vr-training-room] .crew-room-animation{position:absolute;inset:0;background:linear-gradient(transparent 45%,#54dfff33 50%,transparent 55%);background-size:100% 180%;animation:medical-scan 5s linear infinite;pointer-events:none}
 
 /* Bar controls typography: no other room or scene inherits these rules. */
 @font-face{font-family:Orbitron;src:url('fonts/Orbitron-VariableFont_wght.ttf') format('truetype');font-weight:400 900;font-display:swap}
@@ -100,3 +100,19 @@ body dialog.crew-room-console.lock-console.shared-console-layout[data-console-ow
 .crew-room-console[data-room-type=medbay] .crew-room-controls :is(h3,label,select,output){font-family:Orbitron,Arial,sans-serif;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
 .crew-room-console[data-room-type=medbay] .crew-room-controls h3{font-size:18px}
 .crew-room-console[data-room-type=medbay] .crew-room-controls select{font-size:16px}
+
+/* Bar ALMA: retain power/service, give the existing scene the freed width. */
+@media(min-width:901px){
+ body dialog.crew-room-console.shared-console-layout[data-room-type=bar]{grid-template-columns:200px minmax(300px,1fr) 250px!important}
+ body dialog.crew-room-console.shared-console-layout[data-room-type=bar] .crew-room-scene{grid-row:2/4!important}
+}
+
+.crew-room-console[data-room-type=ship-ai] .crew-room-controls>h3{display:inline-block;margin-right:8px}
+.crew-room-console[data-room-type=ship-ai] .crew-room-controls>.ship-action-help-button{vertical-align:middle;margin:0 0 8px}
+
+/* Attenuate only the existing amber doorway light in the 1280x720 source image. */
+.crew-room-console[data-room-type=medbay] .medbay-door-light{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:hidden}
+.medbay-door-light polygon{opacity:0;animation:medbay-door-light-dim 8s ease-in-out infinite}
+@keyframes medbay-door-light-dim{0%,73.5%,76.5%,100%{opacity:0}75%{opacity:.06}}
+.crew-room-console:not([open]) .medbay-door-light polygon,.crew-room-console.is-powered-off .medbay-door-light polygon{animation:none;opacity:0}
+@media(prefers-reduced-motion:reduce){.medbay-door-light polygon{animation:none;opacity:0}}

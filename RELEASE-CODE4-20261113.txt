@@ -1,0 +1,27 @@
+CODE4 PUBLICATION CHECKPOINT — 2026-11-13
+
+Authorization: Jason approved publishing the current app to the public
+26letterpublishing-rgb/spaceship-architect-atb repository, main branch, aware
+that the existing hosting configuration may deploy on push. Stop work afterward.
+
+Scope: current reviewed local application, shared rules helpers, Console/ALMA
+changes, music configuration, snapshots, regression tests and their required
+harness dependencies. No new gameplay or design changes during publication.
+Private saves, backups, temporary QA evidence and unapproved Hibernation frost
+and Hacking circuitry candidate artwork are excluded and preserved locally.
+This is an intended-app publication, not a mirror of every local file.
+
+Validation: clean index export shared asset staging and verification passed,
+1,205 public assets. Full suite initially 2,537/2,547: nine environment/missing
+harness failures and one live-hacking restart failure. Required harnesses were
+included and installed Playwright supplied through the test environment.
+Affected rerun: 16/17 passed, including live-hacking. Bar typography still fails
+its 'idle fits' assertion; unresolved, no assertion weakened. No claim of a
+fully passing aggregate suite. Existing focused feature/browser evidence remains
+in the local Code4 handoff. One trailing blank-line whitespace warning remains.
+
+Remaining limits: original repeated NPC dice stall cause is unconfirmed; Bar
+layout assertion needs diagnosis; Gym brief resize flicker and independent
+Gravity crop review remain unverified. Existing user decisions and artwork
+approval holds remain in effect. No manual deployment or normal-server restart.
+No further feature work after publication. Remote hash is reported separately.

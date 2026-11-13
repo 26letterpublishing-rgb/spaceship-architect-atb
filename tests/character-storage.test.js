@@ -1,10 +1,55 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { selectStorage, repair } = require("../character-storage");
+const { selectStorage, repair, readyProvider } = require("../character-storage");
 function storage(initial = {}) {
   const data = new Map(Object.entries(initial));
   return { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, String(v)), removeItem: k => data.delete(k), snapshot: () => Object.fromEntries(data) };
 }
+
+function providerView(search = '?shipRoll=1') {
+  const own = { ready: Promise.resolve(), local: storage() };
+  const parent = { location: { origin: 'http://localhost' }, SABrowserStorage: { ready: Promise.resolve(), local: storage({ sound: 'off' }) } };
+  return { location: { search, origin: 'http://localhost' }, SABrowserStorage: own, parent };
+}
+test('embedded ship rolls reuse hydrated same-origin parent while own archive load is blocked', async () => {
+  const view = providerView();
+  view.SABrowserStorage.ready = new Promise(() => {});
+  const selected = await readyProvider(view);
+  assert.equal(selected, view.parent.SABrowserStorage);
+  assert.equal(selected.local.getItem('sound'), 'off');
+});
+test('selected parent initialization is still awaited', async () => {
+  const view = providerView(); let release, finished = false;
+  view.parent.SABrowserStorage.ready = new Promise(resolve => { release = resolve; });
+  const pending = readyProvider(view).then(value => { finished = true; return value; });
+  await Promise.resolve(); assert.equal(finished, false);
+  release(); assert.equal(await pending, view.parent.SABrowserStorage);
+});
+test('ordinary character pages retain their own initialization gate', async () => {
+  const view = providerView('?campaign=TEST'); let release, finished = false;
+  view.SABrowserStorage.ready = new Promise(resolve => { release = resolve; });
+  const pending = readyProvider(view).then(value => { finished = true; return value; });
+  await Promise.resolve(); assert.equal(finished, false);
+  release(); assert.equal(await pending, view.SABrowserStorage);
+});
+test('standalone, foreign, inaccessible and incomplete hosts fall back to own provider', async () => {
+  for (const change of [
+    view => { view.parent = view; },
+    view => { view.parent.location.origin = 'https://other.example'; },
+    view => { Object.defineProperty(view.parent, 'location', { get() { throw Error('SecurityError'); } }); },
+    view => { delete view.parent.SABrowserStorage; },
+    view => { view.parent.SABrowserStorage.ready = null; },
+    view => { view.parent.SABrowserStorage.local = {}; },
+  ]) {
+    const view = providerView(); change(view);
+    assert.equal(await readyProvider(view), view.SABrowserStorage);
+  }
+});
+test('failed initialization is not silently bypassed', async () => {
+  const view = providerView();
+  view.parent.SABrowserStorage.ready = Promise.reject(Error('initialization failed'));
+  await assert.rejects(readyProvider(view), /initialization failed/);
+});
 test("demo character writes and removals never change personal saves or campaign", () => {
   const personal = storage({ "sa2e-character-library-v1": '[{"id":"real"}]', "sa-character-campaign-code": "REAL" });
   const before = personal.snapshot();

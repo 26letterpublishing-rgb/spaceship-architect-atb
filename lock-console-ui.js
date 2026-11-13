@@ -36,10 +36,11 @@
       script.addEventListener('load',loaded,{once:true});script.addEventListener('error',()=>{script.remove();if(view.isConnected)floorHost.textContent='The floorplan could not load. Close and reopen the Console to retry.';},{once:true});
     }
     const resize=new ResizeObserver(()=>{fitFloor();if(!list.hidden)positionPicker();});resize.observe(scope);
-    function updateComponentView(analysis,available){
+    function updateComponentView(analysis,target){
       spaceHost.hidden=componentMode;floorHost.hidden=!componentMode;
-      const key=JSON.stringify(available?analysis?.layout||null:null);
-      if(key!==componentKey){componentKey=key;floorHost.innerHTML=available&&analysis?.layout&&window.SACombatMap?.componentPreview?window.SACombatMap.componentPreview(analysis.layout,doc):'<p class="inline-map-empty">Complete Systems Analysis of an available detected ship to view its components.</p>';}
+      const layout=target&&analysis?.layout?window.SAShipSensors.liveAnalyzedImpairments(analysis.layout,target):null;
+      const key=JSON.stringify(layout);
+      if(key!==componentKey){componentKey=key;floorHost.innerHTML=layout&&window.SACombatMap?.componentPreview?window.SACombatMap.componentPreview(layout,doc):'<p class="inline-map-empty">Complete Systems Analysis of an available detected ship to view its components.</p>';}
       const entries=[...componentSelect.options].filter(o=>o.value),next=entries.map(o=>o.value+'|'+o.textContent).join('\n');
       if(next!==pickerKey){pickerKey=next;closePicker();list.replaceChildren(...entries.map((o,i)=>{const option=doc.createElement('button');option.type='button';option.tabIndex=-1;option.id=list.id+'-'+i;option.dataset.componentOption=o.value;option.setAttribute('role','option');option.textContent=o.textContent;return option;}));}
       picker.textContent=componentSelect.selectedOptions[0]?.textContent||'Choose a component';picker.disabled=!entries.length;
@@ -69,7 +70,7 @@ get('[data-turn]').textContent=person.consoleHold?'HOLDING / 99%':pending?.await
       release.disabled=!lock||Boolean(pending)||busy;
       if(lastComponentTarget!==null&&lastComponentTarget!==targetId){get('[data-component]').value='';lastComponents='target changed';}lastComponentTarget=targetId;
       const components=target?(analysis?.layout.sicInventory||[]):[];lastComponents=options(get('[data-component]'),components.filter(i=>window.SAStationAccess.online(i)&&analysis.layout.placements?.some(p=>p.sicId===i.id)).map(i=>`<option value="${esc(i.id)}" title="${esc(i.id)}">${esc(window.SAShipLocks.componentLabel(analysis,i.id))}</option>`).join('')||'<option value="">Analyze ship first</option>',lastComponents,true);
-      updateComponentView(analysis,Boolean(target));
+      updateComponentView(analysis,target);
       summary.textContent=window.SAShipLocks.componentLabel(analysis,get('[data-component]').value)||'Choose a component from the latest available analysis.';
       get('[data-component]').title=(get('[data-component]').selectedOptions?.[0]?.textContent||'')+(get('[data-component]').value?' / SIC ID: '+get('[data-component]').value:'');
       get('[data-sic]').disabled=!ready||!lock||!analysis?.layout||target?.currentShieldHp>0||!get('[data-component]').value;

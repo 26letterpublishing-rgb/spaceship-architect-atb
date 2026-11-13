@@ -9,10 +9,14 @@
     if(ship.uncertainty||ship.gmContactMarker||['unknown','last-known'].includes(ship.contactLevel)||observer&&ship.id!==observer.id&&observer.sensorState?.contacts?.[ship.id]?.level!=='detected')return 'UNKNOWN';
     return ship.controlType==='pc'?'ALLY':ship.controlType==='gm'?'HOSTILE':'UNKNOWN';
   }
+  function calloutGeometry(label,scale=Infinity,left=false,rowOffset=0){
+    const font=Math.max(.275,9/scale),lineY=1+rowOffset,end=Math.max(2.8,1.15+label.length*font*.65);
+    return {font,x:left?-1.15:1.15,y:lineY-.075,path:left?'M-.6 .5 L-1.1 '+lineY+' H-'+end:'M.6 .5 L1.1 '+lineY+' H'+end};
+  }
   function calloutMarkup(ship,observer){
     if(ship.spaceObject||ship.isDrone||ship.isProbe||ship.isMissile)return '';
-    const label=affiliation(ship,observer),color={ALLY:'#ffe277',UNKNOWN:'#be8cff',HOSTILE:'#ff656d'}[label];
-    return '<g data-ship-callout="'+label+'" pointer-events="none" style="color:'+color+'"><path d="M.6 .5 L1.6 1.5 H5" fill="none" stroke="currentColor" stroke-width=".07"/><text x="1.7" y="1.35" font-size=".55" fill="currentColor" stroke="#070e14" stroke-width=".1" paint-order="stroke">'+label+'</text></g>';
+    const label=affiliation(ship,observer),geometry=calloutGeometry(label),color={ALLY:'#ffe277',UNKNOWN:'#be8cff',HOSTILE:'#ff656d'}[label];
+    return '<g data-ship-callout="'+label+'" pointer-events="none" style="color:'+color+'"><path d="'+geometry.path+'" fill="none" stroke="currentColor" stroke-width=".035"/><text x="'+geometry.x+'" y="'+geometry.y+'" font-size="'+geometry.font+'" fill="currentColor" stroke="#070e14" stroke-width=".05" paint-order="stroke">'+label+'</text></g>';
   }
   function bindCallouts(root){
     for(const button of root.querySelectorAll('[data-ship-callouts-toggle]')){
@@ -515,11 +519,10 @@
     for(const callout of svg.querySelectorAll('[data-ship-callout]')){
       const matrix=callout.parentElement.transform.baseVal.consolidate()?.matrix,left=matrix&&matrix.e>x+width/2;
       const path=callout.querySelector('path'),text=callout.querySelector('text');
-      const font=Math.max(.55,9/scale),end=Math.max(5,1.7+callout.dataset.shipCallout.length*font*.65);
-      const lineY=1.5+(scale<15?(calloutRow++%2)*1.5:0);
-      text.setAttribute('y',String(lineY-.15));text.setAttribute('font-size',String(font));
-      path.setAttribute('d',left?'M-.6 .5 L-1.6 '+lineY+' H-'+end:'M.6 .5 L1.6 '+lineY+' H'+end);
-      text.setAttribute('x',left?'-1.7':'1.7');text.setAttribute('text-anchor',left?'end':'start');
+      const geometry=calloutGeometry(callout.dataset.shipCallout,scale,left,scale<15?(calloutRow++%2)*1.5:0);
+      text.setAttribute('y',String(geometry.y));text.setAttribute('font-size',String(geometry.font));
+      path.setAttribute('d',geometry.path);
+      text.setAttribute('x',String(geometry.x));text.setAttribute('text-anchor',left?'end':'start');
     }
     const visibleLabels=[];
     for(const label of svg.querySelectorAll('[data-space-ship] > text')){

@@ -267,8 +267,9 @@ test('interior Fit reserves overlapping bottom controls without changing viewpor
 test('clock sizing skips single-PC layout but retains multi-ship sizing and transitions',()=>{
  const start=source.indexOf("  const columns=unitList.querySelector('.ship-combat-columns'),clock="),end=source.indexOf('  const combatSpaceMap=',start),body=source.slice(start,end);
  let reads=0,styles=0,value='old',removes=0;const clock={get offsetHeight(){reads++;return 140;}},columns={dataset:{singlePc:'true'},style:{removeProperty(){removes++;value=null;},setProperty(k,v){assert.equal(k,'--clock-content-height');value=v;}},querySelector:s=>s==='.paired-combat-clock'?clock:{}};
- const c={unitList:{querySelector:()=>columns},getComputedStyle:()=>{styles++;return{paddingTop:'12px',paddingBottom:'8px'};}};
- const run=()=>vm.runInNewContext('(function(){'+body+'})()',c);
+ const c={document:{fonts:{}},innerWidth:1366,innerHeight:768,unitList:{querySelector:()=>columns},getComputedStyle:()=>{styles++;return{paddingTop:'12px',paddingBottom:'8px'};}};
+ const helperStart=source.indexOf('let shipClockLayout=null,'),helperEnd=source.indexOf('function renderShipCombatColumns()',helperStart);assert(helperStart>=0&&helperEnd>helperStart);vm.createContext(c);vm.runInContext(source.slice(helperStart,helperEnd),c);
+ const run=()=>vm.runInContext('(function(){'+body+'})()',c);
  run();assert.equal(reads,0);assert.equal(styles,0);assert.equal(removes,0);assert.equal(value,'old');
  columns.dataset.singlePc='false';run();assert.equal(value,'120px');assert.equal(reads,1);assert.equal(styles,1);
  columns.dataset.singlePc='true';run();assert.equal(reads,1);assert.equal(styles,1);

@@ -24,12 +24,13 @@
     const value = `${Number(Math.max(0, Number(current) || 0).toFixed(1))}/${Number(Math.max(0, Number(maximum) || 0).toFixed(1))}`;
     return `<span class="sa-health-track" title="${label}${exact ? ` ${value}` : ""}" aria-label="${label}${exact ? ` ${value}` : " condition"}">${segments(current, maximum).map(fill => `<i class="sa-health-icon ${kind} ${fill}" aria-hidden="true"></i>`).join("")}${exact ? `<small>${value}</small>` : ""}</span>`;
   }
-  function crewHealth(units,shipId,campaign){
+  function crewHealth(units,shipId,campaign,options={}){
     const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     // Both sources must already be viewer-filtered. A live record anywhere wins
     // over its saved location/health, including a live departure from this ship.
     const people=[...(units||[])],liveIds=new Set(people.flatMap(u=>[u.id,u.characterId].filter(Boolean)));
     const ship=campaign?.starships?.find(s=>s.id===shipId);
+    const crewCharacters=new Set(ship?.crewCharacterIds||[]),crewNpcs=new Set(ship?.crewNpcUnitIds||[]);
     const aboard=loc=>loc&&Number.isInteger(loc.square)&&!['surface','exterior','boarding','escape-pod'].includes(loc.environment)&&!loc.escapePodId;
     for(const id of ship?.crewCharacterIds||[]){
       if(liveIds.has(id))continue;
@@ -45,7 +46,7 @@
       if(liveIds.has(u.id))continue;
       people.push({...u,characterName:u.characterName||u.name});liveIds.add(u.id);
     }
-    return people.filter(u=>u.location?.starshipId===shipId&&aboard(u.location)&&!u.shipAi&&!u.securityDroid).map(u=>{
+    return people.filter(u=>(!options.assignedCrewOnly||(u.characterId?crewCharacters.has(u.characterId):crewCharacters.has(u.id)||crewNpcs.has(u.id)))&&u.location?.starshipId===shipId&&aboard(u.location)&&!u.shipAi&&!u.securityDroid).map(u=>{
       const known=Number.isFinite(u.currentHp)&&Number.isFinite(u.maximumHp)&&u.maximumHp>0;
       const filled=known?Math.min(6,Math.ceil(Math.max(0,u.currentHp)/u.maximumHp*6)):0;
       const hearts=known?'<span class="npc-health" aria-label="Crew health: '+filled+' of 6 heart segments">'+[0,1,2].map(i=>'<span class="npc-heart '+(filled>=i*2+2?'full':filled===i*2+1?'half':'empty')+'" aria-hidden="true">&#9829;</span>').join('')+'</span>':'<span>Health unknown</span>';

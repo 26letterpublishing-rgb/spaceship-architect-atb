@@ -78,3 +78,18 @@ body dialog.utility-console:has(.life-machine) .utility-controls .utility-switch
  dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .life-instruments{position:static;inset:auto;grid-column:1;grid-row:2;width:auto;height:auto;padding:0;gap:5px;grid-template-rows:66px 24px auto auto auto;background:transparent;border:0;box-shadow:none;overflow:visible}
  dialog.utility-console:has(.life-machine):not(.combat-order-dialog) .gravity-chamber{position:relative;inset:auto;grid-column:2;grid-row:2;width:auto;height:auto;min-height:0;box-sizing:border-box;align-self:stretch}
 }
+/* Life Support report only; preserve the existing panel and log scrolling. */
+dialog.utility-console.shared-console-layout section.life-terminal-report{background:#000;color:#80ff9c;font-family:ui-monospace,Consolas,monospace}
+dialog.utility-console .life-terminal-report :is(h3,[data-report],[data-environment-log]){color:inherit;font-family:inherit}
+dialog.utility-console .life-terminal-report [data-environment-log]{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+dialog.utility-console .life-terminal-report [data-environment-log]>div{margin:0}
+dialog.utility-console .life-terminal-report [data-environment-log]:empty::after,
+dialog.utility-console .life-terminal-report [data-environment-log]>div:last-child::after{content:'';display:inline-block;width:.6em;height:1em;margin-left:.25em;vertical-align:-.15em;background:currentColor;animation:life-terminal-cursor 1s steps(1,end) infinite}
+@keyframes life-terminal-cursor{0%,100%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){dialog.utility-console .life-terminal-report [data-environment-log]:empty::after,dialog.utility-console .life-terminal-report [data-environment-log]>div:last-child::after{animation:none;opacity:1}}
+/* Cloaking's existing scene fills its desktop image box without distortion. */
+@media(min-width:901px){dialog.utility-console.cloak-console>.utility-scene>img[src="cloak-console-scene.webp"]{object-fit:cover!important;object-position:center}}
+/* Gravity's existing generator scene fills its desktop image box proportionally. */
+@media(min-width:901px){dialog.utility-console.gravity-console>.utility-scene>img[src="gravity-console-scene.webp"]{object-fit:cover!important;object-position:center}}
+/* Relay Pulse: enlarge text only in the measured roomy desktop layout. */
+@media(min-width:1600px) and (min-height:900px){body dialog.relay-pulse-console .utility-controls :is(h3,p,[data-reports]){font-size:18px}}

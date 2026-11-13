@@ -46,6 +46,7 @@ test('warp stores, campaign travel, registered cancellation and manual blast sur
   Object.assign(escapeRoom,{hasEngagedClock:true,encounterEndedAt:null,activeId:pilot.id,pausedForTurn:true,hardPaused:true,running:false});
   Object.assign(escapeRoom.starships.find(s=>s.id===record.id),structuredClone(escape.campaign.starships.find(s=>s.id===record.id)),{maximumHullHp:256,currentHullHp:256});
   escapeRoom.units.find(u=>u.id===pilot.id).atb=100;
+  escape.campaign.starmaps.maps=[];escape.campaign.starmaps.positions={};
   await post('campaign/restore',{code,token,backup:escape});
   const began=await post('action',{roomCode:code,gmToken:token,action:'transitCommand',id:pilot.id,shipId:record.id,sicId:'warp-test',kind:'warpStart',distanceLY:3.26,requestId:'combat-warp-start'});assert.equal(began.starships.find(s=>s.id===record.id).ship.warpState.phase,'activating');await sleep(400);
   escape=await saved();escapeRoom=escape.campaign.encounter;escapeRoom.starships.find(s=>s.id===record.id).ship.warpState.remaining=.1;Object.assign(escapeRoom,{activeId:null,pausedForTurn:false,command:null});for(const u of escapeRoom.units)u.atb=0;

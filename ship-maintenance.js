@@ -1,6 +1,7 @@
 const maps = require('./ship-map-core');
 const sensors = require('./ship-sensors');
 const stations = require('./station-access');
+const offline=require('./ship-offline-events');
 const points = item => Math.max(0, Math.floor(Number(item.impairmentPoints) || (item.impaired || item.status === 'impaired' ? 1 : 0)));
 function local(ship, location) {
   if (!location || !Number.isInteger(location.square)) return null;
@@ -35,6 +36,7 @@ function queue(room, unit, body) {
   if(!/^[\w-]{8,100}$/.test(receipt))return {ok:false,error:'Invalid maintenance receipt.'};
   if(ship.maintenanceReceipts.includes(receipt))return {ok:true,duplicate:true};
   if(room.activeId!==unit.id||unit.delayedAction||unit.delayTimer||unit.consoleHold||unit.shieldRestabilizing||room.starships.some(s=>s.auCommands?.some(c=>c.unitId===unit.id)))return {ok:false,error:'Finish the current action and wait for your turn.'};
+  const wasOnline=offline.capture(ship,item);
   if(body.kind==='repair'){
     if(!points(item))return {ok:false,error:'This SIC has no impairment to repair.'};
     unit.delayedAction={id:`repair-${receipt}`,kind:'action',label:'Repair SIC',rate:100/9,total:100,remaining:100,consumeTurn:true,resolving:false,maintenanceOrder:{shipId:ship.id,sicId:item.id,square:unit.location.square}};
@@ -55,7 +57,8 @@ function queue(room, unit, body) {
     }
   }
   ship.maintenanceReceipts=[...ship.maintenanceReceipts,receipt].slice(-256);
-  return {ok:true,ship,immediate:body.kind!=='repair'};
+  const offlineEventId=offline.record(ship,item,wasOnline,{defer:!room.roomCode});
+  return {ok:true,ship,immediate:body.kind!=='repair',offlineEventId};
 }
 function calculationSources(room,unit,pending){
   const order=pending?.maintenanceOrder,ship=room.starships.find(s=>s.id===order?.shipId),item=ship?.ship.sicInventory.find(i=>i.id===order.sicId);if(!item)return null;

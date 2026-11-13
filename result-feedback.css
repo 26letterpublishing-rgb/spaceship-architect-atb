@@ -24,9 +24,9 @@
 .critical-flight-banner[data-type="combat-start"] .critical-flight-track{margin-right:28px}
 @media(prefers-reduced-motion:reduce){.critical-flight-banner[data-type="combat-start"]{animation:none}}
 
-.critical-flight-banner[data-type="combat-start"]{inset:8px auto auto 25%;transform:none;padding:8px 12px;pointer-events:auto}
-.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{font-size:clamp(16px,2vw,24px);line-height:1.5;text-align:left;text-transform:none}
-.critical-flight-banner[data-type="combat-start"] .critical-flight-track small{display:inline;margin-left:1em;font-size:clamp(12px,1.2vw,18px);line-height:1.6;letter-spacing:0;text-shadow:none}
+.critical-flight-banner[data-type="combat-start"]{inset:50% 0 auto;width:100%;transform:translateY(-50%);padding:18px 12px;pointer-events:none}
+.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{font-size:clamp(30px,4vw,60px);line-height:1.2;text-align:center;text-transform:none}
+.critical-flight-banner[data-type="combat-start"] .critical-flight-track small{display:block;font-size:clamp(12px,1.2vw,18px);line-height:1.6;letter-spacing:0;text-shadow:none}
 @media(prefers-reduced-motion:reduce){.critical-flight-banner[data-type="combat-start"] .critical-flight-track{text-align:center}.critical-flight-banner[data-type="combat-start"] .critical-flight-track span{white-space:normal}}
 
 /* Prompted roll results retain the existing corner rail and controls. */
@@ -41,3 +41,7 @@
 @media(prefers-reduced-motion:reduce){.prompt-result-notice[data-critical=true] .prompt-result-summary{animation:none;text-shadow:0 0 5px currentColor}}
 
 @media(prefers-reduced-motion:reduce){.critical-flight-banner .critical-flight-track span{white-space:normal;overflow-wrap:anywhere;will-change:auto}.critical-flight-banner .critical-flight-track{max-height:40dvh;overflow:auto}.critical-flight-banner button{align-self:flex-start}}
+
+.notification-result-detail .skill-dice-results{width:min(680px,100%);margin:0 auto 10px;display:grid;gap:3px;padding:8px 12px;border:1px solid #2e4b64;background:rgba(2,8,14,.76);text-align:left}
+.notification-result-detail .skill-dice-results span{color:#8fa8bd;font-size:.66rem;font-weight:850;line-height:1.35}
+.notification-result-detail .skill-dice-results strong{color:#e9fbff;font-size:.9rem;line-height:1.35;text-shadow:0 0 8px rgba(43,216,255,.34)}

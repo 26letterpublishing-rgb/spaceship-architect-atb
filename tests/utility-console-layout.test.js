@@ -1,5 +1,31 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const css=fs.readFileSync('utility-console.css','utf8');
+
+function lifeImageLayout(source){
+ const startMarker='/* Life Support only: unobscured machine image above live instruments. */';
+ const endMarker='/* Life Support report only; preserve the existing panel and log scrolling. */';
+ const start=source.indexOf(startMarker),end=source.indexOf(endMarker);
+ assert.ok(start>=0,'Life Support image-layout start marker is missing');
+ assert.ok(end>=0,'Life Support image-layout end marker is missing');
+ assert.equal(source.lastIndexOf(startMarker),start,'Life Support image-layout start marker is duplicated');
+ assert.equal(source.lastIndexOf(endMarker),end,'Life Support image-layout end marker is duplicated');
+ assert.ok(end>start+startMarker.length,'Life Support image-layout markers are reversed or empty');
+ const block=source.slice(start+startMarker.length,end);
+ assert.ok(block.trim(),'Life Support image-layout block is empty');
+ return block;
+}
+
+test('Life Support image-layout boundaries reject missing, reversed and duplicate markers',()=>{
+ const start='/* Life Support only: unobscured machine image above live instruments. */',end='/* Life Support report only; preserve the existing panel and log scrolling. */';
+ assert.throws(()=>lifeImageLayout(css.replace(start,'')),/start marker is missing/);
+ assert.throws(()=>lifeImageLayout(css.replace(end,'')),/end marker is missing/);
+ assert.throws(()=>lifeImageLayout(end+' body '+start),/reversed or empty/);
+ assert.throws(()=>lifeImageLayout(start+end),/reversed or empty/);
+ assert.throws(()=>lifeImageLayout(start+' \n'+end),/block is empty/);
+ assert.throws(()=>lifeImageLayout(start+css),/start marker is duplicated/);
+ assert.throws(()=>lifeImageLayout(css+end),/end marker is duplicated/);
+});
+
 test('Life Support control labels and raised switches are family scoped and preserve native controls',()=>{
  const block=css.split('/* Life Support controls:')[1].split('/* Life Support only:')[0];
  for(const selector of [...block.matchAll(/([^{}]+)\{/g)].map(m=>m[1].split('*/').pop().trim()))assert(selector.startsWith('body dialog.utility-console:has(.life-machine)'),selector);
@@ -7,14 +33,14 @@ test('Life Support control labels and raised switches are family scoped and pres
  const source=fs.readFileSync('utility-console-ui.js','utf8');for(const control of ['data-gravity','data-oxygen'])assert(source.includes(control+' type="checkbox" role="switch"'));
 });
 test('Life Support alone places live instruments below the unchanged machine image',()=>{
- const block=css.split('/* Life Support only: unobscured machine image above live instruments. */')[1];assert.ok(block,'Life Support layout block');
+ const block=lifeImageLayout(css);assert.ok(block,'Life Support layout block');
  const selectors=[...block.matchAll(/([^{}]+)\{/g)].map(m=>m[1].trim()).filter(s=>!s.startsWith('@'));
  assert.ok(selectors.length>=4);for(const s of selectors)assert.ok(s.startsWith('dialog.utility-console:has(.life-machine)'),s);
  assert.match(block,/@media\(min-width:901px\)/);assert.match(block,/\.life-machine>img\{[^}]*position:static[^}]*object-fit:contain/);assert.match(block,/\.life-instruments\{[^}]*position:static[^}]*grid-row:2/);assert.match(block,/\.gravity-chamber\{[^}]*grid-row:2/);
  assert.doesNotMatch(block,/display:none|visibility:hidden|font-size:|font:|url\(|animation:/);
 });
 test('Life Support removes only instrument backing and retains accessible content overflow',()=>{
- const block=css.split('/* Life Support only: unobscured machine image above live instruments. */')[1];assert.match(block,/\.life-instruments\{[^}]*background:transparent[^}]*border:0[^}]*overflow:visible/);assert.match(block,/\.utility-scene\{[^}]*overflow:auto!important/);assert.match(block,/grid-template-rows:minmax\(96px,1fr\) auto/);
+ const block=lifeImageLayout(css);assert.match(block,/\.life-instruments\{[^}]*background:transparent[^}]*border:0[^}]*overflow:visible/);assert.match(block,/\.utility-scene\{[^}]*overflow:auto!important/);assert.match(block,/grid-template-rows:minmax\(96px,1fr\) auto/);
  const source=fs.readFileSync('utility-console-ui.js','utf8');for(const token of ['life-support-console-scene.webp','data-life-air','data-life-crew','data-life-rooms','data-life-meter','data-life-power','data-gravity-state','data-movement','data-oxygen-state'])assert.ok(source.includes(token),token);
 });
 test('Life Support reuses inherited Ring geometry and full heading metadata',()=>{

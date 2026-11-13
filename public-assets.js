@@ -11,8 +11,9 @@ function debugToolsEnabled(env=process.env){
 const optimized = require('./sic-web-assets.json');
 
 const browserScripts = new Set([
- 'roll-display.js',
- 'music-preview.js','combat-music.js','console-viewer.js','console-layout-editor.js','console-layout-store.js','console-layout-catalog.js','console-preview-actions.js','tactical-ring-renderer.js',
+ 'cleanser-rules-core.js','black-hole-impact.js','ship-gravity-core.js',
+ 'roll-display.js','campaign-music.js',
+ 'music-preview.js','combat-music.js','console-viewer.js','console-layout-editor.js','console-layout-store.js','console-layout-catalog.js','hibernation-roster.js','gym-report.js','console-preview-actions.js','tactical-ring-renderer.js',
  'audio-controls.js','home-screen.js','home-feedback.js','npc-icon-picker.js',
  'universe-clock.js','universe-ui.js','universe-ui.css','module-conditions.js','module-author-ui.js',
   'character-lifecycle-ui.js', 'character-lifecycle-ui.css', 'dialog-chrome.js', 'dialog-chrome.css',
@@ -41,7 +42,7 @@ const browserScripts = new Set([
   'ship-print.js','crew-tokens.js','utility-console-ui.js','oxygen-ui.js',
   'ship-locks.js','lock-console-ui.js','console-common.js','combat-feedback.js','combat-order-ui.js',
   "station-access.js", "ship-shields.js", "shield-console-ui.js", "ship-roll-ui.js", "console-feedback.js",
-  "ship-weapons.js", "weapon-console-ui.js", "ship-sensors.js", "sensor-console-ui.js", "ship-cooperation.js", "ship-command-ui.js", "action-help.js", "maintenance-ui.js",
+  "ship-relays.js", "ship-weapons.js", "weapon-console-ui.js", "ship-sensors.js", "sensor-console-ui.js", "ship-cooperation.js", "ship-command-ui.js", "action-help.js", "maintenance-ui.js",
   "delay-rules.js", "skill-descriptions.js",
   "app.js", "character.js", "character-data.js", "character-print.js",
   "combat-actions.js", "combat-engine.js", "combat-rules.js", "data-reset.js",
@@ -49,7 +50,7 @@ const browserScripts = new Set([
   "npc-combat-dice.js", "race-lore-data.js", "ship-map-core.js", "ship-combat-map.js",
   "showcase.js", "starship.js", "weapon-data.js", "ship-power.js", "ship-navigation.js", "ship-navigation-ui.js", "character-storage.js", "ship-distances.js", "space-map.js", "live-dom.js", "crew-overview.js", "health-display.js",
 ]);
-const publicData = new Set(["data/combat-music-mixes.json","data/weapons.json", "data/npc-templates.json", "console-layout-snapshots.json"]);
+const publicData = new Set(["data/combat-music-tracks.json","data/combat-music-mixes.json","data/weapons.json", "data/npc-templates.json", "console-layout-snapshots.json"]);
 const vendorScripts = new Set(["vendor/three.module.min.js", "vendor/three.core.min.js", "vendor/cannon-es.js"]);
 const mediaExtensions = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico", ".mp4", ".m4a", ".mp3", ".wav", ".ogg"]);
 
@@ -61,6 +62,8 @@ function resolvePublicAsset(root, pathname, { debugTools=debugToolsEnabled() }={
   if (file.split("/").some((part) => !part || part.startsWith("."))) return null;
   // Must precede generic root HTML/CSS admission, including Windows case aliases.
   if(!debugTools&&(debugFiles.has(file.toLowerCase())||debugDirectories.some(dir=>file.toLowerCase().startsWith(dir))))return null;
+  const musicRoute=file.match(/^music\/(contact|onslaught|eldritch)\/([^/]+\.mp3)$/);
+  if(musicRoute){const song=require('./data/combat-music-tracks.json').songs.find(s=>s.id===musicRoute[1]);return song.stems.some(s=>s.file===musicRoute[2])?path.join(root,'debug-music',song.id,musicRoute[2]):null;}
   const extension = path.extname(file).toLowerCase();
   const rootFile = !file.includes("/");
   const musicAsset=/^debug-music\/(contact|onslaught|eldritch)\/[^/]+\.mp3$/.test(file);

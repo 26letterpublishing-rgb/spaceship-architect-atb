@@ -1,4 +1,16 @@
 (function(){
+  function destructAlarm(mixer){
+    let active=null,failed=false;
+    function stop(){const clip=active;active=null;clip?.stop();}
+    return {stop,update(enabled){
+      if(!enabled||!mixer?.level('game')){stop();failed=false;return;}
+      if(active||failed)return;
+      try{const clip=mixer.clip('alarm-noise.mp4',.72);active=clip;
+        clip.finished.catch(()=>{if(active===clip||!active){failed=true;stop();}});
+        clip.ended.then(()=>{if(active===clip)active=null;});
+      }catch{failed=true;stop();}
+    }};
+  }
   function warpArtworkBounds(scene,regions,image){
     if(!image.width||!image.height||!scene.width||!scene.height||!regions.length)return null;
     const left=Math.min(...regions.map(r=>r.left)),top=Math.min(...regions.map(r=>r.top));
@@ -6,7 +18,12 @@
     const scale=Math.max(scene.width/image.width,scene.height/image.height),width=image.width*scale,height=image.height*scale;
     return {area:{left,top,width:right-left,height:bottom-top},image:{left:scene.left-left+(scene.width-width)/2,top:scene.top-top+(scene.height-height)/2,width,height}};
   }
-  if(typeof module==='object'){module.exports={warpArtworkBounds};return;}
+  function warpDistanceFallback(context,shipId,state){
+    const data=context?.starmaps,origin=data?.positions?.[shipId];
+    const mapped=Boolean(origin&&data?.maps?.some(m=>m.id===origin.mapId)&&(context.role==='gm'||data.navigation?.allowed?.galaxy!==false));
+    return !mapped&&Boolean(state?.debugConsole||state?.practice||state?.hasEngagedClock&&!state?.encounterEndedAt);
+  }
+  if(typeof module==='object'){module.exports={warpArtworkBounds,warpDistanceFallback};return;}
   let dialog=null,opening=false;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const duration=n=>{n=Math.max(0,Math.ceil(n||0));return n>=86400?`${(n/86400).toFixed(2)} days`:n>=3600?`${(n/3600).toFixed(2)} hours`:n>=60?`${Math.floor(n/60)}m ${n%60}s`:`${n}s`;};
@@ -21,9 +38,10 @@
     const warp=initial.definition.warp,view=dialog=doc.createElement('dialog');view.className='utility-console lock-console transit-console';view.dataset.operatorId=unit.id;view.dataset.sicId=sicId;view.setAttribute('aria-label',initial.definition.name+' console');
     view.innerHTML=`<header><div><small>${esc(initial.ship.title)} / ${esc(unit.characterName)}</small><h2>${esc(initial.definition.name)}</h2></div><div data-turn></div><div data-selector></div><button data-sound type="button">${b.soundIcon()}</button><button data-close type="button">Combat View</button></header>
       <section class="lock-chart transit-scene"><img class="transit-machine" src="${warp?'warp-console-scene.webp':'field-utility-console-scene.webp'}" alt="${esc(initial.definition.name)}"><div class="warp-window" aria-hidden="true"></div><div class="destruct-key" aria-hidden="true"><span>AUTHORIZATION</span><pre>7A9F  E02C  18B4\nC701  2DF9  8A60\n91BE  F402  D73C</pre><b>&#9919;</b></div><strong data-phase></strong><output data-countdown></output><progress data-progress max="1" value="0"></progress><p data-journey></p></section>
-      <section class="lock-controls utility-controls"><h3>${warp?'Route':'Security Authorization'}</h3>${warp?'<button data-utility-control data-plan type="button">Choose Destination</button><output data-destination>No destination selected.</output><div data-fuel-plan></div><button data-utility-control data-start type="button" disabled>Engage Warp</button><button data-utility-control data-cancel type="button">Cancel Activation</button><button data-utility-control data-exit type="button">Exit Warp</button>':'<label>Countdown (seconds)<input data-utility-control data-delay type="number" min="0" max="86400" step="1" value="60"></label><p data-approvals></p><button data-utility-control data-approve type="button">Approve Self-Destruct</button><button data-utility-control data-abort type="button">Cancel Self-Destruct</button><div data-blast hidden><strong data-dice></strong><label>Damage total<input data-utility-control data-damage type="number" min="0" step="1"></label><button data-utility-control data-resolve type="button">Confirm Damage</button></div>'}<output data-status role="status"></output><button data-utility-control data-retry hidden type="button">Retry Command</button></section>
+      <section class="lock-controls utility-controls"><h3>${warp?'Route':'Security Authorization'}</h3>${warp?'<label data-distance-control hidden>Distance (light-years)<input data-utility-control data-distance type="number" min="0.001" step="any" value="3.26"></label><button data-utility-control data-plan type="button">Choose Destination</button><output data-destination>No destination selected.</output><div data-fuel-plan></div><button data-utility-control data-start type="button" disabled>Engage Warp</button><button data-utility-control data-cancel type="button">Cancel Activation</button><button data-utility-control data-exit type="button">Exit Warp</button>':'<label>Countdown (seconds)<input data-utility-control data-delay type="number" min="0" max="86400" step="1" value="60"></label><p data-approvals></p><button data-utility-control data-approve type="button">Approve Self-Destruct</button><button data-utility-control data-abort type="button">Cancel Self-Destruct</button><div data-blast hidden><strong data-dice></strong><label>Damage total<input data-utility-control data-damage type="number" min="0" step="1"></label><button data-utility-control data-resolve type="button">Confirm Damage</button></div>'}<output data-status role="status"></output><button data-utility-control data-retry hidden type="button">Retry Command</button></section>
       <section class="lock-reports"><h3>${warp?'Journey Report':'Security Log'}</h3><div data-report></div></section><div class="utility-seat"><button data-hold type="button">Hold</button><button data-leave type="button">Leave Console</button></div>`;
-    view.dataset.transitShip=initial.ship.id;doc.body.append(view);view.showModal();const get=s=>view.querySelector(s);let busy=false,pending=null,planned=null,destination=null,pickerCleanup=null,lastPhase='';
+    view.dataset.transitShip=initial.ship.id;doc.body.append(view);view.showModal();const get=s=>view.querySelector(s);let busy=false,pending=null,planned=null,destination=null,pickerCleanup=null,lastPhase='',distanceFallback=null;
+    const alarm=destructAlarm(window.SAAudioMix);
     let artObserver=null,artImage=null,updateArtwork=null;
     if(warp){
       artImage=get('.transit-machine');const scene=get('.transit-scene'),underlay=doc.createElement('div');underlay.className='warp-art-underlay';view.prepend(underlay);underlay.append(artImage);
@@ -40,6 +58,7 @@
     const current=()=>{const state=b.state(),person=state?.units?.find(u=>u.id===unit.id);return{state,person,access:window.SAStationAccess.access(state,person,sicId)};};
     function redraw(){
       const {state,person,access}=current();if(!access){view.close();return;}const ship=access.ship;if(warp)window.SAWarpEffects?.update(ship,get(".warp-window"));const s=warp?ship.ship.warpState:ship.ship.destructState,phase=s?.phase||'standby';
+      alarm.update(!warp&&view.open&&phase==='countdown'&&Number(s.remaining)>5);
       view.dataset.phase=phase;view.dataset.machine=warp?'warp':'destruct';
       const ready=state.practice||state.activeId===person.id&&!person.delayedAction&&!person.timedAction&&!person.consoleHold;
       get('[data-turn]').textContent=state.practice?'OUT OF COMBAT':ready?'YOUR TURN':window.SAConsoleCommon.standby(state,person);
@@ -48,6 +67,10 @@
       get('[data-progress]').value=phase==='traveling'?s.traveledLY/s.targetLY:s?.total?1-s.remaining/s.total:0;
       get('[data-journey]').textContent=warp&&s?`${Number(s.traveledLY.toFixed(4))} / ${Number(s.targetLY.toFixed(4))} light-years${phase==='traveling'?` | ${Math.ceil(Math.max(0,s.targetLY-s.traveledLY)*s.secondsPerParsec/3.26)} seconds remaining`:''}`:'';
       if(warp){
+        const fallback=warpDistanceFallback(b.campaignMapContext?.(),ship.id,state);
+        if(fallback!==distanceFallback){distanceFallback=fallback;planned=null;pending=null;destination=null;closePicker();get('[data-fuel-plan]').textContent='';get('[data-destination]').textContent=fallback?'Unmapped warp: choose a travel distance.':'No destination selected.';}
+        get('[data-distance-control]').hidden=!fallback;get('[data-distance]').disabled=busy||['activating','traveling'].includes(phase);
+        get('[data-plan]').textContent=fallback?'Calculate Route':'Choose Destination';
         get('[data-start]').disabled=busy||Boolean(pickerCleanup)||!ready||!planned||['activating','traveling'].includes(phase)||access.blocked;
         get('[data-plan]').disabled=busy||['activating','traveling'].includes(phase);get('[data-cancel]').hidden=phase!=='activating';get('[data-exit]').hidden=phase!=='traveling';
         get('[data-cancel]').disabled=get('[data-exit]').disabled=busy;
@@ -65,11 +88,32 @@
       get('[data-hold]').textContent=person.consoleHold?'Resume':'Hold';get('[data-hold]').disabled=state.practice||busy||(!ready&&!person.consoleHold);leave.disabled=!state.practice&&(busy||!ready);leave.textContent=state.practice?'Return to Ship':'Leave Console';
       if(lastPhase!==phase&&['activating','traveling','countdown','arrived','exited'].includes(phase))b.consoleTick();lastPhase=phase;
     }
-    async function send(){if(busy||!pending)return;busy=true;get('[data-retry]').hidden=true;redraw();try{const result=await b.transitAction(pending);if(result.result?.ok===false)throw Error(result.result.error);if(pending.kind==='warpPlan'){planned=result.result;const map=b.campaignMapContext?.()?.starmaps?.maps?.find(m=>m.id===destination?.mapId),star=map?.stars.find(s=>s.q===destination.q&&s.r===destination.r);get('[data-destination]').textContent=`${star?.name||`Hex ${destination.q}, ${destination.r}`} — ${Number(planned.targetLY?.toFixed(4)||0)} light-years`;get('[data-fuel-plan]').textContent=`${Object.entries(planned.counts).filter(([,n])=>n).map(([g,n])=>`${n} Grade ${g}`).join(' + ')} | ${duration(planned.travelSeconds)}`;}get('[data-status]').textContent='Confirmed.';pending=null;}catch(e){get('[data-status]').textContent=e.message;get('[data-retry]').hidden=false;}finally{busy=false;redraw();}}
+    async function send(){
+      if(busy||!pending)return;
+      const request=pending;busy=true;get('[data-retry]').hidden=true;redraw();
+      try{
+        const result=await b.transitAction(request);
+        if(pending!==request)return;
+        if(result.result?.ok===false)throw Error(result.result.error);
+        if(request.kind==='warpPlan'){
+          planned=result.result;
+          const map=b.campaignMapContext?.()?.starmaps?.maps?.find(m=>m.id===destination?.mapId);
+          const star=destination&&map?.stars.find(s=>s.q===destination.q&&s.r===destination.r);
+          const label=destination?(star?.name||'Hex '+destination.q+', '+destination.r):'Unmapped warp';
+          get('[data-destination]').textContent=label+' — '+Number(planned.targetLY?.toFixed(4)||0)+' light-years';
+          get('[data-fuel-plan]').textContent=Object.entries(planned.counts).filter(([,n])=>n).map(([g,n])=>n+' Grade '+g).join(' + ')+' | '+duration(planned.travelSeconds);
+        }
+        get('[data-status]').textContent='Confirmed.';pending=null;
+      }catch(e){if(pending===request){get('[data-status]').textContent=e.message;get('[data-retry]').hidden=false;}}
+      finally{busy=false;redraw();}
+    }
     function command(kind,extra={}){pending={id:unit.id,shipId:initial.ship.id,starshipId:initial.ship.id,sicId,kind,requestId:crypto.randomUUID(),...extra};send();}
     function closePicker(){pickerCleanup?.();pickerCleanup=null;get('[data-destination-picker]')?.remove();view.removeAttribute('data-choosing-destination');}
+    get('[data-distance]')?.addEventListener('input',()=>{planned=null;pending=null;get('[data-fuel-plan]').textContent='';get('[data-retry]').hidden=true;redraw();});
     get('[data-plan]')?.addEventListener('click',async()=>{
-      if(busy||pickerCleanup)return;busy=true;redraw();
+      if(busy||pickerCleanup)return;
+      if(distanceFallback){command('warpPlan',{distanceLY:Number(get('[data-distance]').value)});return;}
+      busy=true;redraw();
       try{
         await import('./campaign-map-chart.js');
         const href=new URL('campaign-starmaps.css',location.href).href;
@@ -87,7 +131,7 @@
     get('[data-start]')?.addEventListener('click',()=>{
       const access=current().access,ew=access.definition.instantWarp;
       if(!doc.defaultView.confirm(ew?'Begin EW-FTL activation? Spends all current AU and two Grade S cells now. Activation takes 120 seconds.':'Begin warp activation? The ship must remain stationary. Fuel is consumed only as used.'))return;
-      const extra={destination};
+      const extra=distanceFallback?{distanceLY:Number(get('[data-distance]').value)}:{destination};
       if(!ew||!(access.item.impaired||access.item.impairmentPoints>0||access.item.status==='impaired')){command('warpStart',extra);return;}
       const roll=doc.createElement('dialog'),frame=doc.createElement('iframe'),status=doc.createElement('p'),retry=doc.createElement('button'),id=crypto.randomUUID();
       roll.className='transit-fault-roll';roll.setAttribute('aria-label','EW-FTL Drive D8');frame.title='Standard EW-FTL dice';status.textContent='Loading D8...';retry.textContent='Retry Loading Dice';retry.hidden=true;let timer;
@@ -106,8 +150,9 @@
     leave.dataset.utilityControl='';
     leave.onclick=()=>{const {state,person}=current();close();if(!state.practice)window.SACombatMap.openMove(person);};
     view.addEventListener('cancel',event=>{if(pickerCleanup){event.preventDefault();closePicker();redraw();}});
+    const audioChanged=()=>redraw();window.addEventListener('sa-audio-change',audioChanged);
     let timer;const unload=()=>view.close();
-    view.addEventListener('close',()=>{closePicker();artObserver?.disconnect();if(artImage)artImage.removeEventListener('load',updateArtwork);if(warp)window.SAWarpEffects?.clear();clearInterval(timer);window.removeEventListener('pagehide',unload);view.remove();dialog=null;b.requestRender();},{once:true});window.addEventListener('pagehide',unload,{once:true});
+    view.addEventListener('close',()=>{alarm.stop();window.removeEventListener('sa-audio-change',audioChanged);closePicker();artObserver?.disconnect();if(artImage)artImage.removeEventListener('load',updateArtwork);if(warp)window.SAWarpEffects?.clear();clearInterval(timer);window.removeEventListener('pagehide',unload);view.remove();dialog=null;b.requestRender();},{once:true});window.addEventListener('pagehide',unload,{once:true});
     window.SAShipNavigationUI.mountSelector(get('[data-selector]'),unit,sicId,()=>view.close());
     redraw();if(view.open)timer=setInterval(redraw,250);
   }

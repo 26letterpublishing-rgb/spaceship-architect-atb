@@ -4,7 +4,7 @@
  // write the player's storage; tier changes share only this viewer's memory.
  if(root?.document.currentScript?.hasAttribute('data-viewer-audio-bootstrap')){
   const values=new Map([['sa-atb-alerts','off'],['sa-atb-gm-muted','on']]);
-  root.SABrowserStorage=root.parent!==root&&root.parent.SABrowserStorage?root.parent.SABrowserStorage:{local:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value))}};
+  root.SABrowserStorage=root.parent!==root&&root.parent.SABrowserStorage?.memoryOnly===true?root.parent.SABrowserStorage:{memoryOnly:true,ready:Promise.resolve(),flush:async()=>{},local:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key)}};
   root.SAAudioMixOptions={clipTransport:'media'};
   return;
  }
@@ -12,16 +12,35 @@
  function route(d){return d.hacking?'hacking':d.utility?'utility':d.lockOn?'lock':d.weapon?'weapon':d.sensor?'sensor':d.shield?'shield':d.shipControl?'pilot':null;}
  function subroute(d){if(route(d)!=='utility')return route(d);return d.illusion||d.securityDroid?'illusion-droid':d.transporter?'transporter':d.cloaking||d.gravityField?'cloak-field':d.blackHoleGun?'black-hole':d.planetaryCleanser?'cleanser':d.surveillance?'surveillance':d.probeLauncher?'probe':d.remoteController||d.remoteReceiver?'remote':d.lockSharing?'lock-sharing':d.relayTriangulator?'relay':d.breachDrone?'breach-drone':d.repairDrone?'repair-drone':d.fieldUtility?'field-utility':d.crewRoom?'crew-room':['warp','self-destruct'].includes(d.utility)?'transit':d.utility;}
  const catalog=Object.entries(maps.catalog).filter(([,d])=>route(d)).map(([id,d])=>({id,name:d.name,route:route(d),subroute:subroute(d)}));
+ catalog.push({id:'science-lab-printer',name:'Science Lab + 3D Printer',consoleType:'science-lab',typeLabel:'Science Lab',baseType:'science-lab',route:'utility',subroute:'crew-room'});
+ catalog.push({id:'science-lab-processor',name:'Science Lab + Mineral Processor',consoleType:'science-lab',typeLabel:'Science Lab',baseType:'science-lab',route:'utility',subroute:'crew-room'});
  function visualFixture(type){
+  const printerVariant=type==='science-lab-printer',processorVariant=type==='science-lab-processor';if(printerVariant||processorVariant)type='science-lab';
   const entry=catalog.find(e=>e.id===type);if(!entry)throw Error('Unknown Console: '+type);
   const s=fixture(1,'lock'),ship=s.starships[0],u=s.units[0],d=maps.definition(type);s.debugFamily='visual';s.debugType=type;s.primaryId='preview';s.visualOnly=true;
-  ship.title='SIMULATED / '+d.name;ship.ship={gridCells:Array.from({length:400},(_,i)=>i),sicInventory:[{id:'preview',type},{id:'engine',type:'en-au-engine-6'},{id:'cockpit',type:'bridge-1'},{id:'sensor',type:'sensors-1'}],placements:[{sicId:'preview',cell:42},{sicId:'engine',cell:300},{sicId:'cockpit',cell:0},{sicId:'sensor',cell:320}],minerals:{Iron:100,Phazon:100},doorStates:{},missileAmmo:{preview:{'missile-1':3}},missileStorage:{'missile-1':10},groupCredits:10000};
+  ship.title='SIMULATED / '+d.name;ship.ship={gridCells:Array.from({length:400},(_,i)=>i),sicInventory:[{id:'preview',type},{id:'engine',type:'en-au-engine-6'},{id:'cockpit',type:'bridge-1'},{id:'sensor',type:'sensors-1'}],placements:[{sicId:'preview',cell:42},{sicId:'engine',cell:300},{sicId:'cockpit',cell:0},{sicId:'sensor',cell:320}],minerals:{Iron:100,Phazon:100},doorStates:{},missileAmmo:{preview:{[d.mineLauncher?'space-mine-1':'missile-1']:3}},missileStorage:{[d.mineLauncher?'space-mine-1':'missile-1']:10},groupCredits:10000};
+  if(printerVariant){ship.ship.sicInventory.push({id:'preview-printer',type:'3d-printer',attachTo:'preview'},{id:'preview-blueprint',type:'blueprint',blueprintType:'sensors-1',storage:true});ship.ship.placements.push({sicId:'preview-printer',cell:42});ship.ship.minerals.Ragnaron=10;}
+  if(processorVariant){ship.ship.sicInventory.push({id:'preview-processor',type:'mineral-processor',attachTo:'preview'});ship.ship.placements.push({sicId:'preview-processor',cell:42});ship.ship.minerals.Zeltexa=10;}
+  if(d.shield){ship.ship.gridCells=Array.from({length:600},(_,i)=>i);ship.ship.placements.find(p=>p.sicId==='sensor').cell=280;ship.ship.sicInventory.push({id:'shield-au',type:'au-engine-6'});ship.ship.placements.push({sicId:'shield-au',cell:314});}
+  if(d.devastation&&d.tier===2){ship.ship.sicInventory.push({id:'devastation-au',type:'au-engine-6'});ship.ship.placements.push({sicId:'devastation-au',cell:340});}
+  if(d.blackHoleGun||d.planetaryCleanser)ship.ship.minerals['Dark Phazon']=2;
+  if(d.shipControl){ship.ship.gridCells=ship.ship.gridCells.filter(c=>c!==399);ship.ship.sicInventory.push({id:'preview-thruster',type:'ionic-pulse-thruster-1'});ship.ship.placements.push({sicId:'preview-thruster',cell:399});}
   if(d.addon)ship.ship.sicInventory[0].attachTo='cockpit';
   const layout=maps.buildLayout(ship.ship),cell=[...layout.footprint.entries()].find(([,c])=>c.sicId==='preview'&&c.stations.some(p=>p.x===c.column&&p.y===c.row));
   if(cell){const p=cell[1].stations.find(p=>p.x===cell[1].column&&p.y===cell[1].row);u.location={starshipId:ship.id,sicId:'preview',square:cell[0],mesh:p.mesh,stationed:true};}
   else if(d.roomStation){u.location={starshipId:ship.id,sicId:'preview',square:42,mesh:4,stationed:true};}
   else u.location={starshipId:ship.id,sicId:'cockpit',square:0,mesh:0,stationed:true};
   ship.auState={current:100,available:100,maximum:100};u.weaponSystemsSkill=5;u.hackingSkill=5;u.navigationSkill=5;u.delayFactors={};
+  if(d.probeLauncher){
+   // Appearance samples only: select docked/deployed views without issuing orders.
+   const probes=typeof module==='object'?require('./ship-probes'):root.SAShipProbes,sensors=typeof module==='object'?require('./ship-sensors'):root.SAShipSensors;
+   for(const [id,type] of [['preview-docked-probe','probe-1'],['preview-deployed-probe','probe-2']]){ship.ship.sicInventory.push({id,type,attachTo:'preview'});ship.ship.placements.push({sicId:id,cell:42});}
+   probes.reconcile(s);
+   Object.assign(ship.ship.probeState.probes['preview-deployed-probe'],{phase:'holding',position:{q:3,r:0}});
+   probes.reconcile(s);sensors.refresh(s);
+   ship.ship.probeState.reports=[{at:new Date().toISOString(),text:'SIMULATED appearance samples: Probe 1 docked; Probe 2 deployed. No launch command was performed.'}];
+  }
+  if(d.shield)(typeof module==='object'?require('./ship-shields'):root.SAShipShields).refresh(s);
   return s;
  }
  function fixture(tier,family='sensors',scenario='ready'){
@@ -54,7 +73,7 @@
   ship.sensorState.contacts.dummy={id:'dummy',title:target.title,level:'detected',nature:'Starship',size:100,faction:'Simulated',q:5,r:0};
   return {roomCode:'SIMULATED-VIEWER',debugConsole:true,running:true,activeId:unit.id,units:[unit],starships:[ship,target],shipPositions:[{id:ship.id,q:0,r:0},{id:'dummy',q:5,r:0}],spaceObjects:[],log:[],threshold:100};
  }
- function power(state,on){const item=state.starships[0].ship.sicInventory.find(i=>i.id===(state.primaryId||(state.debugFamily==='lock'?'lock':'sensor')));item.disabled=!on;item.status=on?'online':'powered-down';state.units[0].delayedAction=null;state.units[0].consoleHold=false;}
+ function power(state,on){const item=state.starships[0].ship.sicInventory.find(i=>i.id===(state.primaryId||(state.debugFamily==='lock'?'lock':'sensor')));item.disabled=!on;item.status=on?'online':'powered-down';if(state.units[0].delayedAction?.shipOrder)state.activeId=state.units[0].id;state.units[0].delayedAction=null;state.units[0].consoleHold=false;}
  // Deliberately illustrative ALMA transitions, not fuel/range or combat rules.
  function warpPreview(state){
   if(!state.debugConsole||maps.definition(state.debugType)?.utility!=='warp')throw Error('Warp preview requires its isolated fixture.');
@@ -76,7 +95,158 @@
    else if(s.phase==='traveling'){s.traveledLY=Math.min(s.targetLY,s.traveledLY+s.targetLY*seconds/6);if(s.traveledLY>=s.targetLY)report(s,'arrived');}
   }};
  }
- if(typeof module==='object'){module.exports={fixture,power,catalog,visualFixture,warpPreview};return;}
+ function blackHolePreview(state){
+  if(!state.debugConsole||state.roomCode!=='SIMULATED-VIEWER'||!maps.definition(state.debugType)?.blackHoleGun)throw Error('Black Hole preview requires its isolated fixture.');
+  const ship=state.starships[0],unit=state.units[0],item=ship.ship.sicInventory.find(i=>i.id===state.primaryId),receipts=new Map();let serial=0;
+  const data=ship.ship.blackHoleGunState||={cooldowns:{}};
+  return {command(body){
+   if(body.action!=='utilityCommand'||body.kind!=='black-hole-launch'||body.id!==unit.id||body.sicId!==item.id)throw Error('Unsupported simulated Black Hole action.');
+   const n=Number(body.intensity),q=Number(body.q),r=Number(body.r),fingerprint=JSON.stringify([q,r,n]);
+   if(!body.receipt)throw Error('Missing launch receipt.');
+   if(receipts.has(body.receipt)){if(receipts.get(body.receipt)!==fingerprint)throw Error('Launch receipt already used.');return {ok:true,duplicate:true};}
+   if(item.disabled||item.status==='powered-down'||item.impaired||item.impairmentPoints||item.unstable||item.bootRemaining)throw Error('Restore the simulated gun before firing.');
+   if(state.activeId!==unit.id||unit.consoleHold||unit.delayedAction||unit.timedAction)throw Error('Wait for your turn.');
+   if(!Number.isInteger(n)||n<1||n>50)throw Error('Choose intensity 1-50.');
+   const origin=state.shipPositions.find(p=>p.id===ship.id),distance=origin?Math.max(Math.abs(q-origin.q),Math.abs(r-origin.r),Math.abs(q+r-origin.q-origin.r)):Infinity;
+   if(!Number.isInteger(q)||!Number.isInteger(r)||distance>5)throw Error('Choose a target hex within 5 units.');
+   if(data.cooldowns[item.id]>0)throw Error('Gun cooling down.');
+   if(!(ship.ship.minerals['Dark Phazon']>=1))throw Error('Requires 1 Dark Phazon.');
+   const cost=n*(n+1)/2;if(ship.auState.available<cost)throw Error('Insufficient AU.');
+   ship.auState.available-=cost;ship.auState.current-=cost;ship.ship.minerals['Dark Phazon']--;data.cooldowns[item.id]=360;receipts.set(body.receipt,fingerprint);
+   state.spaceObjects.push({id:'simulated-orb-'+(++serial),kind:'object',name:'SIMULATED Black Hole Orb',q:origin.q,r:origin.r,quantity:1,gunOrb:{target:{q,r},intensity:n,remaining:distance*12}});
+   return {ok:true,simulated:true};
+  },tick(seconds){
+   if(!Number.isFinite(seconds)||seconds<=0||!state.running||state.hardPaused||state.holdPaused||state.rollPaused||state.pausedForTurn||item.disabled)return;
+   const gravity=typeof module==='object'?require('./ship-gravity-core'):root.SAShipGravityCore;
+   const reports=gravity.advance(state,seconds);
+   state.gravityReports=[...(state.gravityReports||[]),...reports];
+   const distances=typeof module==='object'?require('./ship-distances'):root.SAShipDistances;
+   state.shipDistances=distances.fromPositions(state.starships,state.shipPositions);
+   data.cooldowns[item.id]=Math.max(0,(data.cooldowns[item.id]||0)-seconds);
+   state.spaceObjects=state.spaceObjects.filter(o=>{if(!o.id.startsWith('simulated-orb-'))return true;
+    if(o.gunDecay){o.gunDecay.remaining-=seconds;while(o.gunDecay.remaining<=1e-8){o.intensity--;o.gunDecay.remaining+=15;}return o.intensity>0;}
+    const f=o.gunOrb;if(!f)return true;const fraction=f.remaining>0?Math.min(1,seconds/f.remaining):1;o.q+=(f.target.q-o.q)*fraction;o.r+=(f.target.r-o.r)*fraction;f.remaining=Math.max(0,f.remaining-seconds);
+    if(f.remaining<=1e-8){o.q=f.target.q;o.r=f.target.r;o.kind='black-hole';o.name='SIMULATED Black Hole (ship gravity only)';o.intensity=f.intensity;o.gunDecay={remaining:15};delete o.gunOrb;(typeof module==='object'?require('./black-hole-impact'):root.SABlackHoleImpact).arrival(state,o);}return true;
+   });
+  }};
+ }
+ function cleanserPreview(state){
+  if(!state.debugConsole||state.roomCode!=='SIMULATED-VIEWER'||!maps.definition(state.debugType)?.planetaryCleanser)throw Error('Cleanser preview requires its isolated fixture.');
+  const node=typeof module==='object',unit=state.units[0],ship=state.starships[0];
+  const rules=node?require('./ship-cleanser'):root.SACleanserRulesCore.create({crypto:{randomUUID:()=>root.crypto.randomUUID(),randomInt:(min,max)=>{const span=max-min,limit=4294967296-4294967296%span,a=new Uint32Array(1);do{root.crypto.getRandomValues(a);}while(a[0]>=limit);return min+a[0]%span;}},maps,stations:root.SAStationAccess,power:root.SAShipPower,distances:root.SAShipDistances,shields:root.SAShipShields,timeline:root.SACleanserTimeline.current,now:()=>Date.now(),relayFired:()=>{/* Isolated fixture has no Relay Triangulator. */}});
+  rules.state(ship).sicId=state.primaryId;
+  return {command(body){
+   if(body.id!==unit.id||body.sicId!==state.primaryId||!['cleanser-charge','cleanser-abort'].includes(body.kind))throw Error('Unsupported simulated Cleanser action.');
+   const result=rules.command(state,unit,body);if(!result.ok)throw Error(result.error);return result;
+  },resolve(body){
+   if(body.action!=='cleanserDamage'||body.id!==unit.id)throw Error('Unsupported simulated Cleanser damage action.');
+   return rules.resolve(state,body,{unit});
+  },tick(seconds){
+   if(!Number.isFinite(seconds)||seconds<0)return;
+   if(!state.running||state.hardPaused||state.holdPaused||state.rollPaused||state.pausedForTurn)return;
+   rules.advance(state,seconds);rules.finish(state);
+  }};
+ }
+ function navigationPreview(state){
+  if(!state?.debugConsole||state.roomCode!=='SIMULATED-VIEWER')throw Error('Local Console fixture required.');
+  const nav=typeof module==='object'?require('./ship-navigation'):root.SAShipNavigation,powerRules=typeof module==='object'?require('./ship-power'):root.SAShipPower,unit=state.units[0],ship=state.starships[0];
+  powerRules.refresh(state,{reset:true});
+  return {command(body){
+   if(body.kind!=='moveStarship'||body.action!=='playerCombatAction')throw Error('Unsupported simulated navigation action.');
+   if(state.activeId!==unit.id||unit.consoleHold||state.rollPaused||unit.delayedAction||unit.timedAction||unit.delayTimer)throw Error('Wait for your turn and finish the current action.');
+   if(body.trigger)throw Error('Conditional navigation is not simulated; choose an immediate route.');
+   const result=nav.queue(state,unit,body);if(!result.ok)throw Error(result.error);
+   state.activeId=null;return {ok:true,simulated:true};
+  },tick(seconds){
+   if(!Number.isFinite(seconds)||seconds<=0||!state.running||state.hardPaused||state.holdPaused||state.rollPaused||state.pausedForTurn)return;
+   const pending=unit.delayedAction;
+   if(pending?.shipOrder){const elapsed=Math.min(seconds,pending.remaining/pending.rate);nav.advance(state,elapsed);pending.remaining=Math.max(0,pending.remaining-pending.rate*elapsed);seconds-=elapsed;
+    if(pending.remaining<=1e-8){const result=nav.resolveInput(state,unit);state.activeId=unit.id;state.log.unshift({text:result.ok?'SIMULATED: navigation input complete; route engaged.':'SIMULATED: '+result.error});}
+   }
+   if(seconds>0)nav.advance(state,seconds);
+  }};
+ }
+ function devastationPreview(state){
+  if(!state?.debugConsole||state.roomCode!=='SIMULATED-VIEWER'||!maps.definition(state.debugType)?.devastation)throw Error('Local Devastation fixture required.');
+  const rules=typeof module==='object'?require('./ship-devastation'):root.SADevastation,powerRules=typeof module==='object'?require('./ship-power'):root.SAShipPower,weapons=typeof module==='object'?require('./ship-weapons'):root.SAShipWeapons,delays=typeof module==='object'?require('./delay-rules'):root.SADelayRules,sensors=typeof module==='object'?require('./ship-sensors'):root.SAShipSensors,unit=state.units[0];
+  const receipts=new Set();unit.dexterityDice=[8,8,8];unit.exertionCurrent=0;
+  powerRules.refresh(state,{reset:true});
+  const history=(pending,total,text,stage)=>{unit.actionResults||=[];unit.actionResults.push({id:pending.id+':'+stage,label:pending.label,total,text,stage,calculation:pending.calculation||pending.rollSpec?.calculation});};
+  const prepare=pending=>{if(pending?.awaitingRoll&&pending.rollSpec)pending.rollSpec.exertionAvailable=0;};
+  return {command(body){
+   if(body.id!==unit.id||body.sicId!==state.primaryId||!['devastation-charge','devastation-discharge'].includes(body.kind))throw Error('Unsupported simulated Devastation action.');
+   const result=rules.command(state,unit,body);if(!result.ok)throw Error(result.error);
+   return {...result,simulated:true};
+  },action(body){
+   if(body.id!==unit.id)throw Error('Choose the simulated operator.');
+   if(body.action==='weaponCommand'){
+    if(body.sicId!==state.primaryId)throw Error('Choose the simulated Devastation Laser.');
+    const result=weapons.queue(state,unit,body);if(!result.ok)throw Error(result.error);
+    if(!result.duplicate){state.activeId=null;state.pausedForTurn=false;state.command=null;const pending=unit.delayedAction;if(!pending.rollConfirmed){pending.rollBeforeDelay=true;pending.awaitingRoll=true;pending.resolving=true;}prepare(pending);}
+    return {...result,simulated:true};
+   }
+   if(body.action!=='rollShipAction')throw Error('Unsupported simulated Devastation action.');
+   if(receipts.has(body.rollId))return {ok:true,duplicate:true,simulated:true};
+   const pending=unit.delayedAction;if(!pending?.awaitingRoll||pending.id!==body.rollId)throw Error('That roll is no longer waiting.');
+   if(pending.rollController==='gm')throw Error('The GM is resolving this action.');
+   if(body.score!==undefined&&(!Number.isFinite(body.score)||Math.abs(body.score)>100000))throw Error('Enter a valid roll score.');
+   const values=Array.isArray(body.diceResults)?body.diceResults.slice(0,100):[],spec=pending.rollSpec;
+   if(values.some(v=>!Number.isInteger(v)||v<1||v>100))throw Error('Invalid dice values.');
+   if(!Number.isFinite(body.score)&&!values.length)throw Error('Roll the dice or enter your result before confirming.');
+   if(Number(body.exertion||0)!==0)throw Error('Selected Exertion is unavailable for this roll. Reopen the dice.');
+   if(values.length&&(values.length!==spec.sides.length||values.some((v,i)=>v>spec.sides[i])))throw Error('Dice do not match the requested roll.');
+   let total;
+   if(pending.weaponDamage){const order=pending.weaponDamage,bonus=order.damageBonus||0;total=values.length?values.reduce((a,b)=>a+b,0)+bonus:body.score;
+    if(!Number.isInteger(total)||total<order.count+bonus||total>order.count*(order.dieSides||4)+bonus)throw Error('Damage total is outside the requested dice range and bonus.');
+    weapons.resolveDamage(state,unit,values,total);history(pending,total,'Damage confirmed: '+total+'.','complete');
+   }else if(pending.weaponOrder&&pending.rollBeforeDelay){
+    total=Number.isFinite(body.score)?body.score:sensors.fusedTotal(values)+(spec.bonus||0);
+    pending.submittedRoll={score:total-(spec.retryBonus||0),values:[...values],exertion:0,retryBonus:spec.retryBonus||0,autoSuccess:Boolean(body.autoSuccess)};
+    pending.rollTiming=delays.afterRoll(pending.remaining/pending.rate,total,spec.difficulty,Boolean(body.autoSuccess));
+    if(pending.rollTiming.seconds>0)pending.rate=pending.remaining/pending.rollTiming.seconds;
+    pending.rollConfirmed=true;pending.awaitingRoll=false;pending.resolving=false;history(pending,total,'Roll submitted. Operating the console: '+pending.rollTiming.seconds.toFixed(1)+' seconds.','input');
+   }else throw Error('Unsupported simulated roll.');
+   receipts.add(body.rollId);unit.lastShipRoll={id:body.rollId,label:pending.label,values:[...values],total};return {ok:true,simulated:true};
+  },tick(seconds){
+   if(!Number.isFinite(seconds)||seconds<=0||!state.running||state.hardPaused||state.holdPaused||state.rollPaused||state.pausedForTurn||unit.delayedAction?.awaitingRoll)return;
+   // Stop exactly at input completion, then let shared weapon rules create the damage wait.
+   const pending=unit.delayedAction,elapsed=pending?.weaponOrder&&!pending.resolving?Math.min(seconds,pending.remaining/pending.rate):seconds;
+   powerRules.advance(state,elapsed);weapons.advance(state,elapsed);
+   if(pending?.weaponOrder&&!pending.resolving){pending.remaining=Math.max(0,pending.remaining-pending.rate*elapsed);
+    if(pending.remaining<=1e-8){pending.remaining=0;pending.resolving=true;const stored=pending.submittedRoll;let index=0;const roll=sides=>{const value=stored?.values[index++];if(!Number.isInteger(value)||value<1||value>sides)throw Error('Stored dice unavailable.');return value;};
+     if(stored)Object.assign(roll,{submittedScore:stored.score,retryBonus:stored.retryBonus,submittedValues:[...stored.values],exertion:0});
+     weapons.resolveInput(state,unit,roll);if(pending.consumeTurn!==false)unit.atb=Math.max(0,unit.atb-state.threshold);prepare(unit.delayedAction);
+     const remaining=seconds-elapsed;if(remaining>0&&!unit.delayedAction?.awaitingRoll){powerRules.advance(state,remaining);weapons.advance(state,remaining);}
+    }
+   }
+  }};
+ }
+ function sciencePreview(state){
+  if(!state.debugConsole||state.debugType!=='science-lab')throw Error('Science preview requires isolated fixture.');
+  const fab=typeof module==='object'?require('./ship-fabrication'):root.SAFabrication,ship=state.starships[0];state.practice=true;
+  return {inspect(){return fab.inspect(state,ship,state.primaryId);},command(body){if(!['fabricate-add','fabricate-cancel'].includes(body.kind)||body.sicId!==state.primaryId||body.id!==state.units[0].id)throw Error('Unsupported simulated fabrication action.');return {result:fab.command(state,ship,state.primaryId,body,null)};},tick(seconds){return fab.advance(state,null,seconds);}};
+ }
+ function shieldPreview(state){
+  if(!state?.debugConsole||state.roomCode!=='SIMULATED-VIEWER'||!maps.definition(state.debugType)?.shield)throw Error('Shield preview requires its isolated fixture.');
+  const rules=typeof module==='object'?require('./ship-shields'):root.SAShipShields,unit=state.units[0],ship=state.starships[0];
+  rules.refresh(state);
+  return {action(body){
+   if(body.id!==unit.id||body.sicId&&body.sicId!==state.primaryId)throw Error('Unsupported simulated shield operator or station.');
+   if(body.action==='shieldCommand'){const result=rules.command(state,unit,body);if(!result.ok)throw Error(result.error);return result;}
+   if(body.action==='playerCombatAction'&&['holdConsole','resumeConsole'].includes(body.kind)){
+    if(unit.shieldRestabilizing)throw Error('Finish restabilization before changing Hold.');
+    unit.consoleHold=body.kind==='holdConsole';return {ok:true};
+   }
+   if(body.action==='shipMaintenance'&&['on','off'].includes(body.kind)){power(state,body.kind==='on');rules.refresh(state);return {ok:true};}
+   throw Error('This Shield preview action is not simulated; no game request was sent.');
+  },tick(inputSeconds,combatSeconds=inputSeconds){
+   const completed=rules.advanceInputs(state,inputSeconds);
+   for(const event of completed)state.log.push({at:new Date().toISOString(),text:'SIMULATED: completed shield '+(event.kind==='restore'?'restoration':'reinforcement')+'.',starshipId:ship.id});
+   if(combatSeconds>0)rules.advance(state,combatSeconds);
+   return completed;
+  }};
+ }
+ if(typeof module==='object'){module.exports={fixture,power,catalog,visualFixture,warpPreview,blackHolePreview,cleanserPreview,navigationPreview,devastationPreview,sciencePreview,shieldPreview};return;}
  const params=new URLSearchParams(location.search),stage=params.has('stage'),interactive=stage&&params.get('inspection')==='interactive',interactiveWarp=interactive&&maps.definition(params.get('type'))?.utility==='warp';
  if(stage&&params.get('inspection')==='scroll'){
   // ALMA-only inspection: real simulated markup and native scrolling, no orders.
@@ -91,7 +261,7 @@
   root.addEventListener('pagehide',()=>root.SAAudioMix.stopButtonSound(),{once:true});
   const frame=document.getElementById('stage'),select=document.getElementById('tier'),family=document.getElementById('family'),scenario=document.getElementById('scenario');
   for(const kind of ['pilot','shield','weapon','hacking','utility'])family.add(new Option(({pilot:'Bridge / Cockpit',shield:'Shields',weapon:'Weapons',hacking:'Hacking',utility:'Utilities / Rooms'})[kind],kind));
-  const open=()=>{const visual=!['sensors','lock'].includes(family.value);document.querySelector('#viewer-tools strong').textContent=visual?'VISUAL ONLY / Simulated':'SIMULATED / Console viewer';frame.src=`console-viewer.html?stage=1&family=${family.value}&tier=${select.value}&scenario=${scenario.value}${visual?'&type='+encodeURIComponent(select.value):''}`;};
+  const open=()=>{const visual=!['sensors','lock'].includes(family.value);document.querySelector('#viewer-tools strong').textContent=visual&&!maps.definition(select.value)?.shield?'VISUAL ONLY / Simulated':'SIMULATED / Console viewer';frame.src=`console-viewer.html?stage=1&family=${family.value}&tier=${select.value}&scenario=${scenario.value}${visual?'&type='+encodeURIComponent(select.value):''}`;};
   const choose=()=>{select.replaceChildren();if(['sensors','lock'].includes(family.value)){for(let n=1;n<=(family.value==='lock'?10:9);n++)select.add(new Option(`${family.value==='lock'?'Lock On':'Sensors'} ${n}`,String(n)));}else for(const e of catalog.filter(e=>e.route===family.value))select.add(new Option(e.name,e.id));document.getElementById('scenario-label').hidden=family.value!=='lock';scenario.value='ready';open();};
   document.getElementById('exit').onclick=()=>frame.contentWindow.postMessage({type:'viewer-close'},location.origin);family.onchange=choose;scenario.onchange=open;select.onchange=open;document.getElementById('reopen').onclick=open;document.getElementById('restore').onclick=()=>frame.contentWindow.postMessage({type:'viewer-restore'},location.origin);choose();return;
  }
@@ -104,8 +274,17 @@
   root.SAStationAccess={...root.SAStationAccess,consoles:(s,u)=>consoles(s,u).filter(a=>a.item.id===primaryId)};
  }
  const warpDemo=interactiveWarp?warpPreview(state):null;
- const localDemo=interactive&&visual?root.SAConsolePreviewActions.create(state):null;
+ const blackHoleDemo=visual&&maps.definition(primary.type).blackHoleGun&&params.get('inspection')!=='scroll'?blackHolePreview(state):null;
+ let cleanserBoundaryShown=false;
+ const cleanserDemo=visual&&maps.definition(primary.type).planetaryCleanser&&params.get('inspection')!=='scroll'?cleanserPreview(state):null;
+ const localDemo=visual&&(interactive||['manipulation-arm','tractor-beam','gym'].includes(primary.type)&&params.get('inspection')!=='scroll')?root.SAConsolePreviewActions.create(state):null;
+ const pilotHoldDemo=visual&&family==='pilot'&&!localDemo&&params.get('inspection')!=='scroll'?root.SAConsolePreviewActions.create(state):null;
+ const navigationDemo=visual&&family==='pilot'&&params.get('inspection')!=='scroll'?navigationPreview(state):null;
+ const devastationDemo=visual&&maps.definition(primary.type).devastation&&params.get('inspection')!=='scroll'?devastationPreview(state):null;
  if(localDemo&&maps.definition(primary.type).crewRoom)state.practice=true;
+ const scienceDemo=visual&&primary.type==='science-lab'?sciencePreview(state):null;
+ const shieldDemo=visual&&maps.definition(primary.type).shield&&params.get('inspection')!=='scroll'?shieldPreview(state):null;
+ if(shieldDemo){const remember=root.SAShipNavigationUI.remember;root.SAShipNavigationUI={...root.SAShipNavigationUI,remember:u=>{if(u?.id!==unit.id)remember(u);}};}
  const typingVisual=root.SAConsoleTypingVisual.create(document);
  const scanFeedback=root.SAConsoleScanFeedback.create(document,root.SAAudioMix,()=>typingVisual.update(null,false,false));
  const audioNodes=new Set(),mix=root.SAAudioMix;
@@ -122,11 +301,11 @@
   c.coreLabel=state.running&&!state.hardPaused?"ATB":"HOLD";Object.assign(c,root.SATacticalRingRenderer.overlays(c));
   return root.SATacticalRingRenderer.render(c,[unit,timelineCrew],ship.id,'Simulated Timeline',true);
  };
- const close=()=>{typingVisual.update(null,false,false);scanFeedback.clear();stopAudio();document.querySelectorAll('dialog[open]').forEach(d=>d.close());};
+ const close=()=>{if(devastationDemo&&unit.delayedAction)return;typingVisual.update(null,false,false);scanFeedback.clear();stopAudio();document.querySelectorAll('dialog[open]').forEach(d=>d.close());};
  // Every simulated Console close is an explicit return to the viewer, including
  // Leave and Escape. Record it before production cleanup removes the dialog so
  // shared remembered-view restoration cannot reopen it. Explicit open clears it.
- document.addEventListener('close',e=>{if(e.target.matches('.sensor-console,.lock-console'))root.SAShipNavigationUI.remember(unit);},true);
+ document.addEventListener('close',e=>{if(e.target.matches('.sensor-console,.lock-console')||navigationDemo&&e.target.matches('.ship-navigation-dialog'))root.SAShipNavigationUI.remember(unit);},true);
  function refreshScanFeedback(){
   const view=document.querySelector(outerSelector),offline=primary.disabled;
   const running=Boolean(view&&!offline&&state.running&&!state.hardPaused&&!state.holdPaused&&!state.rollPaused&&!state.pausedForTurn&&!document.hidden);
@@ -134,7 +313,13 @@
   scanFeedback.update(view,unit,state,{offline,soundEnabled:!mix.isMuted()});
  }
  const action=async body=>{
+  if(shieldDemo)return shieldDemo.action(body);
+  if(devastationDemo&&['weaponCommand','rollShipAction'].includes(body.action))return devastationDemo.action(body);
+  if(cleanserDemo&&body.action==='cleanserDamage')return cleanserDemo.resolve(body);
+  if(blackHoleDemo&&body.kind==='black-hole-launch')return blackHoleDemo.command(body);
+  if(navigationDemo&&body.action==='playerCombatAction'&&body.kind==='moveStarship')return navigationDemo.command(body);
   if(localDemo)return localDemo.action(body);
+  if(pilotHoldDemo&&body.action==='playerCombatAction'&&['holdConsole','resumeConsole'].includes(body.kind))return pilotHoldDemo.action(body);
   if(visual)throw Error('Visual preview only; gameplay actions are unavailable.');
   if(body.action==='shipMaintenance'){power(state,body.kind!=='off');refreshScanFeedback();if(body.kind==='off')stopAudio();return {ok:true};}
   if(body.action==='playerCombatAction'){unit.consoleHold=body.kind==='holdConsole';return {ok:true};}
@@ -158,11 +343,16 @@
  if(visual){
   const unavailable=async()=>{throw Error('Visual preview only; gameplay actions are unavailable.');};
   const info={details:{notes:[],prisoners:[],enabled:false,jobs:[]},skills:[],attributes:[],patients:[],shipMinerals:ship.ship.minerals,fabricators:[],targets:[],passengers:[],capacity:{ships:[],used:0,maximum:162},cargo:[],report:'SIMULATED / Visual preview',gm:false,rooms:[],crew:[],reports:[],title:ship.title,columns:20};
-  const inspect=async body=>{if(body.kind&&body.kind!=='inspect')return unavailable();return {result:structuredClone(info)};};
+  const inspect=async body=>{if(body.kind&&body.kind!=='inspect')return unavailable();if(primary.type==='hibernation-chamber')info.hibernationRoster=root.SAHibernationRoster.preview(state,info.details);return {result:structuredClone(info)};};
   Object.assign(root.SACombatBridge,{utilityAction:unavailable,transitAction:warpDemo?async body=>warpDemo.command(body):unavailable,crewRoomRequest:inspect,fieldUtilityRequest:inspect,surveillanceRequest:inspect,crewLogRequest:async()=>({logs:[],entries:[]}),canLeaveAtmosphere:()=>false,leaveAtmosphere:unavailable,setShipColor:unavailable,alertSound:consoleTick});
   if(localDemo)Object.assign(root.SACombatBridge,{utilityAction:async body=>localDemo.utility(body),crewRoomRequest:async body=>localDemo.request(body),fieldUtilityRequest:async body=>localDemo.request(body),surveillanceRequest:async body=>localDemo.request(body)});
  }
- root.SAMaintenanceUI={open:(_u,_id,kind)=>{power(state,kind!=='off');refreshScanFeedback();if(kind==='off')stopAudio();}};
+ if(scienceDemo){const previous=root.SACombatBridge.crewRoomRequest;root.SACombatBridge.crewRoomRequest=async body=>{if(['fabricate-add','fabricate-cancel'].includes(body.kind))return scienceDemo.command(body);const result=await previous(body);if(!body.kind||body.kind==='inspect')result.result.fabrication=scienceDemo.inspect();return result;};}
+ if(cleanserDemo)root.SACombatBridge.utilityAction=async body=>cleanserDemo.command(body);
+ if(devastationDemo){root.SACombatBridge.utilityAction=async body=>devastationDemo.command(body);
+  const script=document.createElement('script');script.src=new URL('ship-roll-ui.js',location.href).href;document.head.append(script);
+ }
+ root.SAMaintenanceUI={open:(_u,_id,kind)=>{if(shieldDemo){try{shieldDemo.action({action:'shipMaintenance',id:unit.id,sicId:primaryId,kind});}catch(error){root.alert(error.message);return;}}else power(state,kind!=='off');refreshScanFeedback();if(kind==='off')stopAudio();}};
  root.SACombatMap={openMove:close,isInlineMoveSelecting:()=>false};
  root.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent)return;if(e.data?.type==='viewer-close')close();if(e.data?.type==='viewer-restore'){power(state,true);refreshScanFeedback();}});
  // method=dialog submissions are blocked by the sandbox, including the Cancel
@@ -176,17 +366,20 @@
   const owner=button?.closest('dialog');
   const outer=document.querySelector(outerSelector);
   if(family==='lock'&&button?.matches('.console-swipe')){e.preventDefault();e.stopImmediatePropagation();return;}
+  if(shieldDemo&&!outer&&button?.matches('[data-console-view]')){e.preventDefault();e.stopImmediatePropagation();void openConsole();return;}
   if(family==='lock'&&!outer&&button?.matches('[data-console-view]')){
    e.preventDefault();e.stopImmediatePropagation();root.SALockConsoleUI.open(unit,primaryId);return;
   }
   if(outer&&button?.matches('[data-console-view],[data-close],[data-leave],.dialog-circle-close')&&(!owner||owner===outer)){
    e.preventDefault();e.stopImmediatePropagation();close();return;
   }
+  // Run only the local pilot submit handler; keep native form navigation sandboxed.
+  if(navigationDemo&&owner===outer&&button?.matches('.ship-move-confirm')&&form){e.preventDefault();form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));return;}
   if(button?.type!=='submit'||form?.getAttribute('method')?.toLowerCase()!=='dialog')return;
   const dialog=form.closest('dialog');if(!dialog?.open)return;
   e.preventDefault();dialog.close(button.value);
  },true);
- root.addEventListener('keydown',e=>{if(e.key==='Escape'){const dialogs=[...document.querySelectorAll('dialog[open]')];if(dialogs.at(-1)?.classList.contains('map-focus'))return;e.preventDefault();e.stopImmediatePropagation();if(dialogs.at(-1)?.matches('.sensor-console,.lock-console'))typingVisual.update(null,false,false);dialogs.at(-1)?.close();}},true);
+ root.addEventListener('keydown',e=>{if(e.key==='Escape'){const dialogs=[...document.querySelectorAll('dialog[open]')];if(dialogs.at(-1)?.classList.contains('map-focus'))return;if((cleanserDemo||devastationDemo)&&dialogs.at(-1)?.matches('[data-required-roll],.cleanser-cinema'))return;e.preventDefault();e.stopImmediatePropagation();if(dialogs.at(-1)?.matches('.sensor-console,.lock-console'))typingVisual.update(null,false,false);dialogs.at(-1)?.close();}},true);
  async function openConsole(){
   if(!visual){if(family==='lock')root.SALockConsoleUI.open(unit,primaryId);else root.SASensorConsoleUI.open(unit,primaryId);return;}
   try{const kind=route(maps.definition(primary.type));const api={weapon:'SAWeaponConsoleUI',shield:'SAShieldConsoleUI',hacking:'SAHackingConsoleUI',utility:'SAUtilityConsoleUI'}[kind];if(kind==='pilot')await root.SAShipNavigationUI.open(unit,{sicId:primaryId});else await root[api].open(unit,primaryId);document.body.dataset.previewReady=primary.type;}
@@ -194,7 +387,9 @@
  }
  void openConsole();
  document.addEventListener('close',e=>{if(e.target.matches('.sensor-console,.lock-console'))typingVisual.update(null,false,false);},true);
+ let shieldTickAt=performance.now();
  const timer=setInterval(()=>{
+  const shieldNow=performance.now(),shieldElapsed=(shieldNow-shieldTickAt)/1000;shieldTickAt=shieldNow;
   // The shared bottom toggle moves between the dialog and page. Keep it an
   // explicit action in this viewer so dialog chrome cannot strand it hidden.
   const toggle=document.querySelector('[data-console-view]');
@@ -203,13 +398,20 @@
   const view=document.querySelector(outerSelector),offline=primary.disabled;
   const running=Boolean(view&&!offline&&state.running&&!state.hardPaused&&!state.holdPaused&&!state.rollPaused&&!state.pausedForTurn&&!document.hidden);
   refreshScanFeedback();
+  if(shieldDemo&&view&&!document.hidden)shieldDemo.tick(shieldElapsed,running?shieldElapsed:0);
+  if(scienceDemo&&view&&!document.hidden)scienceDemo.tick(.2);
+  if(devastationDemo&&view&&!document.hidden)devastationDemo.tick(.2);
+  if(cleanserDemo&&view&&!document.hidden){cleanserDemo.tick(running?.2:0);if(ship.ship.cleanserState?.phase==='cooldown'&&!cleanserBoundaryShown){const report=view.querySelector('.cleanser-charge-report');if(report){report.open=true;cleanserBoundaryShown=true;}}}
+  if(devastationDemo)return;
+  if(cleanserDemo&&['awaitingRoll','rolling','result','firing'].includes(state.planetaryEvent?.phase))return;
   if(!running)return;
-  warpDemo?.tick(.2);
+  warpDemo?.tick(.2);blackHoleDemo?.tick(.2);
+  navigationDemo?.tick(.2);
   tick++;
   timelineCrew.atb=(tick*3)%100;timelineCrew.queuedEffects=[{progress:(tick*2)%100}];
   state.command={unitId:unit.id,total:100,remaining:100-(tick%100)};
   state.shipPositions[1].r=Math.sin(tick/10)*.6;
-    if(unit.delayedAction){unit.delayedAction.remaining-=5;if(unit.delayedAction.remaining<=0){
+    if(unit.delayedAction&&!unit.delayedAction.shipOrder){unit.delayedAction.remaining-=5;if(unit.delayedAction.remaining<=0){
    const order=unit.delayedAction.lockOrder;
    if(order){
     if(order.kind==='lock'&&!ship.lockState.targets.some(l=>l.targetId===order.targetId))ship.lockState.targets.push({targetId:order.targetId,systemId:primaryId,remaining:12,sicIds:[]});

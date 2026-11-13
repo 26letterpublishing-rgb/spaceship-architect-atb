@@ -12,3 +12,8 @@ test('simulated notes, configuration and power can be reversed without touching 
 test('every Warp variant uses the same local demonstration lifecycle without changing production rules',()=>{
  const maps=require('../ship-map-core');for(const entry of viewer.catalog.filter(e=>maps.definition(e.id).utility==='warp'))assert(viewer.warpPreview(viewer.visualFixture(entry.id)));
 });
+
+test('field previews provide current hex distances without mutating fixture positions',()=>{
+ const distances=require('../ship-distances');for(const type of ['docking-bay','tractor-beam','manipulation-arm']){const state=viewer.visualFixture(type),before=structuredClone(state.shipPositions),demo=create(state);let result=demo.request({kind:'inspect'}).result;assert.equal(result.targets.length,type==='tractor-beam'?4:type==='manipulation-arm'?3:2);for(const target of result.targets.filter(t=>!t.kind))assert.equal(target.distance,distances.hexDistance(before[0],before.find(p=>p.id===target.id)));assert.deepEqual(state.shipPositions,before);state.shipPositions[1].q=-2;state.shipPositions[1].r=3;result=demo.request({kind:'inspect'}).result;assert.equal(result.targets.find(t=>t.id===before[1].id).distance,3);assert.equal(demo.info.targets[0].distance,3);}
+ const empty=viewer.visualFixture('docking-bay');empty.starships.splice(1);empty.shipPositions.splice(1);assert.deepEqual(create(empty).request({kind:'inspect'}).result.targets,[]);
+});

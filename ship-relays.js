@@ -1,4 +1,8 @@
-const maps=require('./ship-map-core'),sensors=require('./ship-sensors'),distances=require('./ship-distances'),targets=require('./ship-targets');
+(function(root,factory){
+ const node=typeof module==='object'&&module.exports;
+ const api=factory(node?require('./ship-map-core'):root.SAShipMap,node?require('./ship-sensors'):root.SAShipSensors,node?require('./ship-distances'):root.SAShipDistances,node?require('./ship-targets'):root.SAShipTargets);
+ if(node)module.exports=api;if(root)root.SAShipRelays=api;
+})(typeof window==='object'?window:null,function(maps,sensors,distances,targets){
 const at=(room,id)=>room.shipPositions.find(p=>p.id===id)||{q:0,r:0};
 function fired(room,source,target,weaponId,{missile=false,random=Math.random}={}){
  if(!source||!target||source.id===target.id||target.isMissile||target.isDrone||target.isProbe||target.isMine||target.isFloatingBody||target.isSalvageDrone)return;
@@ -16,4 +20,5 @@ function fired(room,source,target,weaponId,{missile=false,random=Math.random}={}
  sensors.report(target,{text:'Unknown Object: weapon signal detected.',unknownDetected:true,targetId:known.contacts[source.id].id});
 }
 function gmMarkers(room){const result=[];for(const observer of room.starships.filter(s=>s.controlType==='pc'))for(const [id,c]of Object.entries(observer.sensorState?.contacts||{})){if(!['unknown','last-known'].includes(c.level)||!c.position)continue;const target=targets.find(room,id);result.push({id:'gm-contact-'+observer.id+'-'+c.id,title:`${c.level==='last-known'?'Last Known Location':'Unknown Object'} (${target?.title||'Object'})`,observerTitle:observer.title,gmContactMarker:true,contactLevel:c.level,mapColor:c.level==='last-known'?'#ff575f':'#75d9ef',uncertainty:c.uncertainty,position:{...c.position},ship:{gridCells:[],placements:[],sicInventory:[]}});}return result;}
-module.exports={fired,gmMarkers};
+return {fired,gmMarkers};
+});
